@@ -34,6 +34,23 @@
   /* For the parts in files of their own (window.HiveParts): rebuild() replaces
      RECIPES and BY_ID rather than changing them, so a part asks for them
      each time instead of keeping the pair it was handed. */
+  /* What the parts in files of their own (window.HiveParts) read and write
+     of the app's that the app also replaces as it goes: a getter and a setter
+     each, so a part reads the value now and its writes land here. */
+  var LIVE = {
+    get MDAYS() { return MDAYS; },
+    get MDONE() { return MDONE; },
+    get MSEND() { return MSEND; },
+    get MSKIP() { return MSKIP; },
+    get MTRAINED() { return MTRAINED; },
+    get MWEIGHTS() { return MWEIGHTS; },
+    get MFOODS() { return MFOODS; },
+    get BY_ID() { return BY_ID; },
+    get M_ALL_SECS() { return M_ALL_SECS; },
+    set M_ALL_SECS(v) { M_ALL_SECS = v; },
+    get RECIPES() { return RECIPES; }
+  };
+
   function recipesNow() { return RECIPES; }
   function byIdNow() { return BY_ID; }
 
@@ -2778,137 +2795,17 @@
 
   /* What this device would send. Read fresh each time so it never ships a
      stale copy of something edited in another tab. */
-  /* ---------------------------------------------------------------- the parts
-   *
-   * Every part of My Day that travels, described once.
-   *
-   * It used to be described four times: once in the payload builder, once in
-   * the merge, once in the list of stores to persist, and once more in
-   * whichever writer stamped it. Five near-identical blocks on each side, the
-   * same key-encoding written out six times in each direction, and 210 lines
-   * between them. Adding anything that syncs meant writing that block a
-   * seventh time in two places and hoping the two matched.
-   *
-   * They did not. `tn` — "trained today" — was merged and then left out of the
-   * list of stores to persist, so a tick arriving from the other phone moved
-   * the day's carbohydrate and then vanished on the next reload: 118 g back to
-   * 63 with nothing said. A list that is DATA cannot forget a member; a list
-   * that is four hand-written blocks can, and did.
-   *
-   *   value(k)  what this device says about that key — or, handed a map as
-   *             read from storage, what that map says about it
-   *   stamps    whether the payload also speaks for keys it has a STAMP for
-   *             but no value. That is how a DELETION crosses: an absent key is
-   *             indistinguishable from a key never heard of, so a part that
-   *             can be deleted has to keep speaking about it. `d` does not
-   *             need to: nothing in the interface deletes a day. Emptying one
-   *             leaves the day in place, empty, and that travels; the only
-   *             deletion is the fourteen-day window, which every device
-   *             applies to itself.
-   *   accept(r) whether a remote entry is sayable at all
-   *   put(k,v)  how a remote value lands
-   *   keep(k)   whether a key is inside the window this part is kept for.
-   *             Outside it, nothing from another device is taken — see
-   *             mPruneWindow for why that is what lets the stamps be pruned
-   *   ls        where it is kept, so the persist step cannot miss one
-   *
-   * The stores are reached through a function because several of them are
-   * assigned by IIFEs further down the file, and a table that captured them
-   * at definition time would capture undefined. */
-  function mSyncKey(k) { return String(k).replace(/-/g, '_'); }
-
-  /* What a value from another device has to look like before it is let in.
-     The merge used to check only that something was there, so a string where
-     a list belongs landed in storage and broke the next render — on every
-     device, until somebody cleared it. Found when a test fixture put a string
-     in `sn.to`. A value of the wrong shape is ignored, as if it never came:
-     the next push from a device that has it right corrects the record. */
-  function mPlainObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
-  function mNum(v) { return typeof v === 'number' && isFinite(v); }
-  function mStrList(v) {
-    return Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; });
-  }
-  var MSYNC_SHAPE = {
-    mf: mPlainObj,
-    nv: mPlainObj,
-    bg: mPlainObj,
-    t: function (v) { return mPlainObj(v) && mNum(v.p) && mNum(v.f) && mNum(v.c); },
-    pr: mPlainObj,
-    sl: function (v) { return mPlainObj(v) && Array.isArray(v.list); }
-  };
-  function mSyncUnkey(e) { return String(e).replace(/_/g, '-'); }
-
-  var MSYNC_SIMPLE = [
-    ['mf', 'bsc.myFoods'], ['t', 'bsc.macroTargets'], ['nv', 'bsc.macroNever'], ['bg', 'bsc.macroBatchG'],
-    ['pr', 'bsc.macroProfile'], ['sl', 'bsc.macroSlots']
-  ];
-
-  var MSYNC_KEYED = [
-    { part: 'w', ls: 'bsc.macroWeights', stamps: true,
-      store: function () { return MWEIGHTS; },
-      keep: function (k) { return k >= mWeightFloor(); },
-      value: function (k, m) { return (m || MWEIGHTS)[k] || 0; },
-      /* Zero is a real answer: it is the morning you cleared. */
-      accept: function (r) { return mNum(r.v) && r.v >= 0; },
-      put: function (k, v) { if (v > 0) MWEIGHTS[k] = v; else delete MWEIGHTS[k]; } },
-
-    { part: 'd', ls: 'bsc.macroDays', stamps: false,
-      store: function () { return MDAYS; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MDAYS)[k]; },
-      /* A day is meals keyed by slot, each a list of plates. */
-      accept: function (r) {
-        return mPlainObj(r.v) && Object.keys(r.v).every(function (sk) {
-          var m = r.v[sk];
-          return m === null || m === undefined || (Array.isArray(m) && m.every(mPlainObj));
-        });
-      },
-      put: function (k, v) { MDAYS[k] = v; } },
-
-    { part: 'dn', ls: 'bsc.macroDone', stamps: false,
-      store: function () { return MDONE; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return m ? Number(m[k]) || 0 : mDoneAt(k); },
-      /* Zero means "I reopened this", so a falsy value must still land. */
-      accept: function (r) { return mNum(r.v); },
-      put: function (k, v) { MDONE[k] = Number(v) || 0; } },
-
-    { part: 'tn', ls: 'bsc.macroTrained', stamps: false,
-      store: function () { return MTRAINED; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return m ? Number(m[k]) || 0 : mTrainedAt(k); },
-      /* And zero here means "I un-ticked it". */
-      accept: function (r) { return mNum(r.v); },
-      put: function (k, v) { MTRAINED[k] = Number(v) || 0; } },
-
-    { part: 'sp', ls: 'bsc.macroSkip', stamps: true,
-      store: function () { return MSKIP; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MSKIP)[k] || []; },
-      /* An empty list is a real answer: it means "I un-skipped them all". */
-      accept: function (r) { return mStrList(r.v); },
-      put: function (k, v) { if (v.length) MSKIP[k] = v.slice(); else delete MSKIP[k]; } },
-
-    { part: 'sn', ls: 'bsc.macroSend', stamps: true,
-      store: function () { return MSEND; },
-      keep: function (k) { return k >= mEarliestKey(); },
-      value: function (k, m) { return (m || MSEND)[k] || null; },
-      /* Null is a real answer: it means "I cleared that day's choice". */
-      accept: function (r) {
-        var v = r.v;
-        if (v === null || v === undefined) return true;
-        return mPlainObj(v) && (v.to === undefined || mStrList(v.to)) &&
-          (v.f === undefined || typeof v.f === 'string');
-      },
-      put: function (k, v) {
-        if (v && typeof v === 'object' && !Array.isArray(v)) MSEND[k] = v;
-        else delete MSEND[k];
-      } }
-  ];
-
-  function mLsJson(key) {
-    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-  }
+  /* src/mydayparts.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var MYDAYPARTS = window.HiveParts.mydayparts({ mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mTrainedAt: mTrainedAt, mWeightFloor: mWeightFloor, LIVE: LIVE });
+  function mSyncKey(k) { return MYDAYPARTS.mSyncKey(k); }
+  function mPlainObj(v) { return MYDAYPARTS.mPlainObj(v); }
+  function mNum(v) { return MYDAYPARTS.mNum(v); }
+  function mSyncUnkey(e) { return MYDAYPARTS.mSyncUnkey(e); }
+  function mLsJson(key) { return MYDAYPARTS.mLsJson(key); }
+  var MSYNC_SHAPE = MYDAYPARTS.MSYNC_SHAPE;
+  var MSYNC_SIMPLE = MYDAYPARTS.MSYNC_SIMPLE;
+  var MSYNC_KEYED = MYDAYPARTS.MSYNC_KEYED;
 
   /* ------------------------------------------------- what actually goes up
    *
@@ -3686,101 +3583,13 @@
 
   function mAhead(k) { return k > todayKey(); }
 
-  /* ------------------------------------------------------- when a meal is
-   *
-     Meals have never had times: a meal is a name, a kind and a share, and the
-     order you put them in. But "is this meal happening yet" is a question the
-     day has to answer twice now — whether food added to it was eaten, and
-     whether today is far enough along to be judged — and both want a clock.
-     So each kind carries the hour its meal opens, and a meal of no fixed kind
-     takes its time from where it sits between the ones that have one.
-   *
-     A little early rather than late, because at a meal's own hour the usual
-     act is logging it, not planning it: a breakfast added at half six is
-     breakfast, and a lunch added at quarter past eleven is almost always lunch
-     being eaten. Either way a wrong guess is one tap on the tick to put
-     right. */
-  var MMEAL_OPENS = { b: 5 * 60, l: 11 * 60, d: 17 * 60 };
-
-  /* Minutes after midnight that the meal at `i` in `list` opens.
-   *
-     The day's first meal is open from midnight, whatever it is called: the
-     day has started. A snack or a meal of your own opens halfway between the
-     timed meals either side of it — an afternoon snack between lunch and
-     dinner is a two o'clock thing. One with no timed meal after it is the
-     day's catch-all, which is what the default Snacks at the foot of the list
-     is: open all day, because a snack logged at three was eaten at three. */
-  function mSlotOpens(list, i) {
-    if (!list || !list[i] || i === 0) return 0;
-    var own = MMEAL_OPENS[list[i].t];
-    if (own !== undefined) return own;
-    var before = null, after = null, j;
-    for (j = i - 1; j >= 0 && before === null; j--) {
-      if (MMEAL_OPENS[list[j].t] !== undefined) before = MMEAL_OPENS[list[j].t];
-    }
-    for (j = i + 1; j < list.length && after === null; j++) {
-      if (MMEAL_OPENS[list[j].t] !== undefined) after = MMEAL_OPENS[list[j].t];
-    }
-    if (before === null || after === null) return 0;
-    return Math.round((before + after) / 2);
-  }
-
-  function mNowMins() {
-    var d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  }
-
-  /* Whether food added to meal `sk` of day `k` goes on as eaten.
-   *
-     Blake: "Added to a current or past meal = eaten at once; later meals and
-     Fill drafts stay planned until ticked." A day behind you is all eaten —
-     nobody plans yesterday. A day ahead is all plan. Today, a meal whose time
-     has come is the one you are logging, and one still to come is the one you
-     are planning. Fill and the pins do not come through here: they are the
-     app's suggestions, never a statement that you ate. */
-  /* Reversed 2026-09-27. Blake, after a week of it: "Why when I add a dish
-     does it mark it as eaten?... I want to tick it complete." A plate added
-     at lunchtime to plan lunch read as already eaten. So nothing arrives
-     eaten: every add is planned, on any day, until you tick it — the tick,
-     or Mark all complete, is the only way food becomes eaten. The rule
-     below is kept behind M_ADDS_EATEN in case the old one is wanted back. */
-  var M_ADDS_EATEN = false;
-  function mAddsEaten(k, sk) {
-    if (!M_ADDS_EATEN) return 0;
-    var today = todayKey();
-    if (k < today) return 1;
-    if (k > today) return 0;
-    var list = mReadSlots().list, at = -1;
-    list.forEach(function (s, i) { if (s.k === sk) at = i; });
-    if (at < 0) return 1;
-    return mNowMins() >= mSlotOpens(list, at) ? 1 : 0;
-  }
-
-  /* When today is far enough along to be judged: once dinner's time has come
-     and gone — three hours after the last timed meal opens, which is eight in
-     the evening on the default day, and eight too when no meal has a time. */
-  function mDaySettled() {
-    var list = mReadSlots().list, last = null;
-    list.forEach(function (s) {
-      var t = MMEAL_OPENS[s.t];
-      if (t !== undefined && (last === null || t > last)) last = t;
-    });
-    return mNowMins() >= (last === null ? 20 * 60 : last + 3 * 60);
-  }
-
-  /* Whether a day may be given a verdict — under, close, short on protein.
-     A day behind you, yes. Today only once you have closed it or dinner is
-     over: at half past one it said "under" and "131 g short on protein" about
-     a day with dinner still to come, which is not a verdict but a count of
-     what is left. Over stays over whenever it happens — that one is already
-     a fact. Blake: "No verdict on today until it's closed or dinner time has
-     passed." */
-  function mDayJudged(k) {
-    var today = todayKey();
-    if (k < today) return true;
-    if (k > today) return false;
-    return mDoneAt(k) > 0 || mDaySettled();
-  }
+  /* src/mealtime.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var MEALTIME = window.HiveParts.mealtime({ mDoneAt: mDoneAt, mReadSlots: mReadSlots, todayKey: todayKey });
+  function mSlotOpens(list, i) { return MEALTIME.mSlotOpens(list, i); }
+  function mNowMins() { return MEALTIME.mNowMins(); }
+  function mAddsEaten(k, sk) { return MEALTIME.mAddsEaten(k, sk); }
+  function mDayJudged(k) { return MEALTIME.mDayJudged(k); }
 
   function mReadTargets() {
     var t = null, hand = false;
@@ -14731,431 +14540,22 @@
      outside its own sections. */
   var MTRY_WIDE = 10;
 
-  /* ---------------------------------------------------------------- combos
-   *
-     Why a combo works when a recipe does not.
-   *
-     Scaling a barbacoa moves protein, fat and carbohydrate together — one
-     knob wired to three dials — so the solver can land the meal's calories
-     and still miss every macro under them. A food that takes most of its
-     energy from ONE macro is a lever: move it and the other two barely
-     stir. Three levers are three independent knobs, and three knobs can hit
-     any share exactly. That is the whole idea, and it is the reason
-     mBalanceDay struggles on a day of ordinary dishes.
+  /* src/combos.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var COMBOS = window.HiveParts.combos({ MDAYS: MDAYS, mExtOk: mExtOk, mFoodMealOK: mFoodMealOK, LIVE: LIVE });
+  function mLevers() { return COMBOS.mLevers(); }
+  function mComboFor(share, pick, slot) { return COMBOS.mComboFor(share, pick, slot); }
 
-     Egg whites are 90% protein by calories, ranch 93% fat, salsa 75% carb
-     at twenty-nine calories a hundred grams. Cheddar and beef roast are
-     NOT protein levers whatever they feel like — 74% and 71% of their
-     energy is fat, which is worth knowing before you build a steak dinner
-     to hit a protein number.
-
-     `lever` is a flag of its own and not a reuse of `eat`, because the best
-     fat levers are the condiments — oil, butter, dressing — and those were
-     deliberately kept out of `eat` on the grounds that they go ON food
-     rather than being food. In a combo that is exactly their job. */
-  var MLEV_PURE = 0.6;          // a lever earns the name at 60% of its calories
-  var MLEV_MIN = 0.25;          // below a quarter portion it is a garnish, not a lever
-  var MLEV_MAX = 4;
-
-  function mLeverDom(r) {
-    var m = r && r.macro;
-    if (!m) return null;
-    var kp = (m.p || 0) * 4, kf = (m.f || 0) * 9, kc = (m.c || 0) * 4;
-    var tot = kp + kf + kc;
-    if (!(tot > 0)) return null;
-    var d = kp >= kf && kp >= kc ? 'p' : (kf >= kc ? 'f' : 'c');
-    var pur = (d === 'p' ? kp : d === 'f' ? kf : kc) / tot;
-    return pur >= MLEV_PURE ? { d: d, pur: pur } : null;
-  }
-
-  /* The bench, built once. Sorted by purity so the first choice on each rung
-     is the cleanest lever available and ‹ › walks down toward the ones that
-     bring more baggage with them. */
-  var MLEVERS = null;
-  /* What the cached bench was built FROM, so it cannot outlive its inputs.
-   *
-     Two things move it. MFOODS is rebuilt whenever a food of your own is
-     saved, and the external-food setting decides whether half the fat rungs
-     exist at all — a cache built while the setting was off would go on
-     offering three-quarters of a tablespoon of Oil after it was turned on,
-     with nothing to say why. Keyed rather than cleared, because clearing
-     relies on remembering every place either input changes and this file
-     already carries one comment about a cache that went stale exactly that
-     way. */
-  var MLEVERS_ON = null;
-  function mLevers() {
-    var levKey = MFOODS.length + ':' + (mExtOk() ? 1 : 0);
-    if (MLEVERS_ON !== levKey) { MLEVERS = null; MLEVERS_ON = levKey; }
-    if (!MLEVERS) {
-      MLEVERS = { p: [], f: [], c: [] };
-      MFOODS.forEach(function (r) {
-        /* The rungs the closers band is built from. Gated with the rest, so
-           the opt-in turns the whole vocabulary on at once rather than the
-           picker recommending an almond the draft may not use. */
-        if (r.ext && !mExtOk()) return;
-        if (!(r.eat || r.side || r.lever)) return;
-        if (!r.macro || (r.macro.kcal || 0) < 8) return;
-        var dm = mLeverDom(r);
-        if (!dm) return;
-        MLEVERS[dm.d].push({ r: r, pur: dm.pur });
-      });
-      /* Sorted by purity ALONE this built canned tuna, applesauce and a
-         spoon of oil — three perfect levers and nothing anybody would eat.
-         The purest fat source on the shelf is oil, at a hundred per cent, and
-         that is exactly the problem: purity measures how cleanly a food moves
-         one macro, not whether it is food.
-
-         So something you would eat as part of a meal outranks a condiment
-         even when the condiment is cleaner. Cheddar at 74% fat comes before
-         oil at 100%; the oil is still there, one tap down the rung, for the
-         day you want the fat and not the cheese. `lever`-only is precisely
-         the set of things that go ON food rather than being it, which is why
-         that flag is the one to sort behind. */
-      ['p', 'f', 'c'].forEach(function (d) {
-        MLEVERS[d].sort(function (a, b) {
-          var af = (a.r.eat || a.r.side) ? 1 : 0, bf = (b.r.eat || b.r.side) ? 1 : 0;
-          return (bf - af) || (b.pur - a.pur);
-        });
-      });
-    }
-    return MLEVERS;
-  }
-
-  /* A portion that hits `want` grams of macro `m`, snapped to the quarter
-     steps the stepper already moves in, and refused outright below a quarter
-     — a tenth of a serving of dressing is a rounding error wearing a name. */
-  function mLeverX(r, m, want) {
-    var per = (r.macro && r.macro[m]) || 0;
-    if (!(per > 0) || !(want > 0)) return 0;
-    var x = Math.round((want / per) * 4) / 4;
-    if (x < MLEV_MIN) return 0;
-    return Math.min(MLEV_MAX, x);
-  }
-
-  /* Build one. `pick` carries an index per rung so ‹ › can walk a rung
-     without disturbing the other two — the sizes resize around whatever you
-     land on, which is the point of choosing.
-   *
-     Protein first because it is the macro worth being exact about and the
-     bench is thinnest there; then carbohydrate, then fat, because the fat
-     lever is the purest of the three and so the best thing to close with.
-     Two passes: sizing the carb lever moves the fat total a little, and one
-     more sweep takes the residual out. */
-  /* How often each food has landed in THIS meal before.
-   *
-     Purity is the right answer to "what moves one macro cleanly" and the
-     wrong answer to "what do you eat in the morning". Canned tuna is the
-     purest protein on the shelf you can eat as it comes, and offering it at
-     seven a.m. is how a panel gets ignored.
-
-     The fix is not a `breakfast: 1` flag on the food table. The slots are
-     yours to name and reorder — a food tagged for breakfast would be the app
-     deciding what breakfast is on the one screen where you already decided.
-     What orders the rungs instead is what you have actually put in this meal
-     before. It opens on purity and becomes yours. */
-  function mSlotSeen(slot) {
-    var seen = {};
-    if (!slot) return seen;
-    Object.keys(MDAYS).forEach(function (k) {
-      ((MDAYS[k] || {})[slot] || []).forEach(function (it) {
-        seen[it.id] = (seen[it.id] || 0) + 1;
-      });
-    });
-    return seen;
-  }
-
-  function mComboFor(share, pick, slot) {
-    var bench = mLevers();
-    if (slot) {
-      var seen = mSlotSeen(slot);
-      var by = {};
-      ['p', 'f', 'c'].forEach(function (m) {
-        /* A copy — mLevers() hands back the one cached bench, and sorting it
-           in place would reorder every other reader by whichever meal asked
-           last. */
-        by[m] = bench[m].filter(function (e) {
-          return mFoodMealOK(e.r, slot);
-        }).sort(function (a, b) {
-          /* History first, then the ladder's own order — BOTH of its terms.
-             Sorting on history-then-purity alone quietly dropped the rule
-             that a food outranks a condiment, and breakfast came back
-             offering three quarters of a tablespoon of oil: oil is 100% fat
-             and cheddar is 74%, which is exactly why purity cannot be the
-             last word on its own. */
-          var af = (a.r.eat || a.r.side) ? 1 : 0, bf = (b.r.eat || b.r.side) ? 1 : 0;
-          return ((seen[b.r.id] || 0) - (seen[a.r.id] || 0)) || (bf - af) || (b.pur - a.pur);
-        });
-      });
-      bench = by;
-    }
-    var chosen = [];
-    ['p', 'c', 'f'].forEach(function (m) {
-      var rung = bench[m];
-      if (!rung.length) return;
-      var i = ((pick && pick[m]) || 0) % rung.length;
-      chosen.push({ m: m, r: rung[i].r, x: 0 });
-    });
-    if (!chosen.length) return null;
-    var pass, held;
-    for (pass = 0; pass < 2; pass++) {
-      chosen.forEach(function (c) {
-        held = { p: 0, f: 0, c: 0 };
-        chosen.forEach(function (o) {
-          if (o === c || !o.x) return;
-          held.p += (o.r.macro.p || 0) * o.x;
-          held.f += (o.r.macro.f || 0) * o.x;
-          held.c += (o.r.macro.c || 0) * o.x;
-        });
-        c.x = mLeverX(c.r, c.m, (share[c.m] || 0) - held[c.m]);
-      });
-    }
-    return chosen.filter(function (c) { return c.x > 0; });
-  }
-
-  /* Everything a meal is allowed to be offered — recipes from its sections,
-     plus the plain foods a person eats without cooking them.
-   *
-     One function because there are two callers and they must not drift: Try
-     again, and the bench's rank() that exists to explain what Try again did.
-     A diagnostic reporting a pool the app does not have is worse than no
-     diagnostic, and the first version of this WAS two copies — a test meant
-     to pin the ingredient rule passed with the real gate removed, because it
-     was only ever reading the bench's copy of it.
-
-     The food table is mostly ingredients: flour, cornstarch, yeast, raw
-     stewing beef. Unfiltered it offered three ounces of raw chuck as a snack,
-     which is a worse answer than the recipe it replaced. `eat` says you can
-     eat it as it comes; `side` is already on the vegetables. Condiments are
-     in neither on purpose — butter and honey go ON food. */
-  /* Whether Fill may draft food the storehouse does not stock.
-   *
-     Off unless it is turned on, and off is the honest default: a day built
-     out of salmon and almonds is not a day if there is no salmon in the
-     house. Turned on, it is the right answer for a Blake who is happy to
-     stop at a shop on the way home — which is exactly how he asked for it.
-   *
-     This gates DRAFTING only. Searching and logging an external food is
-     always allowed, because looking one up is how you decide to go and buy
-     it. */
-  function mExtOk() { return !!mReadProfileRaw().extFill; }
-
-  function mMealPool(slot, wide) {
-    var secs = wide ? mAllSecs() : mSlotSecs(slot);
-    var pool = RECIPES.filter(function (r) {
-      return secs.indexOf(r.book + '-' + r.secNum) >= 0;
-    });
-    var ext = mExtOk();
-    /* No meal filter here, deliberately. This pool is what the picker LETS
-       YOU LOOK THROUGH for a meal, and `meals` is about what gets SUGGESTED —
-       the same line the ext gate is held to a few lines up in mpFitsHTML.
-       Filtering here emptied whole shelves out of the rail at breakfast while
-       the search box went on finding every one of them, which is a shelf that
-       disagrees with itself. The tag does its work in mComboFor, mTopUp and
-       mSideUp, which are the three places something is offered unasked. */
-    MFOODS.forEach(function (r) {
-      if (r.ext && !ext) return;
-      if (r.eat || r.side) pool.push(r);
-    });
-    return pool;
-  }
-
-  /* Every section there is, from the data rather than from a list here — a
-     book gaining a section should not need this remembering.
-   *
-     Cached because a widened meal rebuilds its pool on every "not that one",
-     and dropped by rebuild() whenever RECIPES is replaced. The list is an
-     answer ABOUT RECIPES; it can only outlive that array by lying, and the
-     lie is silent — a section missing from here is a recipe that is simply
-     never offered, with nothing anywhere to say it was skipped. */
+  /* src/pool.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
   var M_ALL_SECS = null;
-  function mAllSecs() {
-    if (!M_ALL_SECS) {
-      var seen = {};
-      RECIPES.forEach(function (r) { seen[r.book + '-' + r.secNum] = 1; });
-      M_ALL_SECS = Object.keys(seen);
-    }
-    return M_ALL_SECS;
-  }
-
-  /* Whether this meal has been opened up, for the card to say so. */
-  /* The cursor is zero-based — the first press stores 0 — so the tenth press
-     stores 9. Both readers compare against the same expression rather than
-     each doing its own arithmetic and disagreeing by one. */
-  function mWideOpen(sk) {
-    return (S.mTry[mViewKey() + ':' + sk] || 0) >= MTRY_WIDE - 1;
-  }
-
-  /* How the day landed, and where it sits in the week.
-   *
-     Everything here is read back through mTotals and mDayTargets — the same
-     two the pills at the top of the screen use — so the card and the strip
-     can never disagree about what you ate. It computes nothing of its own.
-
-     Seven days back from the one being looked at, not Monday-to-Sunday: on a
-     Wednesday a calendar week is three days and answers nothing. */
-  function mDaySummary(k) {
-    var T = mDayTargets(k);
-    var day = mDay(k);
-    var tot = mTotals(day).all;
-    /* Eaten calories are CARRIED. A target's are DERIVED. They are two
-       different quantities and only one of them has a second answer.
-     *
-       A plate states its own energy: a packet's label uses factors particular
-       to that food, and a food typed in with nothing but its calories has no
-       grams to derive from at all. A target is grams and has nothing else it
-       could be.
-     *
-       This sheet ran 4P + 4C + 9F over both. The day bar carries, so the two
-       disagreed about the same day — 2,006 on the bar against 2,005 here on
-       an ordinary one — and a calories-only plate scored nothing at all: a
-       700 kcal salad logged at breakfast read "Nothing was written down on
-       this day" underneath a bar that said 700. That is the whole of what a
-       person who ate out has to show for writing it down.
-     *
-       The same rule is already written out above mDayEaten, where the picker
-       was fixed for exactly this. It never reached this function. The local
-       helper that made the mistake possible is deleted rather than corrected:
-       kcalOf is the one way to turn a target into calories, and there is now
-       nothing in scope that will quietly do it to a plate. */
-    var got = Math.round(tot.kcal || 0), want = kcalOf(T);
-
-    var rows = [
-      { n: 'Protein', kk: 'p', got: Math.round(tot.p), want: Math.round(T.p) },
-      { n: 'Fat', kk: 'f', got: Math.round(tot.f), want: Math.round(T.f) },
-      { n: 'Carbs', kk: 'c', got: Math.round(tot.c), want: Math.round(T.c) }
-    ];
-
-    /* Where the day actually went. The one number you cannot read off the
-       cards is how much of it landed in a single meal. */
-    var meals = [];
-    mReadSlots().list.forEach(function (s) {
-      var kc = 0;
-      (day[s.k] || []).forEach(function (it) {
-        var r = BY_ID[it.id];
-        if (r && r.macro) kc += (r.macro.kcal || 0) * it.x;
-      });
-      if (kc > 0) meals.push({ n: s.n, kcal: Math.round(kc) });
-    });
-    var mTot = 0, biggest = null;
-    meals.forEach(function (m) {
-      mTot += m.kcal;
-      if (!biggest || m.kcal > biggest.kcal) biggest = m;
-    });
-
-    /* The week behind it, each day against ITS OWN target — a day on a
-       different plan is not made to look like a miss. A day never filled in
-       draws nothing: nothing logged is a gap in the record, not a day of no
-       food, and counting it as a zero would quietly tell you the cut is going
-       better than it is. */
-    var week = [], onP = 0, kept = 0, sumK = 0;
-    var d = keyDate(k), todayK = todayKey();
-    for (var i = 6; i >= 0; i--) {
-      var dd = new Date(d.getFullYear(), d.getMonth(), d.getDate() - i);
-      var dk = dayKey(dd);
-      var dt = mTotals(mDay(dk)).all;
-      var dT = mDayTargets(dk);
-      /* Calories count as something written down, here as everywhere else on
-         this sheet. A week of eating out was a week of blank bars. */
-      var has = (dt.p + dt.f + dt.c + (dt.kcal || 0)) > 0;
-      /* A day still being eaten is drawn but not counted: today at two in
-         the afternoon is half a day, and averaging it in pulled "your
-         seven-day average" down and scored the protein a miss before dinner.
-         The week strip's dots already refuse to call today a miss; this
-         agrees with them. Today counts once you have closed it, and a day
-         you are planning ahead never does. */
-      var over = dk < todayK || (dk === todayK && mDoneAt(dk) > 0);
-      var hit = null;
-      if (has && over) {
-        kept++;
-        sumK += (dt.kcal || 0);
-        hit = mVerdict('p', dt.p, dT.p) === 'on' ? 1 : 0;
-        if (hit) onP++;
-      }
-      week.push({ k: dk, kcal: has ? Math.round(dt.kcal || 0) : null,
-        want: kcalOf(dT), hit: hit, today: dk === k,
-        v: has ? mVerdict('kcal', dt.kcal || 0, kcalOf(dT)) : null,
-        lab: M_WDAYS[dd.getDay()].slice(0, 1) });
-    }
-
-    /* A day barely written down is not a day of great restraint, and this is
-       the one state these cards usually lie about. It does not guess which it
-       was — it says it cannot tell. */
-    var thin = got > 0 && got < want * 0.45;
-    return { rows: rows, week: week, onP: onP, kept: kept, meals: meals,
-      biggest: biggest, mTot: mTot, got: got, want: want, thin: thin,
-      avg: kept ? Math.round(sumK / kept) : 0,
-      any: (tot.p + tot.f + tot.c + (tot.kcal || 0)) > 0 };
-  }
-
-  function mTryAgain(sk) {
-    var k = mViewKey();
-    S.mTouched = sk;                   // keep the meal you are cycling open
-    S.mFold[sk] = false;
-    var targets = mDayTargets(k);
-    var slots = mReadSlots();
-    var srec = null;
-    slots.list.forEach(function (sl) { if (sl.k === sk) srec = sl; });
-    if (!srec) return;
-    var pins = (srec.pins || []).map(function (pn) { return pn.id; });
-    var cursorKey = k + ':' + sk;
-
-    mEditDay(k, function (day) {
-      var had = (day[sk] || []).length;
-      var keep = (day[sk] || []).filter(function (it) {
-        return it.eaten || it.l || pins.indexOf(it.id) >= 0;
-      });
-      /* Nothing here is the machine's to swap, so there is nothing to try
-         again at. Adding a second plate instead would be answering a
-         question nobody asked — and would quietly hand Rebalance something
-         to move on a meal that was deliberately pinned down. */
-      if (had && keep.length === had) return;
-      /* Whatever is being swapped out is out. The cursor starts at the top of
-         a list the removed plate has just rejoined, so the first press could
-         hand you back the very thing you pressed it to be rid of — "not that
-         one" answered with that one. */
-      var dropped = (day[sk] || []).filter(function (it) {
-        return keep.indexOf(it) < 0;
-      }).map(function (it) { return it.id; });
-      day[sk] = keep;
-      /* Ten presses is not exhaustion — a lunch has forty-odd recipes to walk
-         and the cursor wraps long before you run out. It is disagreement.
-         You have said "not that one" ten times, which is the clearest signal
-         anybody gives that the sections this meal is allowed to look at are
-         not where the answer is. So it stops being allowed to look only there.
-
-         It stays open for the rest of the day on that meal, and says so on
-         the card — a roast beef breakfast arriving unannounced reads as a
-         bug rather than as an answer to what you asked for. */
-      var tries = (S.mTry[cursorKey] === undefined ? -1 : S.mTry[cursorKey]) + 1;
-      /* The repeat guard Fill uses, so "not that one" does not answer with
-         yesterday's dinner — unless it is all that is left to offer. */
-      var near = mNearIds(k);
-      var pool0 = mMealPool(srec, tries >= MTRY_WIDE - 1).filter(function (r) {
-        return !mOnDay(day, r.id) && dropped.indexOf(r.id) < 0 && !mNever(r.id);
-      });
-      var fresh = pool0.filter(function (r) { return !near[r.id]; });
-      var pool = fresh.length ? fresh : pool0;
-
-      var ranked = mRank(pool, day, targets, srec).filter(function (e) { return e.score !== null; });
-      if (!ranked.length) return;
-      S.mTry[cursorKey] = tries;
-      var pick = ranked[tries % ranked.length];
-      /* The machine's pick, marked as the machine's: without `by` it read as
-         placed by hand, and Fill never sized it again. */
-      day[sk].push({ id: pick.r.id, x: pick.x, eaten: 0, by: 'f' });
-    });
-    keepingFocus(renderMacros);
-  }
-
-  function mNavDay(step) {
-    var d = keyDate(mViewKey());
-    d.setDate(d.getDate() + step);
-    var k = dayKey(d);
-    if (k > mLatestKey() || k < mEarliestKey()) return;
-    S.macroDate = k === todayKey() ? null : k;
-    S.mEdit = '';                    // a different day, a different plate
-    renderMacros();
-  }
+  var POOL = window.HiveParts.pool({ MTRY_WIDE: MTRY_WIDE, M_WDAYS: M_WDAYS, S: S, dayKey: dayKey, kcalOf: kcalOf, keepingFocus: keepingFocus, keyDate: keyDate, mDay: mDay, mDayTargets: mDayTargets, mDoneAt: mDoneAt, mEarliestKey: mEarliestKey, mEditDay: mEditDay, mLatestKey: mLatestKey, mNearIds: mNearIds, mNever: mNever, mOnDay: mOnDay, mRank: mRank, mReadProfileRaw: mReadProfileRaw, mReadSlots: mReadSlots, mSlotSecs: mSlotSecs, mTotals: mTotals, mVerdict: mVerdict, mViewKey: mViewKey, renderMacros: renderMacros, todayKey: todayKey, LIVE: LIVE });
+  function mExtOk() { return POOL.mExtOk(); }
+  function mMealPool(slot, wide) { return POOL.mMealPool(slot, wide); }
+  function mWideOpen(sk) { return POOL.mWideOpen(sk); }
+  function mDaySummary(k) { return POOL.mDaySummary(k); }
+  function mTryAgain(sk) { return POOL.mTryAgain(sk); }
+  function mNavDay(step) { return POOL.mNavDay(step); }
 
   // ----------------------------------------------------------- shopping list
   /* The list itself is src/list.js. It is handed what it reads of the app's
