@@ -171,7 +171,7 @@ const params = (f) => f.params.map((p) => src.slice(p.start, p.end)).join(', ');
 const handed = imports.map((n) => `${n}: ${n}`).concat(live.length ? ['LIVE: LIVE'] : []);
 const stub = `${stayDecls.length ? stayDecls.join('\n') + '\n\n' : ''}  /* src/${name}.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var ${VAR} = window.HiveParts.${name}({ ${handed.join(', ')} });
+  var ${VAR} = window.HiveParts.${name}(${handed.length ? '{ ' + handed.join(', ') + ' }' : '{}'});
 ${exportFns.map((f) => `  function ${f.id.name}(${params(f)}) { return ${VAR}.${f.id.name}(${params(f)}); }`).join('\n')}
 ${constOut.map((n) => `  var ${n} = ${VAR}.${n};`).join('\n')}
 ${keptText.join('\n')}

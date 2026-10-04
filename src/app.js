@@ -95,7 +95,13 @@
     get MP_LASTX() { return MP_LASTX; },
     get MP_KNOWN() { return MP_KNOWN; },
     set MP_KNOWN(v) { MP_KNOWN = v; },
-    set MP_LASTX(v) { MP_LASTX = v; }
+    set MP_LASTX(v) { MP_LASTX = v; },
+    get MLOOKUP() { return MLOOKUP; },
+    set MLOOKUP(v) { MLOOKUP = v; },
+    get mLookSeq() { return mLookSeq; },
+    set mLookSeq(v) { mLookSeq = v; },
+    get mCamDone() { return mCamDone; },
+    set mCamDone(v) { mCamDone = v; }
   };
 
   function recipesNow() { return RECIPES; }
@@ -2862,7 +2868,7 @@
 
   /* src/toast.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var TOAST = window.HiveParts.toast({  });
+  var TOAST = window.HiveParts.toast({});
   function mToastEls() { return TOAST.mToastEls(); }
   function mToast(text, undo, attr) { return TOAST.mToast(text, undo, attr); }
 
@@ -3194,7 +3200,7 @@
 
   /* src/shelves.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var SHELVES = window.HiveParts.shelves({  });
+  var SHELVES = window.HiveParts.shelves({});
   function mShelfKey(r) { return SHELVES.mShelfKey(r); }
   var MSHELF = SHELVES.MSHELF;
 
@@ -3204,655 +3210,56 @@
   function mpHomeBodyHTML() { return PICKHOME.mpHomeBodyHTML(); }
   function refreshMacroPicker() { return PICKHOME.refreshMacroPicker(); }
 
-  /* Which plan the four buttons describe. Read by the sheet and by the tests,
-     which hold every key against a button rather than keeping their own copy. */
-  /* Named by what happens to you, not by what a gym calls it. "Hard cut",
-     "Steady cut", "Maintain" and "Lean gain" were four pieces of vocabulary
-     that explain themselves only to somebody who has already been told what
-     they mean, sitting on the one screen a newcomer cannot get past. */
-  var MGOAL_WORDS = {
-    cut2: 'Lose weight quickly', cut1: 'Lose weight steadily',
-    keep: 'Stay about where I am', gain: 'Put weight on slowly'
-  };
+  /* src/goalwords.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var GOALWORDS = window.HiveParts.goalwords({ MGOALS: MGOALS, mBurn: mBurn });
+  function mtGoalWhat(val, pr) { return GOALWORDS.mtGoalWhat(val, pr); }
+  function mtPlanLine(plan, pr) { return GOALWORDS.mtPlanLine(plan, pr); }
+  var MGOAL_WORDS = GOALWORDS.MGOAL_WORDS;
 
-  /* The line under each goal card. "Lose weight steadily — About 1 lb a
-     week" sat over an answer working the same goal out as "about 1.4 lb a
-     week off" for a 190 lb man: the goals are a share of what you weigh
-     (MGOALS), and the card said a figure for nobody. So it says yours,
-     rounded the way the answer rounds it, and the plain words only until
-     there is a weight to take a share of. */
-  var MGOAL_SAY = {
-    cut2: ['About 1&frac12; lb a week.', ' Hard to keep up for long.'],
-    cut1: ['About 1 lb a week.', ' The pace most people finish.'],
-    keep: ['Eat what you burn.', ''],
-    gain: ['About &frac12; lb a week.', '']
-  };
-  function mtGoalWhat(val, pr) {
-    var say = MGOAL_SAY[val], rate = (MGOALS[val] || {}).rate;
-    if (!say) return '';
-    if (!rate || !(pr && pr.lb > 0)) return say[0] + say[1];
-    return 'About ' + Math.round(Math.abs(rate) * pr.lb * 10) / 10 + ' lb a week.' + say[1];
-  }
+  /* src/account.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var ACCOUNT = window.HiveParts.account({ S: S, mAccount: mAccount, mSuspectAccount: mSuspectAccount, mSyncAway: mSyncAway, LIVE: LIVE });
+  function mAccountBlockHTML() { return ACCOUNT.mAccountBlockHTML(); }
 
-  /* The status line over the gram boxes. The boxes are the plan's one
-     rendering, so this speaks only when something needs saying: the profile
-     cannot compute yet, or the arithmetic had to floor the carbs. */
-  /* One fact, no lecture attached: a hard cut runs below the rate a body
-     spends doing nothing. Worth knowing you are there; not the app's business
-     to argue about it. */
-  function mtPlanLine(plan, pr) {
-    if (!plan) return 'Fill in who you are.';
-    /* The real basal rate, not tdee/act — which is only the basal rate when
-       the activity dial is what built the tdee, and is not on the told path.
-       This line is the one place the plan says it is under what a body spends
-       lying still, so it has to be under the right number. */
-    var b = pr ? mBurn(pr) : null;
-    var bmr = b ? b.bmr : null;
-    if (bmr !== null && plan.kcal < bmr) {
-      // written as step one writes it, so the two read as the one number they are
-      return 'Below your ' + Math.round(bmr).toLocaleString() + ' kcal at rest.';
-    }
-    return '';
-  }
+  /* src/foodsearch.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var FOODSEARCH = window.HiveParts.foodsearch({});
+  function mNutrients(list) { return FOODSEARCH.mNutrients(list); }
+  function mFoodSearch(q, packaged) { return FOODSEARCH.mFoodSearch(q, packaged); }
 
-  /* The personal half of the sharing sheet. The household above is shared
-     with people by reading them a code; this is carried between devices by
-     being you, which is why it is an account and not a code — a weight
-     history is not a thing to guard with a secret meant to be read aloud. */
-  function mAccountBlockHTML() {
-    var who = mAccount();
-    var waiting = !who && !mAuthKnown && mSuspectAccount();
-    var away = mSyncAway();
-    var word = { off: 'On this device only', connecting: 'Connecting\u2026',
-      on: 'Synced', error: 'Cannot reach the server' }[S_SYNC_STATE];
-    var body;
-    if (waiting) {
-      body = '<p class="sync-p">Finding your account&hellip;</p>';
-    } else if (away) {
-      body = '<p class="sync-p">Signed in, but this phone can&rsquo;t reach the server. ' +
-        'What you log is kept here and goes to your account when there&rsquo;s signal.</p>' +
-        '<div class="sync-row"><button class="ghost" data-mysync="retry">Try again</button></div>';
-    } else if (!window.Store.configured) {
-      body = '<p class="sync-p">No server behind this copy.</p>';
-    } else if (who) {
-      body = '<div class="sync-who">Signed in as <strong>' +
-        esc(who.email || who.name) + '</strong></div>' +
-        /* Two devices used apart before they were ever joined arrive with two
-           different days and no shared history to reconcile them by. The merge
-           is newest-wins part by part, which is right forever after and
-           arbitrary the first time — so the tie-breaker stays, folded away.
-           It is a once-ever button, and it was taking three paragraphs and
-           two thirds of the sheet to say so. */
-        '<details class="sync-fold"><summary>The two devices disagree</summary>' +
-          '<div class="sync-row">' +
-            '<button class="ghost" data-mysync="push">This device is right</button>' +
-            '<button class="ghost" data-mysync="pull">The account is right</button>' +
-          '</div>' +
-        '</details>' +
-        '<div class="sync-row">' +
-          '<button class="ghost" data-mysync="out">Sign out of this device</button></div>' +
-        /* Signing out leaves everything where it is; this does not, and the two
-           sit next to each other, so it says which is which. */
-        '<div class="sync-row sync-note">' +
-          '<a href="privacy/" target="_blank" rel="noopener">What is stored, and where</a></div>' +
-        '<details class="sync-fold"><summary>Delete my account</summary>' +
-          '<p class="sync-note">Removes your weigh-ins, your food log, your plan ' +
-            'and any foods you added, from this device and from the account. ' +
-            'It cannot be undone, and it does not touch a shared plan you are ' +
-            'joined to \u2014 that belongs to the household, not to you.</p>' +
-          '<div class="sync-row">' +
-            '<button class="ghost danger" data-mysync="delete">Delete my account</button>' +
-          '</div>' +
-        '</details>';
-    } else {
-      body = (S.mySent
-        ? '<div class="sync-warn">Open the link sent to <strong>' + esc(S.myJoin) + '</strong>.</div>'
-        : '') +
-        /* Google draws its own button in here, because the flow that keeps
-           sign-in on this page can only be started from Google's button. Ours
-           stays underneath as the fallback, hidden the moment theirs lands —
-           so a browser that cannot reach the host still has a way in, and
-           nobody is left looking at an empty box. */
-        '<div class="sync-row">' +
-          '<div id="myGoogleBtn" class="sync-gbtn"></div>' +
-          '<button class="btn-primary" id="myGoogleFallback" data-mysync="google">' +
-            'Sign in with Google</button>' +
-        '</div>' +
-        /* Google drawing its button is not the same as Google accepting it:
-           on an origin the client does not allow, the button appears and then
-           refuses, and the only sign is a line in the console nobody is
-           reading. That is not a hypothetical — the console warns it deletes
-           clients unused for six months. So the old way in stays reachable,
-           quietly, whenever theirs is the one on screen. */
-        '<button class="sync-alt hide" id="myGoogleAlt" data-mysync="google">' +
-          'Trouble signing in? Try the older way</button>' +
-        /* Kept, because a Google account is not a thing everybody has and this
-           is going out to strangers — but folded, because for nearly everybody
-           the button above is the entire answer. */
-        '<details class="sync-fold"><summary>No Google account?</summary>' +
-          '<div class="sync-row">' +
-            '<input class="txt" id="myJoin" type="email" inputmode="email" ' +
-              'placeholder="your email address" aria-label="Email address" value="' +
-              esc(S.myJoin) + '">' +
-            '<button class="ghost" data-mysync="email">Send a link</button>' +
-          '</div>' +
-        '</details>';
-    }
-    return body +
-      (S.myNote ? '<div class="sync-warn">' + esc(S.myNote) + '</div>' : '') +
-      (S.myErr ? '<div class="sync-warn">' + esc(S.myErr) + '</div>' : '') +
-      /* Only once there is an account to have a state. Signed out, this said
-         "on this device only" directly above the pantry card saying exactly
-         the same words about a different thing, which reads as one status
-         stuttering rather than two facts. The button already says the state. */
-      (who || waiting || away
-        ? '<div class="sync-status"><span class="dot' +
-          (S_SYNC_STATE === 'on' ? ' on' : S_SYNC_STATE === 'error' ? ' off'
-            : S_SYNC_STATE === 'connecting' ? ' wait' : '') + '"></span>' + esc(word) + '</div>'
-        : '');
-  }
-
-  /* Looking it up instead of guessing at it.
-   *
-     Two sources, because they answer different questions. The USDA's
-     FoodData Central knows what a chicken tamale is, in the sense of what is
-     in one on average — generic, cooked, unbranded food, which is most of
-     what anybody eats and none of what carries a barcode. Open Food Facts
-     knows the packet in your hand by its number.
-   *
-     Neither is asked anything until you ask. A reader who never opens this
-     box never touches either host, which is the property the whole app has
-     kept and its offline test insists on. */
-  /* Foundation foods — the USDA's newest, most carefully measured set —
-     often give no plain "Energy" at all, only "Energy (Atwater General
-     Factors)" and "Energy (Atwater Specific Factors)", and read by the plain
-     name alone they listed at 0 kcal. The plain figure wins where there is
-     one, then the specific factors, then the general. The stored food is
-     worked out from its macros on save either way; this is what the list
-     shows before then. */
-  function mNutrients(list) {
-    var out = { kcal: 0, p: 0, f: 0, c: 0 }, kc = {};
-    (list || []).forEach(function (n) {
-      var name = n.nutrientName || (n.nutrient && n.nutrient.name) || '';
-      var unit = (n.unitName || (n.nutrient && n.nutrient.unitName) || '').toUpperCase();
-      var v = n.value === undefined ? n.amount : n.value;
-      if (typeof v !== 'number') return;
-      if (unit === 'KCAL' && /^Energy\b/.test(name)) {
-        kc[/Specific/.test(name) ? 'spec' : /General/.test(name) ? 'gen' : 'plain'] = v;
-      }
-      else if (name === 'Protein') out.p = v;
-      else if (name === 'Total lipid (fat)') out.f = v;
-      else if (name === 'Carbohydrate, by difference') out.c = v;
-    });
-    out.kcal = kc.plain !== undefined ? kc.plain : kc.spec !== undefined ? kc.spec : kc.gen || 0;
-    return out;
-  }
-
-  function mFoodSearch(q, packaged) {
-    var key = window.USDA_KEY || '';
-    if (!key) return Promise.reject(new Error('nokey'));
-    /* Generic or packaged, because they are different questions. FNDDS and
-       SR Legacy are cooked, unbranded food — including everything the survey
-       files under "Restaurant, ..." — and Branded is the barcode aisle. There
-       is no restaurant filter as such; restaurant dishes live inside the
-       generic set under that prefix, and the source is shown so you can see
-       which kind of answer you are looking at. */
-    var types = packaged ? ['Branded'] : ['Survey (FNDDS)', 'SR Legacy', 'Foundation'];
-    /* Asked as a POST, because the query string is a minefield here. The
-       list of data sets has to keep its commas as separators, and
-       encodeURIComponent leaves parentheses alone — legal in a URL, and yet
-       the gateway answers "Survey (FNDDS)" with a bare nginx 400 the moment
-       any browser-shaped header is attached, which is every request the app
-       will ever make. The POST body takes the list as a list and none of
-       that arises. Preflight is answered. */
-    return fetch('https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +
-      encodeURIComponent(key), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, pageSize: 40, dataType: types })
-      }).then(function (r) {
-      if (!r.ok) throw new Error('http');
-      return r.json();
-    }).then(function (d) {
-      /* The API's idea of relevance is loose — a search for "tamale" comes
-         back with "Candy, gummy" in it — and the same dish appears once per
-         data set, so "Restaurant, Latino, tamale, pork" arrives twice. Keep
-         only what actually mentions what was asked for, and only once. */
-      var words = q.toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
-      var seen = {};
-      return (d.foods || []).filter(function (f) {
-        var desc = String(f.description || '').toLowerCase();
-        if (words.length && !words.some(function (w) { return desc.indexOf(w) >= 0; })) return false;
-        if (seen[desc]) return false;
-        seen[desc] = 1;
-        return true;
-      }).slice(0, 12).map(function (f) {
-        var n = mNutrients(f.foodNutrients);
-        /* The USDA quotes per hundred grams and then, usually, tells you what
-           one of the thing actually weighs — a tamale is 140 g, "1 item, any
-           size". Offer the item rather than the hundred grams: nobody eats a
-           hundred grams of tamale, they eat a tamale. */
-        var best = null;
-        (f.foodMeasures || []).forEach(function (m) {
-          var t = String(m.disseminationText || '');
-          if (!m.gramWeight || /not specified/i.test(t)) return;
-          if (!best || (m.rank || 99) < (best.rank || 99)) best = m;
-        });
-        var per = best ? best.gramWeight / 100 : 1;
-        var unit = best ? String(best.disseminationText).replace(/^1\s+/, '') : '100 g';
-        var src = f.dataType === 'Branded' ? (f.brandOwner || 'packaged')
-          : f.dataType === 'Survey (FNDDS)' ? 'survey' : 'reference';
-        return { name: f.description, unit: unit,
-          kcal: Math.round(n.kcal * per), p: Math.round(n.p * per),
-          f: Math.round(n.f * per), c: Math.round(n.c * per),
-          src: src, note: best ? 'the USDA, ' + best.gramWeight + ' g' : 'the USDA' };
-      }).filter(function (x) { return x.kcal || x.p || x.f || x.c; });
-    });
-  }
-
-  /* ------------------------------------------------------------------------
-   * Reading a barcode with the camera.
-   *
-   * Safari has no barcode reader of its own and is not going to grow one to
-   * suit us, so on an iPhone the choice was a decoder from somebody else's
-   * CDN or none at all. This app has fetched nothing from another host since
-   * it was built — the typefaces and the engravings are all in here — and a
-   * hundred and fifty lines is a smaller price than breaking that.
-   *
-   * EAN-13 and UPC-A, which is EAN-13 with a nought in front. Ninety-five
-   * modules: a guard, six digits, a centre guard, six digits, a guard. Each
-   * digit is four runs of black and white adding to seven modules, so a digit
-   * can be read from the four run-lengths alone without knowing the scale —
-   * which is what makes this survive a phone held at arm's length rather than
-   * needing the barcode squared up at a fixed distance.
-   *
-   * The left six carry the first digit in their parity, and the checksum
-   * catches what the thresholding gets wrong. A frame that does not decode
-   * simply is not one; the next arrives in a sixtieth of a second.
-   * --------------------------------------------------------------------- */
-  var EAN_L = ['3211', '2221', '2122', '1411', '1132', '1231', '1114', '1312', '1213', '3112'];
-  var EAN_PARITY = { '000000': 0, '001011': 1, '001101': 2, '001110': 3, '010011': 4,
-    '011001': 5, '011100': 6, '010101': 7, '010110': 8, '011010': 9 };
-
-  function mRuns(row) {
-    var mid = 0, i;
-    for (i = 0; i < row.length; i++) mid += row[i];
-    mid /= row.length;
-    var runs = [], cur = row[0] < mid, len = 0;
-    for (i = 0; i < row.length; i++) {
-      var dark = row[i] < mid;
-      if (dark === cur) len++;
-      else { runs.push({ dark: cur, len: len }); cur = dark; len = 1; }
-    }
-    runs.push({ dark: cur, len: len });
-    return runs;
-  }
-
-  function mDigitAt(runs, i) {
-    if (i + 4 > runs.length) return null;
-    var total = 0, k;
-    for (k = 0; k < 4; k++) total += runs[i + k].len;
-    if (total < 4) return null;
-    var unit = total / 7, pat = '';
-    for (k = 0; k < 4; k++) {
-      var m = Math.round(runs[i + k].len / unit);
-      if (m < 1 || m > 4) return null;
-      pat += m;
-    }
-    var odd = EAN_L.indexOf(pat);
-    if (odd >= 0) return { d: odd, parity: '0' };
-    var even = EAN_L.indexOf(pat.split('').reverse().join(''));
-    if (even >= 0) return { d: even, parity: '1' };
-    return null;
-  }
-
-  function mDecodeRuns(runs) {
-    for (var s = 0; s + 59 <= runs.length; s++) {
-      if (!runs[s].dark) continue;
-      if ((runs[s].len + runs[s + 1].len + runs[s + 2].len) / 3 < 0.7) continue;
-      var left = [], par = '', i = s + 3, r, n;
-      for (n = 0; n < 6; n++) { r = mDigitAt(runs, i); if (!r) break; left.push(r.d); par += r.parity; i += 4; }
-      if (left.length !== 6) continue;
-      i += 5;                                   // the centre guard, five runs
-      var right = [];
-      for (n = 0; n < 6; n++) { r = mDigitAt(runs, i); if (!r) break; right.push(r.d); i += 4; }
-      if (right.length !== 6 || !(par in EAN_PARITY)) continue;
-      var digits = [EAN_PARITY[par]].concat(left, right);
-      var sum = 0;
-      for (n = 0; n < 12; n++) sum += digits[n] * (n % 2 ? 3 : 1);
-      if ((10 - (sum % 10)) % 10 !== digits[12]) continue;   // the checksum decides
-      return digits.join('');
-    }
-    return null;
-  }
-
-  function mDecodeRow(row) {
-    return mDecodeRuns(mRuns(row)) ||
-      mDecodeRuns(mRuns(Array.prototype.slice.call(row).reverse()));
-  }
-
-  /* Several lines across the middle of the frame, because a barcode is never
-     quite level and one of them will cross it cleanly. */
-  function mDecodeFrame(img, w, h) {
-    for (var f = 0.35; f <= 0.66; f += 0.06) {
-      var y = Math.floor(h * f), row = [], x;
-      for (x = 0; x < w; x++) {
-        var o = (y * w + x) * 4;
-        row.push((img[o] * 299 + img[o + 1] * 587 + img[o + 2] * 114) / 1000);
-      }
-      var got = mDecodeRow(row);
-      if (got) return got;
-    }
-    return null;
-  }
+  /* src/barcode.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var BARCODE = window.HiveParts.barcode({});
+  function mDecodeRow(row) { return BARCODE.mDecodeRow(row); }
+  function mDecodeFrame(img, w, h) { return BARCODE.mDecodeFrame(img, w, h); }
 
   window.__ean = mDecodeRow;      // so the tests can read a barcode without a camera
 
-  function mBarcodeLookup(code) {
-    /* Open Food Facts asks callers to say who they are. A browser cannot set
-       its own User-Agent, so their documented alternative is to name the app
-       in the query — which costs nothing and is the difference between
-       being a known caller and being anonymous traffic to be throttled.
-     *
-       Fifteen product reads a minute per address is the published limit, and
-       a supermarket aisle is exactly where somebody scans four things in a
-       row, so being turned away has to read as "wait a moment" rather than
-       as "this is broken". Their full-text search lives in a separate
-       service and is not part of this API, which is why the searching here
-       is the USDA's job and the barcodes are theirs. */
-    var url = 'https://world.openfoodfacts.org/api/v2/product/' +
-      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size' +
-      '&app_name=' + encodeURIComponent('Hive and Hearth') +
-      '&app_version=' + encodeURIComponent(BUILD);
-    return fetch(url).then(function (r) {
-      if (r.status === 429 || r.status === 503) throw new Error('toofast');
-      return r.json();
-    }).then(function (d) {
-      var p = d && d.product;
-      if (!p) throw new Error('none');
-      var nu = p.nutriments || {};
-      /* One basis for all four figures. Each used to fall back on its own —
-         per serving where the packet gave one, per 100 g where it did not —
-         and the label was chosen from the energy alone, so a product listing
-         calories per serving and protein only per 100 g arrived as one row
-         mixing the two under "per serving". Per serving only when every
-         figure the packet gives has a serving value; otherwise all of them
-         per 100 g, which is the one basis Open Food Facts always fills. */
-      var has = function (k, b) { return typeof nu[k + '_' + b] === 'number'; };
-      var serving = has('energy-kcal', 'serving') &&
-        ['proteins', 'fat', 'carbohydrates'].every(function (k) {
-          return has(k, 'serving') || !has(k, '100g');
-        });
-      var per = function (k) { return { v: nu[k + (serving ? '_serving' : '_100g')], serving: serving }; };
-      var e = per('energy-kcal');
-      var pr2 = per('proteins'), fa = per('fat'), ca = per('carbohydrates');
-      /* A great many products in Open Food Facts are photographs and a name
-         with no nutrition table behind them yet. Every figure comes back
-         missing, and rounding a missing figure gives zero — which would put
-         a plate on the day claiming to be free, and quietly wrong the whole
-         day's arithmetic. Missing is not zero, and has to say so. */
-      var known = [e.v, pr2.v, fa.v, ca.v].some(function (v) { return typeof v === 'number'; });
-      if (!known) throw new Error('nonutrition');
-      var num2 = function (v) { return typeof v === 'number' ? Math.round(v) : 0; };
-      return [{
-        name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
-        unit: e.serving ? (p.serving_size || 'serving') : '100 g',
-        kcal: num2(e.v), p: num2(pr2.v), f: num2(fa.v), c: num2(ca.v),
-        note: 'Open Food Facts'
-      }];
-    });
-  }
-
-  /* What a failed lookup says, in one place. It was written out three times
-     — the picker's search, the barcode scan and the new-food form — and the
-     copies had drifted: the scan called every failure "not in Open Food
-     Facts", including no signal at all, which sent people to type in a
-     product the database did have. `code` is the barcode, when there is one. */
-  function mLookSay(err, code) {
-    var why = err && err.message;
-    if (why === 'nokey') return 'No USDA key in src/config.js, so only barcodes can be looked up.';
-    if (why === 'toofast') return (code ? 'Open Food Facts is asking us to slow down.' : 'Asked too often just now.') +
-      ' Wait a minute, or type it in below.';
-    if (why === 'nonutrition') return (code ? code + ' is in Open Food Facts, but' : 'That one is known, but') +
-      ' with no nutrition table yet. Read it off the packet below.';
-    if (why === 'none') return (code || 'That') + ' is not in Open Food Facts. Type what it was below.';
-    return (code ? 'Open Food Facts' : 'The food tables') + ' did not answer. Type it in below, or try again.';
-  }
-
-  function mLookupRows(list) {
-    if (!list.length) return '<div class="mslot-empty">Nothing came back.</div>';
-    return list.map(function (x, i) {
-      MLOOKUP[i] = x;
-      return '<button class="mpick-row" data-nfpick="' + i + '">' +
-        '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
-        '<span class="mp-fit">' + x.kcal + ' kcal &middot; ' + x.p + 'P &middot; ' + x.f +
-        'F &middot; ' + x.c + 'C per ' + esc(x.unit) +
-        (x.src ? ' <span class="mp-src">' + esc(x.src) + '</span>' : '') +
-        '</span></span></button>';
-    }).join('');
-  }
-
   var MLOOKUP = {};
-
   /* The food tables, asked once you have stopped typing. Late answers are
      dropped rather than drawn: a slow reply to "tam" must not land on top of
      the results for "tamale". */
   var mLookSeq = 0;
-  /* One request per word you finish typing, not one per keystroke.
-   *
-     600ms because it has to outlast the gap between two letters typed by a
-     thumb and not feel like a pause. The query is re-read when the timer
-     fires rather than captured when it is set, so backspacing to something
-     shorter than three characters cancels the request that was in flight for
-     the longer one. */
-  var mpLookTimer = null;
-  function mpLookSoon() {
-    if (mpLookTimer) clearTimeout(mpLookTimer);
-    mpLookTimer = setTimeout(function () {
-      mpLookTimer = null;
-      if (!S.macroPick) return;                    // the sheet closed under it
-      var q = (S.mpQuery || '').trim();
-      if (q.length < 3 || mQueryKind(q).k === 'barcode') return;
-      if (!$('nfResults')) return;                 // nothing on screen wants it
-      mLookNet(q);
-    }, 600);
-  }
 
-  function mLookNet(term) {
-    var mine = ++mLookSeq;
-    var res = $('nfResults');
-    if (!res) return;
-    res.innerHTML = '<div class="mslot-empty">Looking in the food tables&hellip;</div>';
-    MLOOKUP = {};
-    mFoodSearch(term, false).then(function (list) {
-      if (mine !== mLookSeq || !$('nfResults')) return;
-      $('nfResults').innerHTML = list.length
-        ? '<div class="mt-div">From the food tables</div>' + mLookupRows(list) : '';
-    }, function (err) {
-      if (mine !== mLookSeq || !$('nfResults')) return;
-      $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err)) + '</div>' +
-        /* The one place a tap is still the right answer: the network failed
-           and only you know whether it is worth asking again. */
-        (err && err.message === 'nokey' ? ''
-          : '<button class="mpick-row mpick-new" data-mplook="' + esc(term) +
-            '"><span class="mp-body"><span class="mp-name">Try the food tables again' +
-            '</span></span></button>');
-    });
-  }
+  /* src/lookup.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var LOOKUP = window.HiveParts.lookup({ BUILD: BUILD, S: S, mFoodSearch: mFoodSearch, mQueryKind: mQueryKind, LIVE: LIVE });
+  function mBarcodeLookup(code) { return LOOKUP.mBarcodeLookup(code); }
+  function mLookSay(err, code) { return LOOKUP.mLookSay(err, code); }
+  function mLookupRows(list) { return LOOKUP.mLookupRows(list); }
+  function mpLookSoon() { return LOOKUP.mpLookSoon(); }
+  function mLookNet(term) { return LOOKUP.mLookNet(term); }
 
-  /* The camera, held over a packet. Native BarcodeDetector where a browser
-     has one, because it is better at this than we are; the decoder above
-     where it does not, which is every iPhone. */
-  var mCam = null;
-  /* Which opening of the lens is the current one, and whether this visit to
-     scan has already got its answer.
-   *
-     The camera is asked for and arrives later — after a permission prompt,
-     on a phone, seconds later. Everything that stops it in the meantime used
-     to find nothing to stop, because mCam is only set once the stream is in
-     hand, and the stream then arrived anyway and ran: on a video element
-     already torn out of the page, with a frame loop behind it and the light
-     on, until the app was closed. Typing the barcode did it every time
-     (drawing scan mode opened the lens, and the typed number stopped it
-     before permission came back), and so did leaving scan before answering
-     the prompt. Each opening now carries a generation, every stop moves it
-     on, and a stream that arrives for a generation that has passed is
-     stopped the moment it lands.
-   *
-     And a scan that has found its barcode is finished. The sheet is drawn
-     once in scan mode and left, but only while the video was in it — the
-     scan removes the video, so the next redraw from anywhere (a sync
-     arriving, a save elsewhere) drew the sheet again, wiped the result being
-     read, and opened the lens a second time over the top of any stream
-     still live. */
-  var mCamGen = 0, mCamDone = false;
+  var mCamDone = false;
 
-  function mScanStop() {
-    mCamGen++;
-    if (mCam && mCam.stream) mCam.stream.getTracks().forEach(function (t) { t.stop(); });
-    if (mCam && mCam.raf) cancelAnimationFrame(mCam.raf);
-    mCam = null;
-    var el = $('scanRoot');
-    if (el) el.innerHTML = '';
-  }
-
-  function mScanStart() {
-    var root = $('scanRoot');
-    if (!root) return;                  // the sheet moved on before we got here
-    mScanStop();                        // one lens at a time, never a second over the first
-    mCamDone = false;
-    var gen = mCamGen;
-    root.innerHTML = '<div class="scan-wrap">' +
-      '<video id="scanVid" playsinline muted></video>' +
-      '<div class="scan-line"></div>' +
-      '<div class="scan-say" id="scanSay">Hold the barcode across the line</div>' +
-      '<button class="ghost scan-x" data-scan="stop">Stop</button>' +
-      '</div>';
-    var vid = $('scanVid');
-    var canvas = document.createElement('canvas');
-    var ctx = canvas.getContext('2d', { willReadFrequently: true });
-    var det = null;
-    if (window.BarcodeDetector) {
-      try { det = new window.BarcodeDetector({ formats: ['ean_13', 'upc_a', 'ean_8', 'upc_e'] }); }
-      catch (e) { det = null; }
-    }
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
-    }).then(function (stream) {
-      // asked for by an opening that has since been stopped: let go at once
-      if (gen !== mCamGen || !document.body.contains(vid)) {
-        stream.getTracks().forEach(function (t) { t.stop(); });
-        return;
-      }
-      mCam = { stream: stream, raf: 0, gen: gen };
-      vid.srcObject = stream;
-      vid.play();
-      var tick = function () {
-        if (!mCam || mCam.gen !== gen) return;
-        mCam.raf = requestAnimationFrame(tick);
-        if (!vid.videoWidth) return;
-        var w = Math.min(640, vid.videoWidth);
-        var h = Math.round(vid.videoHeight * w / vid.videoWidth);
-        canvas.width = w; canvas.height = h;
-        ctx.drawImage(vid, 0, 0, w, h);
-        var found = null;
-        if (det) {
-          det.detect(canvas).then(function (list) {
-            if (list && list.length) mScanGot(list[0].rawValue);
-          }, function () { det = null; });
-        } else {
-          try { found = mDecodeFrame(ctx.getImageData(0, 0, w, h).data, w, h); }
-          catch (e) { found = null; }
-          if (found) mScanGot(found);
-        }
-      };
-      tick();
-    }, function (err) {
-      /* The answer can arrive after the question is gone. Scan opens the lens
-         the moment the mode is chosen, so leaving the mode — or the sheet —
-         before the permission prompt resolves tears this element out from
-         under the reply, and writing to it then threw. */
-      var say = $('scanSay');
-      if (!say) return;
-      say.textContent = err && err.name === 'NotAllowedError'
-        ? 'The camera was not allowed. Type the number instead.'
-        : 'No camera here. Type the number instead.';
-    });
-  }
-
-  /* `typed` means a human handed this over rather than a camera frame
-     decoding it.
-   *
-     The mCam guard is here to ignore a late decode arriving after the camera
-     has been stopped, which is the only thing that can call this without
-     being asked. A barcode typed into the picker is asked for — and it was
-     being thrown away by that guard, because nothing had started a camera.
-     Worse, it was thrown away even WITH one: the handler renders the scan
-     sheet and calls straight through, while mScanStart only sets mCam once
-     getUserMedia has resolved, so mCam is still null on the next line. That
-     row has not worked since it was added. */
-  function mScanGot(code, typed) {
-    if (!code || (!typed && !mCam)) return;
-    mCamDone = true;
-    mScanStop();
-    if ($('nfFind')) $('nfFind').value = code;
-    var res = $('nfResults');
-    if (res) res.innerHTML = '<div class="mslot-empty">Looking up ' + esc(code) + '&hellip;</div>';
-    MLOOKUP = {};
-    // the same rule as the food tables: a slow answer to an older question is dropped
-    var mine = ++mLookSeq;
-    mBarcodeLookup(String(code).replace(/\D/g, '')).then(function (list) {
-      if (mine !== mLookSeq) return;
-      if ($('nfResults')) $('nfResults').innerHTML = mLookupRows(list);
-    }, function (err) {
-      if (mine !== mLookSeq) return;
-      if ($('nfResults')) {
-        $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err, String(code))) + '</div>';
-      }
-    });
-  }
-
-  function mNewFoodHTML() {
-    /* Arriving with the numbers already known — off a barcode or a food
-       table — or arriving empty, which is the same form either way. */
-    var pre = (S.newFood && S.newFood.pre) || null;
-    /* The words on the left are the box's label, for= and all, so the
-       numbers are read out as Calories and Protein rather than as four
-       unnamed boxes; a tap on the word puts the caret in the box too. */
-    var box = function (id, label, unit, ph, v) {
-      return '<div class="mtl-row"><label class="mtl-lab" for="' + id + '">' + label + '</label>' +
-        '<span class="mtl-val"><input type="number" id="' + id + '" min="0" max="9999" ' +
-        'step="1" inputmode="numeric" placeholder="' + (ph || '') + '"' +
-        (v || v === 0 ? ' value="' + esc(String(v)) + '"' : '') + '>' +
-        (unit ? '<span class="mtl-u">' + unit + '</span>' : '') + '</span></div>';
-    };
-    return '<div class="scrim no-print" data-close="1">' +
-      '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Add a food">' +
-        '<div class="sheet-top">' +
-          '<div class="sheet-eyebrow">' + (pre ? 'How much?' : 'Type it in') + '</div>' +
-          '<button class="sheet-x" data-close="1" aria-label="Close">&times;</button>' +
-        '</div>' +
-        (pre && pre.note
-          ? '<div class="mt-cap">From ' + esc(pre.note) + '</div>' : '') +
-        '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
-          '<span class="mtl-val"><input type="text" id="nfName" ' +
-            'placeholder="Chicken tamale" aria-label="What it is called" value="' +
-            esc((pre && pre.name) || '') + '"></span></div>' +
-        '<div class="mtl-row"><span class="mtl-lab">One of them is</span>' +
-          '<span class="mtl-val"><input type="text" id="nfUnit" ' +
-            'placeholder="tamale" aria-label="What one of them is called" value="' +
-            esc((pre && pre.unit) || '') + '"></span></div>' +
-        box('nfKcal', 'Calories', 'kcal', '250', pre && pre.kcal) +
-        box('nfP', 'Protein', 'g', '10', pre && pre.p) +
-        box('nfF', 'Fat', 'g', '12', pre && pre.f) +
-        box('nfC', 'Carbs', 'g', '25', pre && pre.c) +
-        '<div class="mt-cap" id="nfNote"></div>' +
-        '<div class="sync-row">' +
-          '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
-          '<button class="ghost" data-nf="cancel">Cancel</button>' +
-        '</div>' +
-      '</div></div>';
-  }
+  /* src/camera.js, handed what it reads of the app's and kept under its own
+     names here, as declarations, so they answer from anywhere in this file. */
+  var CAMERA = window.HiveParts.camera({ S: S, mBarcodeLookup: mBarcodeLookup, mDecodeFrame: mDecodeFrame, mLookSay: mLookSay, mLookupRows: mLookupRows, LIVE: LIVE });
+  function mScanStop() { return CAMERA.mScanStop(); }
+  function mScanStart() { return CAMERA.mScanStart(); }
+  function mScanGot(code, typed) { return CAMERA.mScanGot(code, typed); }
+  function mNewFoodHTML() { return CAMERA.mNewFoodHTML(); }
 
   /* Seven toggles, Monday first. Derived from the workouts box until one is
      pressed; from then on the list is yours. */
