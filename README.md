@@ -536,6 +536,8 @@ src/strip.js          the pinned header, and Recipes' search row and its Filters
 src/fold.js           My Day's readout folding into one row of pills as Nourish scrolls
 src/mealtime.js       when each meal opens, and whether today can be judged yet
 src/mydayparts.js     every part of My Day that travels between your devices, described once
+src/combos.js         levers, and the meals built from them to hit a share exactly
+src/pool.js           what a meal draws from, Try again, a day's summary, the step between days
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)
