@@ -3261,8 +3261,6 @@
   function mScanGot(code, typed) { return CAMERA.mScanGot(code, typed); }
   function mNewFoodHTML() { return CAMERA.mNewFoodHTML(); }
 
-  /* Seven toggles, Monday first. Derived from the workouts box until one is
-     pressed; from then on the list is yours. */
   /* Offered only once it can be trusted, and never taken without being
      asked for — a number that quietly redrew somebody's whole plan on the
      twenty-first morning would be the app changing its mind about them
@@ -3355,6 +3353,8 @@
     mWriteTargets(Object.assign({}, rec, { p: fresh.p, f: fresh.f, c: fresh.c }));
     return true;
   }
+  /* Seven toggles, Monday first. Derived from the workouts box until one is
+     pressed; from then on the list is yours. */
   function mTrainRowHTML() {
     var on = mTrainDays();
     var L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -3955,13 +3955,6 @@
     );
   }
 
-  /* What a step says back once it has been answered.
-   *
-     The figures are the same mBurn the plan is built from — nothing here is
-     computed twice or rounded differently — and the line under them says what
-     the figure is FOR, which is most of the difference between a form and a
-     guide. Both return nothing at all until there is enough answered to say
-     something true, so a half-filled step is quiet rather than wrong. */
   /* Show one step and hide the rest, and say where you are in three places:
      the pips, the Back button, and what Next is called on the last one. */
   function mtwGo(n) {
@@ -3991,6 +3984,13 @@
     mtRefreshPlan();
   }
 
+  /* What a step says back once it has been answered.
+   *
+     The figures are the same mBurn the plan is built from — nothing here is
+     computed twice or rounded differently — and the line under them says what
+     the figure is FOR, which is most of the difference between a form and a
+     guide. Both return nothing at all until there is enough answered to say
+     something true, so a half-filled step is quiet rather than wrong. */
   function mtSaidBase(pr) {
     var b = mBurn(pr);
     if (!b) return '';
@@ -4184,12 +4184,6 @@
     return out;
   }
 
-  /* One model, one Save. The first version had a "Use this plan" button above
-     a "Save" button below, and the natural last press — Save, at the foot of
-     the sheet — quietly committed the OLD gram boxes over the plan just
-     applied. Two commit buttons on one sheet is a trap; now the plan writes
-     straight into the boxes as the profile changes, and Save keeps whatever
-     the boxes say, hand-typed or worked out. */
   /* What the protein grams are counted against, in one line under the
      level. Says so when the level's own ceiling held it, and when the plan
      eased it to keep a squeezed cut's carbohydrate — the tile above is the
@@ -4369,19 +4363,17 @@
       (v ? v + ' lb a week' : 'holding');
   }
 
-  /* The line under it: the pace that implies, the commitments beside it, and
-     a word when the arithmetic had to be talked down. */
+  function mWeeksWords(w) {
+    var v = Math.round(w * 10) / 10;
+    return v + (v === 1 ? ' week' : ' weeks');
+  }
+
   /* The panel that answers "what would happen if". Three things, in the
      order somebody asks them: what your day costs and which parts you can
      move; where the plan you have chosen lands you and when; and what one
      more lever is worth — said both ways, because more walking either buys
      food at the same pace or the same food sooner, and people mean different
      ones. */
-  function mWeeksWords(w) {
-    var v = Math.round(w * 10) / 10;
-    return v + (v === 1 ? ' week' : ' weeks');
-  }
-
   function mCoachHTML(pr) {
     var b = mBurn(pr);
     if (!b) return '';
@@ -4441,6 +4433,8 @@
     return '<div class="mco">' + out.join('') + '</div>';
   }
 
+  /* The line under it: the pace that implies, the commitments beside it, and
+     a word when the arithmetic had to be talked down. */
   function mGoalNote(pr) {
     var pace = mGoalPace(pr);
     if (!pace) return 'Give a weight and a date and they set your pace for you. Leave the date blank and the choices above set it instead.';
@@ -4567,6 +4561,12 @@
     sv.classList.toggle('hide', !(open('mtEditor') || open('mtMealsWrap') || moved));
   }
 
+  /* One model, one Save. The first version had a "Use this plan" button above
+     a "Save" button below, and the natural last press — Save, at the foot of
+     the sheet — quietly committed the OLD gram boxes over the plan just
+     applied. Two commit buttons on one sheet is a trap; now the plan writes
+     straight into the boxes as the profile changes, and Save keeps whatever
+     the boxes say, hand-typed or worked out. */
   /* `holdBoxes` is for the one profile control that lives OUTSIDE the editor
      fold: the burn switch among the facts. Every other caller is a question
      the reader is looking at with Save on screen, so writing the worked-out
