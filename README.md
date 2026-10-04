@@ -569,6 +569,10 @@ src/keep.js           keeping plates together as one food of your own
 src/favpick.js        "What do you actually eat": the favourite star as a grid of chips
 src/copyfrom.js       a meal from another day
 src/foodsheet.js      the food sheet: what one of it is, an amount in any unit, and Add
+src/dayfoot.js        the foot of My Day: the readout under the day, and the way into the plan sheet
+src/pickrow.js        a row in the food picker, and what a tap on it adds
+src/pickbands.js      the picker's bands: the query, the shelf rail, named, pins, fits, recent
+src/basket.js         the picker's basket, and what it will do to the meal and the day
 src/sync.js           saving, and sharing between devices
 src/train.js          the Strengthen tab: the block, the logger, records and the review
 src/config.js         the only file you edit for sharing (see SETUP.md)

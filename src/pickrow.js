@@ -1,0 +1,193 @@
+/* A row in the food picker, and what a tap on it adds: what the household
+ * is cooking today (mFamilyIds); the icons for the three ways to name a
+ * food (mpIcon); one row, wherever it is listed (mpRowHTML); the amount
+ * that fits, as a chip and in words (mFitWords); what you logged last time
+ * and the amount a row starts at (mpLastXs, mDefaultX); and the portion
+ * that fits the meal being filled (mpFitX). The longer account is with the
+ * code.
+ *
+ * A part of app.js (Nourish) in a file of its own. app.js calls
+ * HiveParts.pickrow(app) once, as it starts, and keeps what it gives back
+ * under the same names. What you logged last time (MP_LASTX) stays
+ * declared in app.js, which empties it; the part reaches it, and the
+ * recipes by id, through LIVE (tests/scope.test.js holds the lists to each
+ * other). Loaded before app.js.
+ */
+(window.HiveParts = window.HiveParts || {}).pickrow = function (app) {
+  'use strict';
+
+  // what it reads of the app's, and (LIVE) what the app replaces as it goes: BY_ID, MP_LASTX
+  var MDAYS = app.MDAYS;
+  var S = app.S;
+  var fmtNum = app.fmtNum;
+  var keyDate = app.keyDate;
+  var leaf = app.leaf;
+  var mByGram = app.mByGram;
+  var mCanFav = app.mCanFav;
+  var mClosesIt = app.mClosesIt;
+  var mDay = app.mDay;
+  var mDayTargets = app.mDayTargets;
+  var mIsFav = app.mIsFav;
+  var mMacLine = app.mMacLine;
+  var mPortion = app.mPortion;
+  var mPortionText = app.mPortionText;
+  var mRank = app.mRank;
+  var mReadSlots = app.mReadSlots;
+  var mSaltNote = app.mSaltNote;
+  var mUnitWord = app.mUnitWord;
+  var mViewKey = app.mViewKey;
+  var todayKey = app.todayKey;
+  var LIVE = app.LIVE;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* What the household is cooking on this weekday, per the active week's
+     plan. The family plan has no dates — Monday is just Monday — so the
+     macro day borrows its weekday. Nothing new to enter anywhere: if the
+     family planned it, it is on offer, portioned for your own targets. */
+  /* The household's dishes for this day come from mFamilyIds, which the
+     picker's family lens has used since it was built — and which I duplicated
+     here before finding it, because the grep that found "the two halves never
+     touch" was for Store.plan and Store.weeks and this reads Store.day. The
+     halves DID touch: manually adding food already offered what the family
+     planned. What was missing was the automatic path. */
+  function mFamilyIds(k) {
+    var wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][keyDate(k).getDay()];
+    var ids = [];
+    /* The week that day belongs to, now that weeks have dates — not whichever
+       week the Plan tab happens to be showing. */
+    window.Store.dayOf(window.Store.weekIdOf(keyDate(k)), wd).forEach(function (e) {
+      if (LIVE.BY_ID[e.id] && ids.indexOf(e.id) < 0) ids.push(e.id);
+    });
+    return ids;
+  }
+
+  /* The three ways to name a piece of food, as the first thing the sheet
+     says rather than as modes buried behind each other. Scanning is one tap
+     from + Add; it used to be four. */
+  var MP_ICON = {
+    // a barcode, a magnifier, a stack of pages — drawn rather than borrowed
+    // from a font, because the glyphs that mean these things are not in every
+    // face and the fallbacks are boxes
+    scan: '<path d="M2 3v10M4.5 3v10M7 3v7M9.5 3v10M12 3v7M14 3v10"/>',
+    look: '<circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 14 14"/>',
+    recipes: '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/>'
+  };
+
+  function mpIcon(k) {
+    return '<svg class="mp-way-i" viewBox="0 0 16 16" aria-hidden="true" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' +
+      MP_ICON[k] + '</svg>';
+  }
+
+  /* One row, wherever it is listed. The picker, the look-up and the recent
+     list all offer the same thing — a dish at a portion — so they offer it
+     in the same shape, and the shape knows whether it is already in the
+     basket. */
+  /* `x` is what a tap on the row adds — what you had last time, or one
+     serving — and `fitX`, when there is one, is what would fit this meal,
+     offered beside it as a chip rather than as the row's own amount.
+   *
+     The row used to carry the fit, which is the solver's answer to "what
+     would land this meal" and not what anybody eats: a tap logged 1⅜ eggs
+     or 140 g of oats because that is where the arithmetic came out, and the
+     portion you actually have every morning had to be dialled back in by
+     hand every morning. Blake: "Default to what you had last time (else 1
+     serving); 'fits the meal' becomes a one-tap chip beside it." */
+  function mpRowHTML(r, x, fitText, fitX) {
+    var inB = S.mpBasket[r.id] !== undefined;
+    var inB2 = mIsFav(r);
+    var own = x;
+    if (inB) x = S.mpBasket[r.id];
+    /* A food says its amount in the plate's own words. "×4 0.5 cup (113 g)"
+       was the label's serving with a count in front of it — the two numbers
+       side by side that mLabelServing exists to stop — while the plate it
+       made read "2 cups · 452 g". */
+    var fit = fitText !== undefined && fitText !== null ? fitText
+      : (r.food ? esc(mPortionText(r, x)) : '&times;' + fmtNum(x)) + ' &middot; ' +
+        mMacLine(r, x, true) + mSaltNote(r, x);
+    return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
+      '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
+        ' aria-pressed="' + (inB ? 'true' : 'false') + '">' +
+        '<span class="mp-tick" aria-hidden="true">' + (inB ? '&#10003;' : '&#43;') + '</span>' +
+        leaf(r.score, 'leaf-sm') +
+        '<span class="mp-body">' +
+          '<span class="mp-name">' +
+            (mIsFav(r) ? '<span class="mp-fav">&#9733;</span> ' : '') +
+            esc(r.name) +
+            /* The badge sits with the NAME, not out on the row's edge: it is
+               a fact about this dish at this portion, and a column of its own
+               would have to be reserved on every row that cannot earn it. */
+            (mClosesIt(r, x) ? ' <span class="mp-closes">closes</span>' : '') +
+          '</span>' +
+          '<span class="mp-fit">' + fit + '</span>' +
+        '</span>' +
+      '</button>' +
+      /* The star is a control here, not a badge. Finding a thing once and
+         having to find it again tomorrow is the whole reason to keep one. */
+      '<span class="mp-side no-print">' +
+        mpFitChip(r, fitX, own) +
+        (!mCanFav(r) ? '' :
+          '<button class="mp-star" data-mpfav="' + esc(String(r.id)) + '" aria-pressed="' +
+            (inB2 ? 'true' : 'false') + '" aria-label="' +
+            (inB2 ? 'Remove from favorites' : 'Keep as a favorite') + '">&#9733;</button>') +
+      '</span>' +
+    '</div>';
+  }
+
+  /* The fitting amount as a chip. Nothing when it would say the same as the
+     row, or when there is no plan to fit against. Pressed while the basket
+     holds exactly that amount, and pressing it then takes it back out — the
+     same bargain the row's own tap makes. */
+  function mpFitChip(r, fitX, own) {
+    if (!(fitX > 0) || Math.abs(fitX - (Number(own) || 0)) < 1e-6) return '';
+    var inB = S.mpBasket[r.id] !== undefined && Math.abs(S.mpBasket[r.id] - fitX) < 1e-6;
+    var said = mFitWords(r, fitX);
+    return '<button class="mp-fitx" data-mpfit="' + esc(String(r.id)) + '" data-mpx="' + fitX +
+      '" aria-pressed="' + (inB ? 'true' : 'false') + '" aria-label="' +
+      (inB ? 'Take out the amount that fits, ' : 'Add the amount that fits this meal, ') +
+      esc(mPortion(r, fitX).head) + '"><span>Fits: ' + esc(said) + '</span></button>';
+  }
+
+  /* The chip's amount, as short as it can be said: grams for what is
+     weighed, and otherwise the same ×-count the row beside it uses — "Fits:
+     2 ½ servings" pushed the dish's name onto three lines at a phone's
+     width, for a word the row already says. */
+  function mFitWords(r, x) {
+    return mByGram(r) || mUnitWord(r) === 'g' ? mPortion(r, x).head : '\u00d7' + fmtNum(x).replace(' ', '');
+  }
+
+  function mpLastXs() {
+    var out = {}, today = todayKey();
+    Object.keys(MDAYS).sort().reverse().forEach(function (k) {
+      if (k > today) return;
+      var day = MDAYS[k] || {};
+      Object.keys(day).forEach(function (sk) {
+        (day[sk] || []).forEach(function (it) {
+          if (out[it.id] === undefined && it.x > 0) out[it.id] = it.x;
+        });
+      });
+    });
+    return out;
+  }
+  function mDefaultX(r) {
+    var v = r ? LIVE.MP_LASTX[r.id] : 0;
+    return v > 0 ? v : 1;
+  }
+
+  /* The portion that would fit the meal the sheet is filling, by the same
+     solver the Fits best band ranks with. Null with no plan to fit against. */
+  function mpFitX(r) {
+    if (!S.macroPick || !r) return null;
+    var k = mViewKey(), slot = null;
+    mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
+    var e = mRank([r], mDay(k), mDayTargets(k), slot || { k: S.macroPick.slot, w: S.macroPick.w })[0];
+    return e && e.score !== null ? e.x : null;
+  }
+
+  return { mFamilyIds: mFamilyIds, mpIcon: mpIcon, mpRowHTML: mpRowHTML, mFitWords: mFitWords, mpLastXs: mpLastXs, mDefaultX: mDefaultX, mpFitX: mpFitX };
+};
