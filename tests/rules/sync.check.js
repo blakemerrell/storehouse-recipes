@@ -67,6 +67,12 @@ function ok(cond, what) { if (!cond) throw new Error(what); }
     };
     const seed = (p, data) => env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc(p).set(data));
     const has = (S, day, id) => S.day(day).some((e) => e && e.id === id);
+    // a dinner on a day of a week, as the server holds it: an id, or { i, x }
+    const served = async (c, wk, day, id) => {
+      const d = await read('households/' + c);
+      const list = ((((d && d.weeks) || {})[wk] || {}).plan || {})[day] || [];
+      return list.some((e) => e === id || (e && e.i === id));
+    };
     const synced = (P, who) => until(() => P.S.status === 'synced', who + ' synced (it says "' + P.S.status + '": ' + P.S.statusNote + ')');
 
     w = world(emu.port, PROJECT);
@@ -205,6 +211,77 @@ function ok(cond, what) { if (!cond) throw new Error(what); }
     await check('an anonymous phone cannot make one', async () => {
       const said = await B.S.invite().then(() => 'made', (e) => e.message);
       ok(said === 'signed-out', 'bob was told "' + said + '"');
+    });
+
+    section('What a phone does not lose');
+    await check('a join made with no signal still brings this phone\'s things after a restart', async () => {
+      const ls = { 'bsc.favs': '[7,8,9]', 'bsc.rate': JSON.stringify({ 7: 2 }) };
+      const K1 = w.phone('kim', ls);
+      await K1.offline();
+      K1.S.init(() => {});
+      K1.S.join(code);
+      await until(() => ls['bsc.house'] === JSON.stringify(code), 'the code saved on kim\'s phone');
+      const K2 = w.phone('kim', ls);              // the app opened again, now with signal
+      K2.S.init(() => {});
+      await synced(K2, 'kim');
+      await until(async () => {
+        const d = await read('households/' + code);
+        return [7, 8, 9].every((f) => d.favs.indexOf(f) >= 0) && d.rate && d.rate[7] === 2;
+      }, 'kim\'s favorites and rating in the household');
+      ok(K2.S.isFav(8), 'kim\'s phone lost favorite 8');
+    });
+    await check('a serving count changed with no signal is handed over whole, before the signal returns', async () => {
+      A.S.addToDay(61, 'sat');
+      await until(() => has(B.S, 'sat', 61), 'bob hearing dinner 61');
+      await A.offline();
+      const before = w.writes.filter((x) => x.who === 'alice').length;
+      A.S.addToDay(61, 'sat', 3);
+      const handed = w.writes.filter((x) => x.who === 'alice').length - before;
+      await A.online();
+      await until(() => B.S.day('sat').some((e) => e.id === 61 && e.x === 3), 'bob hearing 61 for three');
+      ok(handed === 2, handed + ' of the 2 writes were with Firestore before the signal came back');
+    });
+    await check('a write refused before the connection was up holds up nothing behind it', async () => {
+      const own = {};
+      for (let i = 0; i < 1000; i++) own['own_x' + i] = { l: 'X' + i, c: 'Yours' };
+      await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('households/' + code).update({ pantryNew: own }));
+      const ls = { 'bsc.house': JSON.stringify(code), 'bsc.houseNew': JSON.stringify('') };
+      const L = w.phone('liam', ls);
+      L.S.init(() => {});
+      L.S.addPantryItem('Saffron', 'Yours');      // the shelf is at its cap: refused
+      L.S.addToDay(71, 'sun');                    // and this is not
+      await until(() => served(code, L.S.state.active, 'sun', 71), 'dinner 71 on the server');
+      A.S.addToDay(72, 'sun');
+      await until(() => has(L.S, 'sun', 72), 'liam hearing alice afterwards');
+      await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('households/' + code).update({ pantryNew: {} }));
+    });
+    await check('a write made the moment another code is typed goes to that household', async () => {
+      const N = w.phone('nina', {}, { account: true });
+      N.S.init(() => {});
+      const other = await N.S.createHousehold();
+      await synced(N, 'nina');
+      await until(async () => !!(await read('households/' + other)), 'nina\'s household');
+      B.S.join(other);
+      B.S.toggleChecked('saffron');
+      await until(async () => JSON.stringify(await read('households/' + other)).indexOf('saffron') >= 0, 'saffron ticked in nina\'s household');
+      ok(JSON.stringify(await read('households/' + code)).indexOf('saffron') < 0, 'saffron was ticked in the household bob left');
+      B.S.join(code);
+      await synced(B, 'bob');
+    });
+    await check('a household whose rules refuse the tidying is asked once, not in a loop', async () => {
+      await seed('households/REFUSES-ALL', { favs: [], weeks: { d20250105: { name: '', ord: 0, plan: { mon: [1] }, checked: {} } }, mine: {}, edits: {}, zzz: 1 });
+      const M = w.phone('mia', {});
+      M.S.init(() => {});
+      M.S.join('REFUSES-ALL');
+      const n = () => w.writes.filter((x) => x.who === 'mia').length;
+      await until(() => n() >= 1, 'mia trying to tidy the old week');
+      /* The tidy-ups of the first snapshot all leave before the first refusal
+         is back, so there are a few. What matters is that they stop: the same
+         household took 213 in three seconds before. */
+      await new Promise((r) => setTimeout(r, 1000));
+      const first = n();
+      await new Promise((r) => setTimeout(r, 1000));
+      ok(n() === first && first <= 5, 'mia sent ' + first + ' writes, then ' + (n() - first) + ' more in the next second');
     });
 
     section('Nothing went wrong along the way');

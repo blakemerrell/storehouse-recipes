@@ -36,7 +36,8 @@ window.Store = (function () {
     kitchen: 'bsc.kitchen', src: 'bsc.src', rate: 'bsc.rate', opts: 'bsc.opts', low: 'bsc.low',
     diners: 'bsc.diners',
     plan: 'bsc.plan', checked: 'bsc.checked',  // the single week this replaced
-    kept: 'bsc.houseKept'                       // what the household lost: see keepRemoved
+    kept: 'bsc.houseKept',                      // what the household lost: see keepRemoved
+    merge: 'bsc.houseMerge'                     // a join still to bring this phone's things: see setMerge
   };
 
   /* What the bug left behind. pantryNew was written second, so the stray key
@@ -170,6 +171,15 @@ window.Store = (function () {
   var statusNote = '';
   var house = '';
   var pendingMerge = false;   // set by join(), consumed by the next connect()
+  /* Written down as well as held, for the reason houseMine below is: a join
+     made with no signal contributes on the next connect, and the next
+     connect may be after the app was closed. Held only in memory, the
+     intention died with the app while join() had already saved the code —
+     so the next launch adopted the household over the top of this phone,
+     and its favorites, ratings and pantry went with it, on a test as on a
+     phone (the emulator check "a join made with no signal still brings
+     this phone's things"). */
+  function setMerge(v) { pendingMerge = !!v; write(LS.merge, pendingMerge ? 1 : 0); }
   /* This phone's own dated weeks that a join put aside as templates, because
      the household had planned those dates already: [{name, dates}], said
      once (parkedNote). The household's week stands, which is right, and hers
@@ -522,14 +532,25 @@ window.Store = (function () {
     var old = Object.keys(state.weeks).filter(function (k) { var d = weekStart(k); return d && d < cut; }).sort();
     return old[0] || null;
   }
+  /* The writes a snapshot makes by itself — a week moved onto its date, one
+     too old pruned — are asked again by the next snapshot until they land.
+     When the rules refuse one, Firestore undoes it locally, and that undoing
+     is itself a snapshot, which asked again: a household whose document the
+     rules refuse took 213 writes in three seconds from one phone on the
+     emulator, for as long as the app stayed open. Refused once, a household
+     is not asked again this session, as enrol already does for the list. */
+  var tidyDenied = '';
+  function denied(err) { return !!(err && err.code === 'permission-denied'); }
   function sendUpdate(u) {
-    if (!doc || !u || !Object.keys(u).length) return;
-    var out = {};
+    if (!doc || !u || !Object.keys(u).length || tidyDenied === house) return;
+    var out = {}, at = house;
     Object.keys(u).forEach(function (k) { out[k] = u[k] === 'DELETE' ? FV.delete() : u[k]; });
     /* The client refuses a bad field path before it sends anything — by
        throwing, here, inside the snapshot that asked. Caught, so one bad key
        is one lost write and not a household that never speaks again. */
-    try { doc.update(out).catch(function () {}); } catch (e) { /* the key check at the door says why */ }
+    try {
+      doc.update(out).catch(function (err) { if (denied(err)) tidyDenied = at; });
+    } catch (e) { /* the key check at the door says why */ }
   }
 
   /* Take a document — from the network or from localStorage — and make it the
@@ -931,7 +952,7 @@ window.Store = (function () {
         if (!snap.exists) {
           // first device into a household we are creating seeds it with what is here
           if (houseMine) {
-            pendingMerge = false;
+            setMerge(false);
             return doc.set(localDoc()).then(function () { write(LS.houseNew, ''); houseMine = false; });
           }
           /* We reached the server and there is no such household. Typing a
@@ -941,7 +962,7 @@ window.Store = (function () {
              first and the code stays pending for the next try. */
           var missed = house;
           house = ''; write(LS.house, '');
-          pendingMerge = false; doc = null;
+          setMerge(false); doc = null;
           /* And what was waiting to go to it goes nowhere. It used to be kept,
              and sent after this into whichever household was joined next —
              and flushQueued ran straight after this line with no document,
@@ -961,7 +982,7 @@ window.Store = (function () {
            very thing contribute() exists to prevent, moved into the failure
            path where nobody would see it. */
         return Promise.resolve(add ? doc.set(add, { merge: true }) : null)
-          .then(function () { pendingMerge = false; if (park.length) parked = park; });
+          .then(function () { setMerge(false); if (park.length) parked = park; });
       });
     }).then(flushQueued).then(function () {
       /* No household by that code: the sentence set above is the answer, and
@@ -1008,8 +1029,11 @@ window.Store = (function () {
         /* A household last written by the one-week version. Send the week up so
            the other phone sees the same thing; the old plan and checked fields
            are left alone rather than deleted, as a copy of what was there. */
-        if (made) doc.set({ weeks: state.weeks, active: state.active }, { merge: true })
-          .catch(function () {});
+        if (made && tidyDenied !== house) {
+          var at = house;
+          doc.set({ weeks: state.weeks, active: state.active }, { merge: true })
+            .catch(function (err) { if (denied(err)) tidyDenied = at; });
+        }
       }, function (err) {
         setStatus('error', err && err.code === 'permission-denied'
           ? 'Firestore refused the connection. Check the security rules in SETUP.md.'
@@ -1037,7 +1061,13 @@ window.Store = (function () {
     /* Any state where we are actually joined. Firestore queues a write made
        with no signal and sends it when there is some, so refusing to try is
        the one thing that would genuinely lose it. */
-    if (doc && status !== 'local' && status !== 'error') {
+    /* Not while 'error', it used to say. But 'error' is also what one refused
+       write leaves behind until the next snapshot clears it, and a write made
+       in that moment went to the queue below, which is only emptied by a
+       connect — so it sat there, unsent, while the screen went back to
+       "synced". With a document in hand Firestore takes the write itself,
+       queues it with no signal, and says for itself if it is refused. */
+    if (doc && status !== 'local') {
       var failed = function (err) { setStatus('error', (err && err.message) || 'Write failed.'); };
       // a refused field path throws before there is a promise; the same answer either way
       try { remote().catch(failed); } catch (err) { failed(err); }
@@ -1100,13 +1130,22 @@ window.Store = (function () {
     });
   }
 
-  /* In order, and not cleared until they are away — a flush that fails must
-     leave the work where it was rather than swallowing it a second time. */
+  /* In order, all handed to Firestore at once, which sends one phone's writes
+     in the order they were made and keeps them through no signal. Each used
+     to wait for the server to acknowledge the one before, and the listening
+     waited for all of them — so one write the rules refused stopped every
+     write behind it, and the phone never heard the household again, while
+     each retry sent the refused one first (the back-end review, 4 October;
+     tests/rules/sync.check.js holds it now). A refused one says so and is
+     the only one lost. */
   function flushQueued() {
     if (!queued.length || !doc) return Promise.resolve();
-    var sending = queued.slice();
-    return sending.reduce(function (p, fn) { return p.then(function () { return fn(); }); },
-      Promise.resolve()).then(function () { queued = queued.slice(sending.length); });
+    var sending = queued; queued = [];
+    var failed = function (err) { setStatus('error', (err && err.message) || 'Write failed.'); };
+    sending.forEach(function (fn) {
+      try { fn().catch(failed); } catch (err) { failed(err); }
+    });
+    return Promise.resolve();
   }
 
   /* A day entry as it is stored. Anything cooked at its own serving count
@@ -1157,10 +1196,17 @@ window.Store = (function () {
            as two writes, since one write may not both take from a field and
            add to it. The day used to go up whole from this phone's copy, and
            took with it whatever the other phone had done to the day since —
-           a double undone, a dinner taken off put back. */
+           a double undone, a dinner taken off put back.
+         *
+           Both handed to Firestore at once, which sends one phone's writes in
+           the order they were made. The second used to wait for the server
+           to acknowledge the first, which with no signal it never did — so
+           the removal was all that was queued, and a phone closed before the
+           signal came back sent only that: the dinner was gone. */
         u[path] = FV.arrayRemove.apply(FV, gone);
         var v = {}; v[path] = FV.arrayUnion(stored(added));
-        return doc.update(u).then(function () { return doc.update(v); });
+        var off = doc.update(u);
+        return Promise.all([off, doc.update(v)]);
       }
       if (added) u[path] = FV.arrayUnion(stored(added));
       else u[path] = FV.arrayRemove.apply(FV, gone);
@@ -1532,6 +1578,7 @@ window.Store = (function () {
          strict with it would evict people who joined perfectly well. The
          rule is for codes typed from here on. */
       if (house && read(LS.houseNew, null) === null) { houseMine = true; write(LS.houseNew, '1'); }
+      pendingMerge = !!house && read(LS.merge, 0) === 1;
       if (house && configured()) connect(); else setStatus('local');
 
       /* A way out of 'error'. It used to latch for the whole session: the SDK
@@ -2163,12 +2210,14 @@ window.Store = (function () {
          numbers in its diners, where nobody else may take them off. */
       if (house && next !== house) goodbye();
       // what was held for one household is not sent into another
-      if (next !== house) { queued = []; enrolDenied = ''; }
+      /* And not to the household being left: `doc` is the old one until
+         connect() has the new one, and a write made in between went there. */
+      if (next !== house) { queued = []; enrolDenied = ''; tidyDenied = ''; doc = null; }
       house = next;
       write(LS.house, house);
       houseMine = !!mine;
       write(LS.houseNew, houseMine ? '1' : '');
-      pendingMerge = !seeded;
+      setMerge(!seeded);
       if (unsub) { unsub(); unsub = null; }
       connect();
     },
@@ -2180,11 +2229,11 @@ window.Store = (function () {
       house = ''; write(LS.house, '');
       houseMine = false; write(LS.houseNew, '');
       doc = null;
-      members = []; enrolling = ''; enrolDenied = '';
+      members = []; enrolling = ''; enrolDenied = ''; tidyDenied = '';
       /* The household's people go with it: their dinner numbers were shared
          with the household, not with this phone. */
       state.diners = {}; write(LS.diners, {}); dinerRefused = false;
-      everLive = false; lastSync = 0; pendingMerge = false;
+      everLive = false; lastSync = 0; setMerge(false);
       setStatus('local');
     },
 
