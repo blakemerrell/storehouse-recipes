@@ -33,7 +33,8 @@ const [name, VAR, m1, m2, headerFile] = args.filter((a) => a !== '--dry');
 let src = fs.readFileSync('src/app.js', 'utf8');
 const A = src.indexOf(m1), B = src.indexOf(m2, A + 1);
 if (A < 0 || B < 0) throw new Error('marker not found');
-const ast = acorn.parse(src, { ecmaVersion: 2022 });
+const comments = [];
+const ast = acorn.parse(src, { ecmaVersion: 2022, onComment: (block, text, start, end) => comments.push({ start, end }) });
 const iife = ast.body[0].expression.callee.body.body;
 const declOf = (st) => st.type === 'FunctionDeclaration' ? [st.id.name] : st.type === 'VariableDeclaration' ? st.declarations.map((d) => d.id.name) : [];
 const inR = (n) => n.start >= A && n.start < B;
@@ -94,6 +95,30 @@ if (dry) process.exit(0);
 let body = src.slice(A, B);
 const edits = [];
 insideRefs.filter((r) => live.includes(r.node.name)).forEach((r) => edits.push({ s: r.node.start, e: r.node.end, t: 'LIVE.' + r.node.name }));
+/* A statement that goes back to app.js goes as whole lines, with its own
+   comments: one on the same line after it always, and the one directly above
+   it (no blank line between) unless that comment belongs to the part — a
+   section's ruled heading, or the introduction of the function right below,
+   which reads the variable. A comment that opens a stretch of the part is set
+   off from what follows it by a blank line, so it stays. So nothing is left
+   behind describing a name that is no longer there, and no line is left
+   holding only spaces. */
+const blank = (a, b) => /^[ \t]*$/.test(src.slice(a, b));
+const lineStart = (i) => src.lastIndexOf('\n', i - 1) + 1;
+function lines(st, leadOk) {
+  let e = st.end;
+  const after = comments.find((c) => c.start >= st.end && blank(st.end, c.start));
+  if (after) e = after.end;
+  const nl = src.indexOf('\n', e);
+  if (!blank(e, nl) || !blank(lineStart(st.start), st.start)) throw new Error('not alone on its lines: ' + src.slice(st.start, st.start + 60));
+  let s = lineStart(st.start);
+  const above = comments.find((c) => c.start >= A && c.end <= st.start && /^[ \t]*\n[ \t]*$/.test(src.slice(c.end, st.start)) && blank(lineStart(c.start), c.start));
+  if (above && leadOk(above)) s = lineStart(above.start);
+  return { s, e: nl + 1, text: src.slice(s, nl) };
+}
+const heading = (c) => /^\/\*\s*-{6,}/.test(src.slice(c.start, c.end));
+const below = (st) => { const i = iife.indexOf(st); return iife[i + 1]; };
+const reads = (fn, names) => { let hit = false; (function f(n) { if (hit || !n || typeof n !== 'object') return; if (Array.isArray(n)) { n.forEach(f); return; } if (n.type === 'Identifier' && names.includes(n.name)) { hit = true; return; } for (const k in n) if (n[k] && typeof n[k] === 'object') f(n[k]); })(fn.body); return hit; };
 // staying vars: remove their declarators from the moved code (whole statement when all its declarators stay)
 const stayDecls = [];
 inside.forEach((st) => {
@@ -101,11 +126,19 @@ inside.forEach((st) => {
   const st8 = st.declarations.filter((d) => stay.includes(d.id.name));
   if (!st8.length) return;
   if (st8.length !== st.declarations.length) throw new Error('mixed var statement with staying names: ' + st.declarations.map((d) => d.id.name).join());
-  stayDecls.push(src.slice(st.start, st.end));
-  // also rewrite references inside the initialisers? initialisers stay in app.js, unchanged
-  edits.push({ s: st.start, e: st.end, t: '' , whole: true });
+  const next = below(st), names = st8.map((d) => d.id.name);
+  const introduces = next && next.type === 'FunctionDeclaration' && inR(next) &&
+    /^[ \t]*(\/\/[^\n]*)?\n[ \t]*$/.test(src.slice(st.end, next.start)) && reads(next, names);
+  const L = lines(st, (c) => !heading(c) && !introduces);
+  stayDecls.push(L.text);
+  // the initialisers stay in app.js, unchanged
+  edits.push({ s: L.s, e: L.e, t: '', whole: true });
 });
-kept.forEach((st) => edits.push({ s: st.start, e: st.end, t: '', whole: true }));
+const keptText = kept.map((st) => {
+  const L = lines(st, (c) => !heading(c));
+  edits.push({ s: L.s, e: L.e, t: '', whole: true });
+  return L.text;
+});
 // drop edits that fall inside removed statements
 const removed = edits.filter((x) => x.whole);
 const keptEdits = edits.filter((x) => x.whole || !removed.some((w) => x.s >= w.s && x.e <= w.e));
@@ -130,14 +163,14 @@ ${body.replace(/^\n+/, '').replace(/\n+$/, '\n')}
 fs.writeFileSync(`src/${name}.js`, part);
 const params = (f) => f.params.map((p) => src.slice(p.start, p.end)).join(', ');
 const handed = imports.map((n) => `${n}: ${n}`).concat(live.length ? ['LIVE: LIVE'] : []);
-const stub = `  /* src/${name}.js, handed what it reads of the app's and kept under its own
+const stub = `${stayDecls.length ? stayDecls.join('\n') + '\n\n' : ''}  /* src/${name}.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-${stayDecls.map((d) => '  ' + d).join('\n')}${stayDecls.length ? '\n' : ''}  var ${VAR} = window.HiveParts.${name}({ ${handed.join(', ')} });
+  var ${VAR} = window.HiveParts.${name}({ ${handed.join(', ')} });
 ${exportFns.map((f) => `  function ${f.id.name}(${params(f)}) { return ${VAR}.${f.id.name}(${params(f)}); }`).join('\n')}
 ${constOut.map((n) => `  var ${n} = ${VAR}.${n};`).join('\n')}
-${kept.map((st) => '  ' + src.slice(st.start, st.end)).join('\n')}
+${keptText.join('\n')}
 
-`.replace(/\n\n\n/g, '\n\n');
+`.replace(/\n{3,}/g, '\n\n');
 src = src.slice(0, A) + stub + src.slice(B);
 // LIVE: add getters and setters for the names this part needs (one object, near the top)
 if (live.length) {

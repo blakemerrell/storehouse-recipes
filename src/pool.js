@@ -71,7 +71,6 @@
      answer ABOUT RECIPES; it can only outlive that array by lying, and the
      lie is silent — a section missing from here is a recipe that is simply
      never offered, with nothing anywhere to say it was skipped. */
-  
   function mAllSecs() {
     if (!LIVE.M_ALL_SECS) {
       var seen = {};
