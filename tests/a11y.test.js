@@ -109,9 +109,10 @@ module.exports = {
     // the food typed in by hand
     await p.keyboard.press('Escape');
     await p.waitForTimeout(150);
-    await p.click('#macroAdd');
-    await p.waitForTimeout(250);
-    await p.click('[data-mpnew]');
+    /* A meal's tray is the one door to adding food (2026-10-04). */
+    await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); b.click(); });
+    await p.waitForTimeout(300);
+    await p.evaluate(() => { const b = document.querySelector('[data-mpnew]'); b.scrollIntoView({ block: 'center' }); b.click(); });
     await p.waitForTimeout(200);
     const nf = await p.evaluate((fn) => {
       const nameOf = new Function('return ' + fn)();
@@ -336,18 +337,21 @@ module.exports = {
     t.ok('and so is Share', rs.length === 1 && rs[0].hit, JSON.stringify(rs));
     await q.click('.tab[data-view="macros"]');
     await q.waitForTimeout(250);
-    await q.evaluate(() => { const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]'); if (b) b.click(); });
+    /* A meal opens as its sheet (trays and the meal sheet, 2026-10-04): the
+       verbs are the head's icons (scales, the ⋯, ×) and the words in the
+       meal's menu behind the ⋯, so the menu is opened the way a thumb would
+       before they are measured. */
+    await q.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); if (b) b.click(); });
+    await q.waitForTimeout(300);
+    await q.evaluate(() => { const b = document.querySelector('#modalRoot [data-mmenu][aria-expanded="false"]'); if (b) b.click(); });
     await q.waitForTimeout(250);
-    /* The meal opens as its own screen now (the RP-style redesign Blake
-       approved 2026-10-04): the verbs are the head's icons (scales, the ⋯)
-       and the words in the meal's menu behind the ⋯, so the menu is opened
-       the way a thumb would before they are measured. */
-    await q.evaluate(() => { const b = document.querySelector('#macroSlots [data-mmenu][aria-expanded="false"]'); if (b) b.click(); });
-    await q.waitForTimeout(250);
-    await q.evaluate(() => { const e = document.querySelector('.mscreen-menu .mslot-act'); if (e) e.scrollIntoView({ block: 'center' }); });
-    await q.waitForTimeout(80);
-    rs = await reach('.mscreen-i, .mscreen-menu .mslot-act', true);
+    rs = await reach('#modalRoot .msh-i, #modalRoot .msh-menu .mfood-mi', true);
     t.ok('a meal\'s verbs are each a thumb wide and tall', rs.length >= 2 && rs.every((r) => r.hit), report(rs) || JSON.stringify(rs));
+    // the menu shut first (a tap on the title), then the sheet by its ×
+    await q.evaluate(() => { const t2 = document.querySelector('#modalRoot .msh-t'); if (t2) t2.click(); });
+    await q.waitForTimeout(150);
+    await q.evaluate(() => { const x = document.querySelector('#modalRoot .msheet .sheet-x'); if (x) x.click(); });
+    await q.waitForTimeout(300);
     // the toast's Undo
     await q.evaluate(() => {
       const el = document.getElementById('mToast');

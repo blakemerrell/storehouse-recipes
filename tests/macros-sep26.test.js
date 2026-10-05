@@ -4,39 +4,21 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, pickerList, pickRecipe, storedDay, weighIn, todayOn } = require('./fixtures/nourish.js');
+const { nourish, pickerList, pickRecipe, closeSheet, storedDay, weighIn, todayOn } = require('./fixtures/nourish.js');
 
 /* A dish onto the nth meal of the day, the way a thumb adds one since the
-   RP-style day (Blake, 2026-10-04): the meal's card opens it as its own
-   screen, Add foods at its foot, the first recipe, done — and the back arrow
-   home to the day. The shared addTo opens every meal by pressing each head in
-   turn, which on this day walks the one screen along instead, and Open all
-   does not open a day whose meals are all empty. */
+   trays (Blake, 2026-10-04): the meal's tray opens its sheet, the first
+   recipe in the list goes on the meal at a tap, and × goes home to the day. */
 async function addInto(pg, n) {
-  const home = () => pg.evaluate(() => {
-    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
-    if (b) b.click();
-  });
-  await home();
-  await pg.waitForTimeout(250);
   await pg.evaluate((i) => {
-    const s = [...document.querySelectorAll('#macroSlots .mslot')][i];
-    const b = s && s.querySelector('[data-mfold][aria-expanded="false"]');
-    if (b) b.click();
-  }, n);
-  await pg.waitForTimeout(250);
-  await pg.evaluate((i) => {
-    const a = [...document.querySelectorAll('#macroSlots .mslot')][i].querySelector('.mslot-add');
+    const a = document.querySelectorAll('#macroSlots [data-mopen]')[i];
     a.scrollIntoView({ block: 'center' });
     a.click();
   }, n);
   await pg.waitForTimeout(250);
   await pickerList(pg);
   await pickRecipe(pg);
-  await pg.click('[data-mpdone]');
-  await pg.waitForTimeout(250);
-  await home();
-  await pg.waitForTimeout(250);
+  await closeSheet(pg);
 }
 
 module.exports = nourish({

@@ -6,96 +6,55 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, openBasket, pickerList } = require('./fixtures/nourish.js');
+const { nourish, addOn, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — the bar, the list, and the picker\'s controls',
   async suite(t, freshBare) {
-    /* ---- the commit button rides the bar, not the header -----------------
-     * The one control that commits a basket used to sit in .sheet-top, the
-     * first element of the sheet, which has no position — so it scrolled off
-     * the top the moment you moved down the list to fill the basket it
-     * commits. Meanwhile the only element pinned to the bottom of the
-     * viewport, where a thumb actually rests, carried no control at all.
+    /* ---- a tap is the commit ---------------------------------------------
+     * There used to be a commit button, and the story of this block was
+     * keeping it reachable: out of the sheet's header, onto a bar pinned to
+     * the bottom where a thumb rests. Since 2026-10-04 there is nothing to
+     * reach (Blake: no basket, no "Add N"): a tap on a row puts the food on
+     * the meal. What is left to guard is that the tap does exactly that, that
+     * the row is a thumb's size, and that nothing is pinned over the list.
      *
      * Measured in a coarse-pointer context at 320px, the narrowest the app
-     * supports, because that is where the bar is tallest and the button
-     * nearest the edge. */
+     * supports. */
     const barPg = await t.fresh({ viewport: { width: 320, height: 844 },
       hasTouch: true, isMobile: true });
     await barPg.click('.tab[data-view="macros"]');
     await barPg.waitForTimeout(250);
     await addOn(barPg);
     await barPg.waitForTimeout(400);
-    t.ok('the sheet header no longer carries the thing that commits',
-      await barPg.evaluate(() => !document.querySelector('.sheet-top [data-mpdone]')));
-    await barPg.evaluate(() => { document.querySelectorAll('.mpick-row[data-mpick]')[0].click(); });
-    await barPg.waitForTimeout(400);
-    const pinnedBar = await barPg.evaluate(() => {
-      const f = document.querySelector('.mp-foot');
-      const d = document.querySelector('[data-mpdone]');
-      if (!f || !d) return null;
-      const fr = f.getBoundingClientRect(), dr = d.getBoundingClientRect();
-      return { inFoot: !!f.querySelector('[data-mpdone]'),
-        count: document.querySelectorAll('[data-mpdone]').length,
-        footBottom: Math.round(fr.bottom), view: window.innerHeight,
-        btnH: Math.round(dr.height), fullBleed: Math.round(fr.width) === window.innerWidth,
-        overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    t.ok('the sheet has no commit button anywhere, and no bar to carry one',
+      await barPg.evaluate(() => !document.querySelector('[data-mpdone], .mp-foot, .mp-bar')));
+    const n0 = await barPg.evaluate(() => document.querySelectorAll('#modalRoot .mrows .mrow').length);
+    const tapRow = await barPg.evaluate(() => {
+      const r = document.querySelectorAll('#modalRoot .mpick-row[data-mpick]')[0];
+      const h = Math.round(r.getBoundingClientRect().height);
+      r.click();
+      return { h: h };
     });
-    t.ok('it is on the bar pinned to the bottom of the screen',
-      !!pinnedBar && pinnedBar.inFoot && pinnedBar.footBottom === pinnedBar.view,
-      JSON.stringify(pinnedBar));
-    /* One in the document, or focus restore picks whichever comes first. */
-    t.ok('and there is exactly one of it', pinnedBar && pinnedBar.count === 1,
-      JSON.stringify(pinnedBar && pinnedBar.count));
-    /* The picker had never been named in the coarse-pointer block at all. */
-    t.ok('a thumb can hit it', pinnedBar && pinnedBar.btnH >= 44,
-      String(pinnedBar && pinnedBar.btnH));
-    t.ok('and the bar reaches both edges without scrolling the page sideways',
-      pinnedBar && pinnedBar.fullBleed && pinnedBar.overflowX === 0,
-      JSON.stringify(pinnedBar));
+    await barPg.waitForTimeout(400);
+    const tapped = await barPg.evaluate(() => ({
+      rows: document.querySelectorAll('#modalRoot .mrows .mrow').length,
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth }));
+    t.ok('a tap on a row puts the food on the meal, in the list above',
+      tapped.rows === n0 + 1, JSON.stringify({ n0, tapped }));
+    t.ok('a thumb can hit the row', tapRow.h >= 44, JSON.stringify(tapRow));
+    t.ok('and the sheet does not scroll the page sideways', tapped.overflowX === 0, JSON.stringify(tapped));
 
-    /* Scrolled to the very end, the bar must not be sitting on the last row —
-       a pinned bar that hides what it is pinned over trades one unreachable
-       control for another. */
-    await barPg.evaluate(() => { const s = document.querySelector('.scrim'); s.scrollTop = s.scrollHeight; });
+    /* Scrolled to the very end, nothing pinned sits on the last row. */
+    await barPg.evaluate(() => { const s = document.querySelector('#modalRoot .scrim'); s.scrollTop = s.scrollHeight; });
     await barPg.waitForTimeout(300);
     const footGeo = await barPg.evaluate(() => {
-      const f = document.querySelector('.mp-foot').getBoundingClientRect();
-      const rows = [...document.querySelectorAll('.mpick-row')];
-      return { hidden: rows.filter((r) => {
-        const b = r.getBoundingClientRect();
-        return b.bottom > f.top + 1 && b.top < f.bottom;
-      }).length };
+      const rows = [...document.querySelectorAll('#modalRoot .mpick-row')];
+      const last = rows[rows.length - 1].getBoundingClientRect();
+      return { lastBottom: Math.round(last.bottom), view: window.innerHeight };
     });
-    t.ok('and at the end of the list it covers nothing',
-      footGeo.hidden === 0, JSON.stringify(footGeo));
-
-    /* THE ONE THAT NEARLY SHIPPED. Sticky only ever pulls an element UP from
-       where the flow put it, and the phone rule gives every sheet
-       min-height:100% — so on a list of one row the bar sat wherever the
-       content ended, measured 438px of empty sheet below it. Harmless while
-       it was two lines of grey text. Not harmless once it is the only way to
-       commit. */
-    await pickerList(barPg);
-    await barPg.waitForTimeout(400);
-    await barPg.fill('#mpFind', 'zzzzzqqq');
-    await barPg.waitForTimeout(500);
-    const shortList = await barPg.evaluate(() => {
-      const f = document.querySelector('.mp-foot');
-      if (!f) return null;
-      const fr = f.getBoundingClientRect();
-      return { rows: document.querySelectorAll('.mpick-row').length,
-        gapBelow: Math.round(window.innerHeight - fr.bottom) };
-    });
-    /* Two rows, not one: a query that matches nothing now carries a way on
-       from there — "look it up in the food tables" above "type it in
-       yourself". The claim being made here is the BAR's, and it is
-       gapBelow; the row count is only how the test says "this list does not
-       reach the fold". */
-    t.ok('a list too short to fill the screen still puts the bar on the bottom of it',
-      !!shortList && shortList.rows <= 2 && shortList.gapBelow === 0,
-      JSON.stringify(shortList));
+    t.ok('and at the end of the list nothing covers the last row',
+      footGeo.lastBottom <= footGeo.view, JSON.stringify(footGeo));
     await barPg.context().close();
 
     /* ---- ticking a plate must not truncate what you ate ------------------
@@ -126,12 +85,10 @@ module.exports = nourish({
     await wakePg.waitForTimeout(400);
     await wakePg.click('.tab[data-view="macros"]');
     await wakePg.waitForTimeout(300);
-    /* Lunch by name: the day arrives as a list of meal cards and the first
-       card is breakfast, which is empty (RP-style day, 2026-10-04). */
-    await wakePg.click('#macroSlots [data-mfold="l"][aria-expanded="false"]');
-    await wakePg.waitForTimeout(400);
+    /* Lunch's sheet, where its plates are dialled (2026-10-04). */
+    await openMeal(wakePg, 'l');
     const portionCells = () => wakePg.evaluate(() =>
-      [...document.querySelectorAll('.mstep-x')].map((e) => ({
+      [...document.querySelectorAll('#modalRoot .mrows .mstep-x')].map((e) => ({
         text: e.textContent.trim(), w: Math.round(e.getBoundingClientRect().width),
         clipped: e.scrollWidth > e.clientWidth + 1 })));
     const before2 = await portionCells();
@@ -139,11 +96,11 @@ module.exports = nourish({
        RP-style meal (Blake, 2026-10-04: "No individual foods ticks... I'll
        complete the whole meal"). Both plates go eaten, both portions become
        the wake-to-correct button this guard is about. */
-    await wakePg.click('[data-mdot="l"]');
+    await wakePg.click('#modalRoot .msh-h [data-mdot="l"]');
     await wakePg.waitForTimeout(350);
     t.ok('the meal\'s tick leaves every plate on it eaten, its portion the wake-to-correct button',
       await wakePg.evaluate(() => {
-        const rows = [...document.querySelectorAll('#macroSlots .mitem')];
+        const rows = [...document.querySelectorAll('#modalRoot .mrows .mitem')];
         return rows.length === 2 && rows.every((r) => r.classList.contains('eaten') &&
           !!r.querySelector('.mstep-x.mstep-wake[data-medit]'));
       }));
@@ -209,18 +166,20 @@ module.exports = nourish({
       JSON.stringify(emptyDelta));
 
     /* Now skip everything that is still empty. Skip lives in an empty meal's
-       ⋯ menu on its own screen since the RP-style meal (2026-10-04), so each
-       empty card is opened, its menu opened, and Skip today pressed. */
+       ⋯ in its sheet since 2026-10-04, so each empty tray is opened, its
+       menu opened, Skip today pressed, and back to the day. */
     for (let i = 0; i < 8; i++) {
-      const card = await skipPg2.$('#macroSlots .mday-card:not(.filled) [data-mfold][aria-expanded="false"]');
-      if (!card) break;
-      const sk = await card.getAttribute('data-mfold');
-      await card.click();
-      await skipPg2.waitForTimeout(250);
-      await skipPg2.click('[data-mmenu="' + sk + '"]');
+      const sk = await skipPg2.evaluate(() => {
+        const b = document.querySelector('#macroSlots .mtray:not(.filled) [data-mopen]');
+        return b ? b.dataset.mopen : null;
+      });
+      if (!sk) break;
+      await openMeal(skipPg2, sk);
+      await skipPg2.click('#modalRoot [data-mmenu="' + sk + '"]');
       await skipPg2.waitForTimeout(200);
-      await skipPg2.click('.mscreen-menu [data-mskip="' + sk + '"]');
+      await skipPg2.click('#modalRoot .msh-menu [data-mskip="' + sk + '"]');
       await skipPg2.waitForTimeout(250);
+      await closeSheet(skipPg2);
     }
     await skipPg2.waitForTimeout(300);
     const skipDelta = await deltaRows();
@@ -251,22 +210,19 @@ module.exports = nourish({
     await jumpPg.waitForTimeout(250);
     await addOn(jumpPg);
     await jumpPg.waitForTimeout(500);
-    /* One thing in the basket first: the duplicate key only ever existed once
-       an add had drawn the basket panel. */
+    /* One thing on the meal first: the duplicate key only ever existed once
+       an add had drawn a second copy of the food above the list (the
+       basket's, then; the meal's own rows, now). */
     await jumpPg.evaluate(() => {
       document.querySelectorAll('#modalRoot .mpick-row[data-mpick]')[0].click();
     });
     await jumpPg.waitForTimeout(400);
-    /* Asserted on the attribute itself, not on a live duplicate count: a
-       freshly added row usually RE-RANKS OUT of its band, so counting matches
-       finds one either way and passes against the bug. (It did — caught by
-       mutating the fix back in and watching this stay green.) */
-    await openBasket(jumpPg);
+    /* Asserted on the attribute itself, not on a live duplicate count. */
     const dupKeys = await jumpPg.evaluate(() => {
-      const outs = [...document.querySelectorAll('.mpb-out')];
-      return { n: outs.length, borrowing: outs.filter((b) => b.hasAttribute('data-mpick')).length };
+      const outs = [...document.querySelectorAll('#modalRoot .mrows .mrow')];
+      return { n: outs.length, borrowing: outs.filter((b) => !!b.querySelector('[data-mpick]')).length };
     });
-    t.ok('the basket’s remove control does not answer the list row’s attribute',
+    t.ok('the meal’s own rows do not answer the list row’s attribute',
       dupKeys.n > 0 && dupKeys.borrowing === 0, JSON.stringify(dupKeys));
 
     await jumpPg.evaluate(() => { document.querySelector('.scrim').scrollTop = 300; });
@@ -274,17 +230,24 @@ module.exports = nourish({
     const target = await jumpPg.evaluate(() => {
       const w = [...document.querySelectorAll('#modalRoot .mpick-wrap')]
         .find((x) => !x.classList.contains('in') &&
-          x.getBoundingClientRect().top > 90 && x.getBoundingClientRect().bottom < 560);
+          x.getBoundingClientRect().top > 250 && x.getBoundingClientRect().bottom < 560);
       if (!w) return null;
       const r = w.querySelector('.mpick-row').getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + 12 };
+      return { x: r.x + r.width / 2, y: r.y + 12, id: w.querySelector('.mpick-row').dataset.mpick };
     });
     if (target) await jumpPg.mouse.click(target.x, target.y);
     await jumpPg.waitForTimeout(450);
-    const heldScroll = await jumpPg.evaluate(() =>
-      Math.round(document.querySelector('.scrim').scrollTop));
+    /* The place is where the row you tapped SITS, not only scrollTop: the
+       tap now also adds a row to the meal's list above the picker, which
+       would push everything down under a held scrollTop. */
+    const heldScroll = await jumpPg.evaluate((id) => {
+      const r = document.querySelector('#modalRoot .mpick-row[data-mpick="' + id + '"]');
+      return { top: Math.round(document.querySelector('.scrim').scrollTop),
+        y: r ? Math.round(r.getBoundingClientRect().y + 12) : null };
+    }, target && target.id);
     t.ok('and adding it leaves the list where you were reading it',
-      !!target && heldScroll === 300, 'scrollTop ' + heldScroll + ' (was 300)');
+      !!target && heldScroll.top >= 300 && heldScroll.y !== null && Math.abs(heldScroll.y - target.y) <= 2,
+      JSON.stringify({ target, heldScroll }));
     await jumpPg.context().close();
 
     /* ---- the basket rides the bar, and a pick holds your place ------------
@@ -307,8 +270,8 @@ module.exports = nourish({
     await barPg2.waitForTimeout(250);
     await addOn(barPg2);
     await barPg2.waitForTimeout(500);
-    t.ok('the basket is not in the list, and the bar is shut to start with',
-      await barPg2.evaluate(() => !document.querySelector('.mp-basket')));
+    t.ok('there is no basket in the list, and no bar',
+      await barPg2.evaluate(() => !document.querySelector('.mp-basket, .mp-bar')));
 
     const heldAt = [];
     for (let i = 0; i < 3; i++) {
@@ -338,22 +301,27 @@ module.exports = nourish({
       await barPg2.waitForTimeout(200);
       const box = await barPg2.evaluate(() => {
         const w = [...document.querySelectorAll('#mpList .mpick-wrap:not(.in)')]
-          .find((x) => x.getBoundingClientRect().top > 120 &&
+          .find((x) => x.getBoundingClientRect().top > 260 &&
             x.getBoundingClientRect().bottom < window.innerHeight - 90);
         if (!w) return null;
         const r = w.querySelector('.mpick-row').getBoundingClientRect();
-        return { x: r.x + r.width / 2, y: r.y + 12 };
+        return { x: r.x + r.width / 2, y: r.y + 12, id: w.querySelector('.mpick-row').dataset.mpick };
       });
       if (!box) break;
       /* A REAL pointer click: a scripted one never moves focus, and the focus
          restore is half of what used to move the list. */
       await barPg2.mouse.click(box.x, box.y);
       await barPg2.waitForTimeout(400);
-      heldAt.push({ was: at, now: await barPg2.evaluate(() =>
-        Math.round(document.querySelector('.scrim').scrollTop)) });
+      /* Where the tapped row SITS: each tap also puts a row on the meal's
+         list above the picker (2026-10-04), so a held scrollTop alone would
+         let the list slide down a row per tap. */
+      heldAt.push({ was: box.y, now: await barPg2.evaluate((id) => {
+        const r = document.querySelector('#mpList .mpick-row[data-mpick="' + id + '"]');
+        return r ? Math.round(r.getBoundingClientRect().y + 12) : null;
+      }, box.id) });
     }
     t.ok('adding something leaves the list where you were reading it',
-      heldAt.length === 3 && heldAt.every((h) => h.now === h.was),
+      heldAt.length === 3 && heldAt.every((h) => h.now !== null && Math.abs(h.now - h.was) <= 2),
       JSON.stringify(heldAt));
     /* The ✓ and the green wash a picked row wears had nothing to wear them
        while picked rows disappeared. */
@@ -361,24 +329,10 @@ module.exports = nourish({
       await barPg2.evaluate(() =>
         document.querySelectorAll('#mpList .mpick-wrap.in').length === 3));
 
-    const railBar = await barPg2.evaluate(() => {
-      const bar = document.querySelector('.mp-bar').getBoundingClientRect();
-      return { bottom: Math.round(bar.bottom), view: window.innerHeight,
-        h: Math.round(bar.height), basket: !!document.querySelector('.mp-basket') };
-    });
-    t.ok('the bar stays on the bottom of the screen and stays shut',
-      railBar.bottom === railBar.view && !railBar.basket, JSON.stringify(railBar));
-
-    await barPg2.click('[data-mpbasket]');
-    await barPg2.waitForTimeout(350);
-    t.ok('and pressing what it costs shows what it is made of',
-      await barPg2.evaluate(() => {
-        const bar = document.querySelector('.mp-bar').getBoundingClientRect();
-        const bk = document.querySelector('.mp-basket');
-        return !!bk && bk.querySelectorAll('.mpb-row').length === 3 &&
-          Math.round(bar.bottom) === window.innerHeight &&
-          bar.height <= window.innerHeight * 0.6;
-      }));
+    /* What you have picked is on the meal's own list above, all three. (Was:
+       the basket bar on the bottom, opened to show what it was made of.) */
+    t.ok('and the meal\u2019s list above holds all three',
+      await barPg2.evaluate(() => document.querySelectorAll('#modalRoot .mrows .mrow').length >= 3));
     await barPg2.context().close();
 
     /* ---- searching narrows the list instead of replacing it --------------
@@ -650,30 +604,30 @@ module.exports = nourish({
     await paper.waitForTimeout(250);
     await paper.click('#macroFill');
     await paper.waitForTimeout(700);
-    /* Restated for the RP-style day (2026-10-04): there is no folding a meal
-       by hand to set this up any more — the day IS a list of folded meal
-       cards (.mday-card), and pressing one opens that meal as its own screen.
-       So the filled day is read as it stands, every meal a card, and printing
-       it has to open each of them with its plates. */
-    const folded = () => paper.evaluate(() => document.querySelectorAll('#macroSlots .mday-card.filled').length);
-    const foldedBefore = await folded();
-    t.ok('a meal can be folded, so the printer has something to open',
-      foldedBefore > 0 && !await paper.$('#macroSlots .mitem'), String(foldedBefore));
+    /* Restated for the trays (2026-10-04): nothing on the day folds, and
+       every tray carries its foods with their amounts — so what went wrong
+       here (a folded meal printed as dish names with no numbers) cannot, and
+       printing has to leave that so and not throw. */
+    const amounts = () => paper.evaluate(() => {
+      const lines = [...document.querySelectorAll('#macroSlots .mtray.filled .mtray-f')];
+      return { n: lines.length, withAmount: lines.filter((l) => /\d/.test((l.querySelector('em') || {}).textContent || '')).length };
+    });
+    const before3 = await amounts();
+    t.ok('a filled day\u2019s trays carry every food with its amount',
+      before3.n > 0 && before3.withAmount === before3.n, JSON.stringify(before3));
     paperErrs.length = 0;
     await paper.emulateMedia({ media: 'print' });
     await paper.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await paper.waitForTimeout(500);
-    const onPaper = await folded();
-    t.ok('the day opens for the printer rather than throwing',
-      paperErrs.length === 0 && onPaper === 0 &&
-        await paper.evaluate((n) => document.querySelectorAll('#macroSlots .mscreen.filled').length === n &&
-          [...document.querySelectorAll('#macroSlots .mscreen.filled')].every((m) => !!m.querySelector('.mitem')), foldedBefore),
-      'errors ' + JSON.stringify(paperErrs) + ' folded-on-paper ' + onPaper);
+    const onPaper = await amounts();
+    t.ok('the day goes to the printer with its amounts, and without throwing',
+      paperErrs.length === 0 && onPaper.n === before3.n && onPaper.withAmount === onPaper.n,
+      'errors ' + JSON.stringify(paperErrs) + ' ' + JSON.stringify(onPaper));
     await paper.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await paper.waitForTimeout(400);
-    t.ok('and closes again afterwards, still without throwing',
-      paperErrs.length === 0 && await folded() === foldedBefore,
-      JSON.stringify(paperErrs) + ' folded ' + await folded());
+    t.ok('and comes back afterwards, still without throwing',
+      paperErrs.length === 0 && (await amounts()).n === before3.n,
+      JSON.stringify(paperErrs));
     await paper.context().close();
   },
 });

@@ -537,8 +537,11 @@
       ranked.map(function (e) {
       /* Ranked by how well it fits, offered at what you have — the fit
          itself is the chip beside it. */
+      /* A row a tap already put on the meal is fitted without its own
+         plate (mpFitX); the ranking's figure counts it twice. */
       return mpRowHTML(e.r, mDefaultX(e.r), undefined,
-        e.score !== null && e.score !== undefined ? e.x : null);
+        S.mpBasket[e.r.id] !== undefined ? mpFitX(e.r)
+          : e.score !== null && e.score !== undefined ? e.x : null);
     }).join('');
   }
 

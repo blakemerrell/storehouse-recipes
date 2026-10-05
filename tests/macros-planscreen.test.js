@@ -5,26 +5,21 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish } = require('./fixtures/nourish.js');
+const { nourish, openMeal: openMeal0, closeSheet } = require('./fixtures/nourish.js');
 
-/* Since 2026-10-04 (Blake: "the RP Diet way") the day is a list of folded meal
-   cards and a press on one opens that meal as its own screen, with the rest of
-   the day stepped aside. A meal's plates and its Add are behind that press, so
-   a test reaching for them opens the meal the way a thumb does — coming back
-   to the day first if another meal is the one on screen. */
+/* Since 2026-10-04 the day is trays and a meal opens as one sheet over it:
+   its plates and the picker are in the sheet, so a test reaching for them
+   opens the meal the way a thumb does — closing another meal's sheet first. */
 async function openMeal(pg, sk) {
-  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
-  if (back && (await back.getAttribute('data-mfold')) !== sk) {
-    await back.click();
-    await pg.waitForTimeout(250);
-  }
-  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
-  if (b) { await b.click(); await pg.waitForTimeout(250); }
+  const on = await pg.evaluate(() => {
+    const d = document.querySelector('#modalRoot .msheet [data-mbal], #modalRoot .msheet [data-mmenu]');
+    return d ? (d.dataset.mbal || d.dataset.mmenu) : (document.querySelector('#modalRoot .msheet') ? '?' : '');
+  });
+  if (on === sk) return;
+  if (on) await closeSheet(pg);
+  await openMeal0(pg, sk);
 }
-async function backToDay(pg) {
-  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
-  if (back) { await back.click(); await pg.waitForTimeout(250); }
-}
+async function backToDay(pg) { await closeSheet(pg); }
 
 module.exports = nourish({
   name: 'Macros — the plan screen, pins, and the solver',
@@ -250,17 +245,16 @@ module.exports = nourish({
     const pinDay = (await pinPg.innerText('#view-macros')).replace(/\s+/g, ' ');
     t.ok('but Fill puts the pin back, because a pin is a standing instruction',
       /Crio Bru/.test(pinDay) && (await pinB()).indexOf('f:crio_bru') >= 0, pinDay.slice(0, 200));
-    // the meal's kcal pill is on its day card, so back to the day to read it
+    // the meal's calories are on its tray, so back to the day to read them
     await backToDay(pinPg);
 
     /* The pin must not be the whole of breakfast. Read off the bench rather
        than the card's own number, which is formatted with a comma. */
     const bKcal = await pinPg.evaluate(() => {
       const day = window.__macroLab.read ? null : null;
-      const rows = [...document.querySelectorAll('.mday-stop')];
-      const b = rows.find((r) => /BREAKFAST/i.test(r.innerText));
-      const m = b && b.innerText.replace(/,/g, '').match(/(\d{2,5})\s*\u{1F525}/u);
-      return m ? Number(m[1]) : null;
+      const b = document.querySelector('[data-mopen="b"]');
+      const k2 = b && b.closest('.mtray') && b.closest('.mtray').querySelector('.mtray-k b');
+      return k2 ? Number(k2.textContent.replace(/,/g, '')) : null;
     });
     t.ok('and fills the meal around it rather than counting it as done',
       bKcal !== null && bKcal > 100, 'breakfast came to ' + bKcal + ' kcal');
@@ -485,10 +479,9 @@ module.exports = nourish({
     await auPg.click('.tab[data-view="macros"]');
     await auPg.waitForTimeout(300);
     const fitsOf = async (slotKey) => {
-      // Add foods sits at the foot of the open meal (2026-10-04)
+      // the picker is in the meal's own sheet (2026-10-04)
       await openMeal(auPg, slotKey);
-      await auPg.click('[data-mslot="' + slotKey + '"]');
-      await auPg.waitForTimeout(500);
+      await auPg.waitForTimeout(250);
       const rows = await auPg.evaluate(() => {
         const ds = [...document.querySelectorAll('#mpList .mt-div')];
         const h = ds.find((d) => /fits best|on the shelf/i.test(d.innerText));
@@ -637,12 +630,15 @@ module.exports = nourish({
       t.ok('typing 185 is a hundred and eighty-five grams', c2.dial === '185 g', JSON.stringify(c2));
       t.ok('stored as a share of the cup, not as servings', Math.abs(stored * cup.grams - 185) < 0.6, stored + ' × ' + cup.grams);
       const e0 = await row('b');
-      /* An egg's weight led a panel of its own earlier on 2026-10-04; the
-         RP-style food card that replaced it the same day has no panel, and
-         its chip carries a kitchen word only for a food dialled by the gram.
-         So the egg is held to counting in ones on the dial, with no weight
-         standing in for the count on its chip. */
-      t.ok('but an egg still counts in ones', /^2 whole$/.test(e0.dial) && !/^\d+ g$/.test(e0.chip.trim()), JSON.stringify(e0));
+      /* Grams are the dial for every food with a weight since 2026-10-04
+         (Blake: "I dial in grams of food not kitchen measurements"), an egg
+         included — but nobody eats a fraction of one, so it still steps a
+         whole egg at a time, and the count is the small print. */
+      t.ok('an egg says its weight on the dial and its count in the small print', /^100 g$/.test(e0.dial) && /^2 whole$/.test(e0.chip.trim()), JSON.stringify(e0));
+      await gp.click('[data-mstep="b:0:up"]');
+      await gp.waitForTimeout(150);
+      const e1 = await row('b');
+      t.ok('but an egg still counts in ones: a tap is one more egg', /^150 g$/.test(e1.dial) && /^3 whole$/.test(e1.chip.trim()), JSON.stringify(e1));
       await gp.context().close();
     }
   },

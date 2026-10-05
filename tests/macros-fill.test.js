@@ -5,28 +5,13 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openWeigh, openPlan, pickerList } = require('./fixtures/nourish.js');
+const { nourish, openWeigh, openPlan, pickerList, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
-/* The day is a list of meal cards and a meal opens as its own screen (the RP
-   Diet way, Blake 2026-10-04). Add foods and a food's ⋯ live on the open
-   meal; Fill lives on the day's bar, which steps aside while a meal is in
-   focus. So a test opens the meal it means, and comes back to the day — by
-   the meal's back button — before it reaches for the bar. */
-async function toDay(pg) {
-  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
-  if (!back) return;
-  await back.click();
-  await pg.waitForTimeout(250);
-}
-async function openMeal(pg, sk) {
-  const other = await pg.evaluate((s) => {
-    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
-    return !!b && b.dataset.mfold !== s;
-  }, sk);
-  if (other) await toDay(pg);
-  const card = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
-  if (card) { await card.click(); await pg.waitForTimeout(250); }
-}
+/* The day is trays and a meal opens as one sheet (Blake, 2026-10-04): the
+   picker and a food's ⋯ live in the meal's sheet; Fill lives on the day's
+   bar, under the sheet. So a test opens the meal it means, and closes its
+   sheet before it reaches for the bar. */
+async function toDay(pg) { await closeSheet(pg); }
 
 module.exports = nourish({
   name: 'Macros — the plan calculator, favorites, and Fill my day',
@@ -475,7 +460,6 @@ module.exports = nourish({
 
     // ---- a favorite never ranks worse for being loved, and wears its star
     await openMeal(q, 'b');
-    await q.click('[data-mslot="b"]');
     await pickerList(q);
     await q.waitForTimeout(200);
     /* A recipe from the middle of the ranking. Recipes only, because the line
@@ -495,7 +479,6 @@ module.exports = nourish({
     }, mid.id);
     await q.waitForTimeout(200);
     await openMeal(q, 'b');
-    await q.click('[data-mslot="b"]');
     await pickerList(q);
     await q.waitForTimeout(200);
     const after = await q.evaluate((id) => {

@@ -5,7 +5,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish } = require('./fixtures/nourish.js');
+const { nourish, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — trained today, Plan today, the week strip, and Balance',
@@ -244,18 +244,17 @@ module.exports = nourish({
       await gapPg.waitForTimeout(400);
       await gapPg.click('.tab[data-view="macros"]');
       await gapPg.waitForTimeout(300);
-      await gapPg.click('#macroAdd');
-      await gapPg.waitForTimeout(350);
-      await gapPg.click('[data-mpslot="d"]');
-      await gapPg.waitForTimeout(350);
-      return gapPg.evaluate(() => [...document.querySelectorAll('.mgp')].map((e) => {
-        const st = e.getAttribute('style') || '';
-        const hit = st.match(/0\s+([\d.]+)%/);
+      /* Dinner's sheet: its pills are the meal's own (2026-10-04), the
+         figure over its share, filled toward it. */
+      await openMeal(gapPg, 'd');
+      return gapPg.evaluate(() => [...document.querySelectorAll('#modalRoot .msh-top .mcap')].map((e) => {
+        const fl = e.querySelector('.mcap-fl');
+        const hit = ((fl && fl.getAttribute('style')) || '').match(/width:\s*([\d.]+)%/);
         const cs = getComputedStyle(e);
-        const nums = (e.textContent.match(/\d+/g) || []).map(Number);
+        const nums = (e.textContent.replace(/,/g, '').match(/\d+/g) || []).map(Number);
         return { pct: hit ? Number(hit[1]) : null,
-          grad: /linear-gradient/.test(st),
-          met: e.classList.contains('met'),
+          grad: !!fl,
+          met: nums[0] >= nums[nums.length - 1] && (e.classList.contains('on') || e.classList.contains('over')),
           both: /\d+\s*\/\s*\d+/.test(e.textContent),
           got: nums[0], want: nums[nums.length - 1],
           radius: parseFloat(cs.borderRadius),
@@ -266,7 +265,7 @@ module.exports = nourish({
     };
 
     const gapEmpty = await gapAt(0);
-    t.ok('every pill on the add sheet is still a pill, and is drawn with a fill',
+    t.ok('every pill on the meal\u2019s sheet is still a pill, and is drawn with a fill',
       gapEmpty.length === 4 && gapEmpty.every((g) => g.grad && g.radius >= 12),
       JSON.stringify(gapEmpty.map((g) => g.radius + '/' + g.grad)));
     t.ok('and each says both halves — what is on the meal, and what it is for',
@@ -290,12 +289,11 @@ module.exports = nourish({
 
     /* One helper draws both rows. They were two gradients written out
        separately, which is how two things that must match stop matching. */
-    await gapPg.click('.sheet-x, [data-close]');
-    await gapPg.waitForTimeout(400);
+    await closeSheet(gapPg);
     const gapDay = await gapPg.evaluate(() =>
       [...document.querySelectorAll('.mpill')].map((e) =>
         /linear-gradient\(90deg/.test(e.getAttribute('style') || '')));
-    t.ok('and the day’s folded pills are drawn by the same hand',
+    t.ok('and the day’s folded pills are drawn with a fill too',
       gapDay.length > 0 && gapDay.every(Boolean), JSON.stringify(gapDay));
     await gapPg.context().close();
 
@@ -426,50 +424,47 @@ module.exports = nourish({
       await pg.waitForTimeout(400);
       await pg.click('.tab[data-view="macros"]');
       await pg.waitForTimeout(350);
-      /* Skip lives behind an empty meal's ⋯ on its own screen since the
-         RP-style meal (2026-10-04): opened, its menu shown, skipped. A skip
-         that finds nothing to press is asserted, not swallowed. */
+      /* Skip lives behind an empty meal's ⋯ in its sheet since 2026-10-04:
+         opened, its menu shown, skipped, and back to the day. A skip that
+         finds nothing to press is asserted, not swallowed. */
       for (const sk of skips) {
+        await openMeal(pg, sk);
         await pg.evaluate((s2) => {
-          const b = document.querySelector('#macroSlots [data-mfold="' + s2 + '"][aria-expanded="false"]');
-          if (b) b.click();
-        }, sk);
-        await pg.waitForTimeout(250);
-        await pg.evaluate((s2) => {
-          const m = document.querySelector('[data-mmenu="' + s2 + '"]');
+          const m = document.querySelector('#modalRoot [data-mmenu="' + s2 + '"]');
           if (m && m.getAttribute('aria-expanded') !== 'true') m.click();
         }, sk);
         await pg.waitForTimeout(200);
         await pg.evaluate((s2) => {
-          const b = document.querySelector('[data-mskip="' + s2 + '"]');
+          const b = document.querySelector('#modalRoot [data-mskip="' + s2 + '"]');
           if (b) b.click();
         }, sk);
         await pg.waitForTimeout(250);
+        await closeSheet(pg);
       }
       if (skips.length) {
         t.ok('the meals ' + skips.join(', ') + ' were skipped from their menus',
-          await pg.evaluate(() => document.querySelectorAll('#macroSlots .mslot-skipped').length), String(skips));
+          await pg.evaluate((n) => document.querySelectorAll('#macroSlots .mtray-skip').length === n, skips.length), String(skips));
       }
       return pg;
     };
-    /* Found by its NAME, and read FOLDED. The meal's pills are on its day
-       card since the RP-style day (2026-10-04) — the open meal draws
-       capsules and no head pills — so a lunch left open is taken back to the
-       day first. */
-    const lunchOf = (pg) => pg.evaluate(() => {
-      const back = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
-      if (back) back.click();
-      const open = [...document.querySelectorAll('.mslot.mday-card')]
-        .find((c) => ((c.querySelector('.mslot-name') || {}).textContent || '') === 'Lunch');
-      const L = window.__macroLab.read();
-      const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
-      return {
-        want: open ? [...open.querySelectorAll('.mcard-p .mmp')].map((e) =>
-          Number(e.dataset.want) || 0) : null,
-        kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
-        xs: meal.items.map((i) => i.x).join(','),
-      };
-    });
+    /* Found by its NAME, on the day: a tray says what its meal is asked for
+       ("352 / 959") since 2026-10-04, so a lunch left open in its sheet is
+       closed first. */
+    const lunchOf = async (pg) => {
+      await closeSheet(pg);
+      return pg.evaluate(() => {
+        const tray = [...document.querySelectorAll('#macroSlots .mtray')]
+          .find((c) => ((c.querySelector('.mtray-n') || {}).textContent || '') === 'Lunch');
+        const L = window.__macroLab.read();
+        const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
+        const k = tray && ((tray.querySelector('.mtray-k') || {}).textContent || '').split('/')[1];
+        return {
+          want: k ? [Number(k.replace(/[^\d]/g, ''))] : null,
+          kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
+          xs: meal.items.map((i) => i.x).join(','),
+        };
+      });
+    };
 
     const plain = await balDay([]);
     /* Every other meal skipped, so lunch's share is the whole day against the
@@ -486,14 +481,11 @@ module.exports = nourish({
        empty meal from the sum; the button divided by every slot regardless —
        so the SAME two dishes solved to exactly the same portions on both of
        these days, while the cards above them printed different targets. */
-    /* The scales are on the open lunch's head (2026-10-04), so each lunch is
-       opened to press them. */
-    for (const pg of [plain, withSkips]) {
-      await pg.evaluate(() => { const b = document.querySelector('#macroSlots [data-mfold="l"][aria-expanded="false"]'); if (b) b.click(); });
-      await pg.waitForTimeout(250);
-    }
-    await plain.click('[data-mbal="l"]');
-    await withSkips.click('[data-mbal="l"]');
+    /* The scales are in lunch's sheet (2026-10-04), so each lunch is opened
+       to press them. */
+    for (const pg of [plain, withSkips]) await openMeal(pg, 'l');
+    await plain.click('#modalRoot [data-mbal="l"]');
+    await withSkips.click('#modalRoot [data-mbal="l"]');
     await plain.waitForTimeout(700);
     await withSkips.waitForTimeout(700);
     const plainAfter = await lunchOf(plain);
@@ -685,14 +677,11 @@ module.exports = nourish({
     await wake.waitForTimeout(300);
     await wake.click('#macroFill');
     await wake.waitForTimeout(600);
-    await wake.evaluate(() => {
-      const b = document.querySelector('.mslot-head[aria-expanded="false"]');
-      if (b) b.click();
-    });
-    await wake.waitForTimeout(300);
+    /* The first meal Fill put food on, opened in its sheet (2026-10-04). */
+    await openMeal(wake, await wake.evaluate(() => document.querySelector('#macroSlots .mtray.filled [data-mopen]').dataset.mopen));
     /* the type BEFORE it is eaten, to compare against after */
     const typeWas = await wake.evaluate(() => {
-      const c = getComputedStyle(document.querySelector('.mstep-x'));
+      const c = getComputedStyle(document.querySelector('#modalRoot .mrows .mstep-x'));
       return { size: c.fontSize, weight: c.fontWeight };
     });
     /* Scrolled to the middle first, as a thumb would. At the top of an
@@ -707,10 +696,10 @@ module.exports = nourish({
        per-plate tick since the RP-style day (Blake, 2026-10-04: "No
        individual foods ticks... I'll complete the whole meal"), and ticking
        the whole meal is what eats this plate now. */
-    await wake.click('.mscreen-focus [data-mdot]');
+    await wake.click('#modalRoot .msh-h [data-mdot]');
     await wake.waitForTimeout(400);
     t.ok('a locked portion offers a way back in',
-      await wake.evaluate(() => !!document.querySelector('.mstep-wake')));
+      await wake.evaluate(() => !!document.querySelector('#modalRoot .mstep-wake')));
     /* And it does not change SIZE on the way.
      *
        Ticking a plate made its portion jump from 12px to 15px, because the
@@ -720,21 +709,24 @@ module.exports = nourish({
        type, eaten or not. */
     t.ok('and the portion does not grow just because it was eaten',
       await wake.evaluate((was) => {
-        const c = getComputedStyle(document.querySelector('.mstep-x'));
-        return c.fontSize === was.size && c.fontWeight === was.weight;
+        const c = getComputedStyle(document.querySelector('#modalRoot .mrows .mstep-x'));
+        /* The same size, and no heavier: an eaten portion is drawn a touch
+           lighter in the meal's sheet (2026-10-04), which is it settling down,
+           not shouting. */
+        return c.fontSize === was.size && Number(c.fontWeight) <= Number(was.weight);
       }, typeWas),
       await wake.evaluate(() => {
-        const c = getComputedStyle(document.querySelector('.mstep-x'));
+        const c = getComputedStyle(document.querySelector('#modalRoot .mrows .mstep-x'));
         return 'eaten ' + c.fontSize + '/' + c.fontWeight;
       }));
-    await wake.click('.mstep-wake');
+    await wake.click('#modalRoot .mstep-wake');
     await wake.waitForTimeout(400);
     const woke = await wake.evaluate(() => {
-      const st = document.querySelector('.mstep');
+      const st = document.querySelector('#modalRoot .mrows .mstep');
       return { live: [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled),
         grey: st.classList.contains('spent'),
         stillEaten: st.closest('.mitem').classList.contains('eaten') &&
-          document.querySelector('.mscreen-focus [data-mdot]').getAttribute('aria-pressed') === 'true' };
+          document.querySelector('#modalRoot .msh-h [data-mdot]').getAttribute('aria-pressed') === 'true' };
     });
     t.ok('and one tap wakes it, without unticking the meal',
       woke.live && !woke.grey && woke.stillEaten, JSON.stringify(woke));
@@ -742,9 +734,9 @@ module.exports = nourish({
        refused by the handler's own rule. */
     t.ok('and the portion can then be changed',
       await wake.evaluate(() => {
-        const was = document.querySelector('.mstep-x').textContent.trim();
-        document.querySelector('[data-mstep$=":up"]').click();
-        return document.querySelector('.mstep-x').textContent.trim() !== was;
+        const was = document.querySelector('#modalRoot .mrows .mstep-x').textContent.trim();
+        document.querySelector('#modalRoot [data-mstep$=":up"]').click();
+        return document.querySelector('#modalRoot .mrows .mstep-x').textContent.trim() !== was;
       }));
 
     /* Ten "not that one"s is disagreement, not exhaustion — a lunch has forty
@@ -827,14 +819,10 @@ module.exports = nourish({
     await spent.waitForTimeout(300);
     await spent.click('#macroFill');
     await spent.waitForTimeout(600);
-    // open a meal so a plate and its stepper are on screen
-    await spent.evaluate(() => {
-      const b = document.querySelector('.mslot-head[aria-expanded="false"]');
-      if (b) b.click();
-    });
-    await spent.waitForTimeout(300);
+    // open a meal's sheet so a plate and its stepper are on screen
+    await openMeal(spent, await spent.evaluate(() => document.querySelector('#macroSlots .mtray.filled [data-mopen]').dataset.mopen));
     const stepWas = await spent.evaluate(() => {
-      const st = document.querySelector('.mstep');
+      const st = document.querySelector('#modalRoot .mrows .mstep');
       return { x: st.querySelector('.mstep-x').textContent.trim(),
         live: [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled),
         grey: st.classList.contains('spent') };
@@ -842,17 +830,16 @@ module.exports = nourish({
     t.ok('an uneaten plate can still be resized', stepWas.live && !stepWas.grey,
       JSON.stringify(stepWas));
 
-    /* The meal's tick, on the open meal's head (2026-10-04): see the same
+    /* The meal's tick, in the sheet's header (2026-10-04): see the same
        note in "One tap on a spent portion", above. */
-    await spent.click('.mscreen-focus [data-mdot]');
+    await spent.click('#modalRoot .msh-h [data-mdot]');
     await spent.waitForTimeout(400);
+    /* The lock is not on the dial: it guards against the machine rather than
+       against you, and it lives behind the food's ⋯ since 2026-10-04. */
+    await spent.evaluate(() => document.querySelector('#modalRoot .mrows [data-mfmenu]').click());
+    await spent.waitForTimeout(250);
     const stepNow = await spent.evaluate(() => {
-      const st = document.querySelector('.mstep');
-      /* The lock is a SIBLING of the dial now, not a cell inside it. It
-         guards against the machine rather than against you — Rebalance
-         leaves a locked plate alone while the stepper still works — so it
-         was never a part of the dial, and sitting in it paired "hold this
-         still" with "make this bigger". */
+      const st = document.querySelector('#modalRoot .mrows .mstep');
       const lock = st.closest('.mitem').querySelector('.mlock');
       return { x: st.querySelector('.mstep-x').textContent.trim(),
         dead: [...st.querySelectorAll('[data-mstep]')].every((b) => b.disabled),
@@ -873,6 +860,8 @@ module.exports = nourish({
       stepNow.lockStillLive, JSON.stringify(stepNow));
     t.ok('and greys it, rather than leaving it looking live', stepNow.faded,
       JSON.stringify(stepNow));
+    await spent.click('#modalRoot .msh-t');
+    await spent.waitForTimeout(250);
     /* Still readable: the number is the whole point of keeping the row. */
     t.ok('and the portion it was eaten at is still on the card',
       stepNow.x === stepWas.x && stepNow.x.length > 0, stepWas.x + ' -> ' + stepNow.x);
@@ -882,22 +871,21 @@ module.exports = nourish({
        another road still has to be refused. */
     t.ok('and the day does not move even if the press gets through',
       await spent.evaluate(() => {
-        const st = document.querySelector('.mstep');
+        const st = document.querySelector('#modalRoot .mrows .mstep');
         const was = st.querySelector('.mstep-x').textContent.trim();
         const b = st.querySelector('[data-mstep$=":up"]');
         b.disabled = false;               // the paint comes off
         b.click();
-        const now = document.querySelector('.mstep .mstep-x').textContent.trim();
+        const now = document.querySelector('#modalRoot .mrows .mstep .mstep-x').textContent.trim();
         return was === now;
       }));
 
-    /* The meal's tick, on the open meal's head (2026-10-04): see the same
-       note in "One tap on a spent portion", above. */
-    await spent.click('.mscreen-focus [data-mdot]');
+    /* The meal's tick, in the sheet's header (2026-10-04). */
+    await spent.click('#modalRoot .msh-h [data-mdot]');
     await spent.waitForTimeout(400);
     t.ok('unticking hands the stepper back',
       await spent.evaluate(() => {
-        const st = document.querySelector('.mstep');
+        const st = document.querySelector('#modalRoot .mrows .mstep');
         return !st.classList.contains('spent') &&
           [...st.querySelectorAll('[data-mstep]')].every((b) => !b.disabled);
       }));
@@ -964,9 +952,9 @@ module.exports = nourish({
     await noRoom.waitForTimeout(500);
     t.ok('a day with no room left is not filled with food anyway',
       await noRoom.evaluate(() =>
-        document.querySelectorAll('.mitem, .mcard-shut').length === 0),
+        document.querySelectorAll('.mitem, #macroSlots .mtray-f:not(.mtray-none)').length === 0),
       await noRoom.evaluate(() =>
-        document.querySelectorAll('.mitem, .mcard-shut').length + ' plates drafted'));
+        document.querySelectorAll('.mitem, #macroSlots .mtray-f:not(.mtray-none)').length + ' plates drafted'));
     await noRoom.context().close();
   },
 });

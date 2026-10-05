@@ -151,13 +151,27 @@
 
   /* The meal's four, against its share: the figure over the target, filled
      toward it and coloured by where it stands. */
-  function capsHTML(sub, aim) {
+  function capsHTML(sub, aim, spent, capped) {
     if (!aim) return '';
+    spent = spent || {};
     return [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
+      /* A macro the day can no longer pay for says so: a dashed pill and the
+         figure on the plate (or a dash), never "N/0" — the old day pills'
+         rule (mMealPillsHTML), kept for the sheet. */
+      if (spent[x[0]]) {
+        var hv = sub[x[0]] || 0;
+        return '<span class="mcap spent" data-want="0"><span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' +
+          (hv > 0 ? fmtK(hv) : '&mdash;') + '<em> none left</em></span></span>';
+      }
       var have = sub[x[0]] || 0, a = x[0] === 'kcal' ? (aim.kcal || (4 * aim.p + 9 * aim.f + 4 * aim.c)) : (aim[x[0]] || 0);
       var pct = a > 0 ? Math.min(100, have * 100 / a) : 0;
       var cls = x[0] !== 'p' && have > a * 1.08 ? 'over' : have >= a * 0.92 ? 'on' : '';
-      return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
+      /* The calorie pill of a meal asked for as much (or as little) as a meal
+         can be: the number is the limit the arithmetic ran into, not its
+         answer — the old day pills' mark (mmp-cap), kept. */
+      if (capped && x[0] === 'kcal') cls += ' mcap-max';
+      return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"' +
+        (capped && x[0] === 'kcal' ? ' title="The most this meal can be asked for"' : '') + '><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
         '<span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' + fmtK(have) + '<em>/' + fmtK(a) + '</em></span></span>';
     }).join('');
   }
@@ -284,7 +298,7 @@
         body: '<div class="msh-skipped">' + esc(name) + ' is skipped today. Its share went to the rest.' +
           '<button class="ghost mslot-unskip" data-mskip="' + esc(sk) + '">Put ' + esc(name) + ' back</button></div>' };
     }
-    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim) + '</div>' +
+    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>' +
       (mk.snap
         ? '<div class="mscreen-say">' + (mk.n ? mk.n + (mk.n === 1 ? ' amount' : ' amounts') + ' changed' : 'Already as close as it gets') +
           ' <button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button></div>'
@@ -293,7 +307,7 @@
       var r = LIVE.BY_ID[it.id];
       return r ? foodRowHTML(M, r, it, i, mk) : '';
     }).join('');
-    return { name: name, head: head, stick: stick, skipped: false,
+    return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan,
       rows: '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet.</div>') + '</div>' };
   }
 
@@ -499,10 +513,13 @@
       /* Skipped: one line. Its way back is in its sheet; the chooser for
          where its share goes (the largest cascade there is) rides under it. */
       if (onPlan && !items.length && mSkipped(k, sk)) {
+        /* With the card under it asking where the share goes, the line does
+           not claim it simply went to the rest. */
+        var skSend = mCascadeLineHTML(sk, targets, slots);
         return '<button class="mtray-skip" data-mopen="' + esc(sk) + '" aria-label="' + esc(name) + ', skipped. Open it">' +
             '<span class="mtray-n">' + esc(name) + '</span>' +
-            '<span class="mtray-sw">skipped &middot; its share went to the rest</span>' +
-          '</button>' + mCascadeLineHTML(sk, targets, slots);
+            '<span class="mtray-sw">' + (skSend ? 'skipped' : 'skipped &middot; its share went to the rest') + '</span>' +
+          '</button>' + skSend;
       }
 
       var lines = items.map(function (it) {

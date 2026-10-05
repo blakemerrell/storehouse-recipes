@@ -34,9 +34,9 @@ module.exports = {
     /* Typing: one row. */
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(700);
-    /* The bar's Add food: a meal's own Add is inside its screen since the meal
-       became one (2026-10-04). */
-    await p.evaluate(() => { const b = document.querySelector('[data-mslot]') || document.getElementById('macroAdd'); b && b.click(); });
+    /* A meal's tray opens its sheet, the one place food is added
+       (2026-10-04); the pick goes straight on the meal, whose row is above. */
+    await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b && b.click(); });
     await p.waitForTimeout(500);
     await p.fill('#mpFind', 'cottage');
     await p.waitForTimeout(300);
@@ -44,9 +44,8 @@ module.exports = {
       const row = [...document.querySelectorAll('.mpick-row[data-mpick]')].find((x) => x.dataset.mpick.indexOf('f:') === 0 && /cottage/i.test(x.textContent));
       row && row.click();
     });
-    await p.click('[data-mpdone]').catch(() => {});
     await p.waitForTimeout(500);
-    await p.evaluate(() => { const b = document.querySelector('.mstep-type'); b && b.click(); });
+    await p.evaluate(() => { const b = document.querySelector('#modalRoot .mstep-type'); b && b.click(); });
     await p.waitForTimeout(300);
     const row = await p.evaluate(() => {
       const i = document.querySelector('.mstep-in'), u = i && i.parentElement.querySelector('i');

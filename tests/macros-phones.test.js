@@ -34,12 +34,12 @@ module.exports = nourish({
       return { has: Object.prototype.hasOwnProperty.call(sp, enc),
         v: sp[enc] ? sp[enc].v : null, at: sp[enc] ? sp[enc].at : 0 };
     });
-    /* Skip lives in the open meal's ⋯ menu since the RP-style meal screen
-       (Blake, 2026-10-04): every meal arrives as a folded day card, so the
-       empty lunch is opened and its menu pressed before Skip is there. */
-    await wire.click('[data-mfold="l"][aria-expanded="false"]');
+    /* Skip lives in the meal's ⋯ menu, in the meal's sheet (trays and the
+       meal sheet, 2026-10-04): the empty lunch's tray is opened and its menu
+       pressed before Skip is there. */
+    await wire.click('[data-mopen="l"]');
     await wire.waitForTimeout(250);
-    await wire.click('[data-mmenu="l"]');
+    await wire.click('#modalRoot [data-mmenu="l"]');
     await wire.waitForTimeout(250);
     await wire.evaluate(() => document.querySelector('[data-mskip="l"]').click());
     await wire.waitForTimeout(350);
@@ -47,7 +47,8 @@ module.exports = nourish({
     t.ok('skipping a meal is something the payload says out loud',
       sentSkip.has && (sentSkip.v || []).indexOf('l') >= 0, JSON.stringify(sentSkip));
     await wire.evaluate(() => {
-      const u = document.querySelector('.mslot-skipped [data-mskip]');
+      // the skipped meal's sheet says so, with the way back on it
+      const u = document.querySelector('#modalRoot .msh-skipped [data-mskip]');
       if (u) u.click();
     });
     await wire.waitForTimeout(350);

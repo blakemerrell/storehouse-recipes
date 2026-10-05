@@ -7823,3 +7823,23 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mrow .mrow-m .mitem-mac { white-space: normal; }
 #modalRoot .msheet .mfood-mi:not(.mdel) { color: var(--ink); }
 #modalRoot .msheet .mfood-mi.mdel { color: var(--danger); }
+.msheet .mcap.spent { border-style: dashed; opacity: 0.8; }
+.msheet .mcap.spent .mcap-t { color: var(--muted); }
+.msheet .mcap.spent em { font-size: 0.75rem; }
+/* thumb-sized: the menus' rows 44 tall, and − and + a 44 square each with
+   the 28 px circle drawn inside it */
+#modalRoot .msheet .mfood-mi { min-height: 44px; }
+.msheet .mrow .mrow-k { width: 44px; height: 44px; border: 0; border-radius: 0; background: none; }
+.msheet .mrow .mrow-k::before {
+  content: ''; position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; box-sizing: border-box;
+  border-radius: 50%; border: 1px solid var(--line-firm); background: var(--card);
+}
+.msheet .mrow .mrow-k::after { content: none; }
+.msheet .mrow .mrow-k svg { position: relative; }
+.msheet .mrow .mrow-g { width: 56px; }
+/* No type under 13 px (Blake, 2026-09-27), in the trays and the sheet too. */
+.mtray-n, .mtray-k, .mtray-f em, .mtray-sw, .msh-t small, .mrow-mk, .mrow-g small,
+.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i, .msheet .mcap.spent em, .msheet .mscreen-say { font-size: 0.8125rem; }
+.mrow-mk { letter-spacing: 0.03em; }
+.mrow-g small { line-height: 1.1; }
+.msheet .mcap.mcap-max { border-color: var(--dial-over); }

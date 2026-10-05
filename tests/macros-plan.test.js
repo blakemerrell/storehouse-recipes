@@ -6,7 +6,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openWeigh, openPlan, openDay } = require('./fixtures/nourish.js');
+const { nourish, openWeigh, openPlan, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — the plan\'s arithmetic, the floor, and the burn switch',
@@ -161,13 +161,17 @@ module.exports = nourish({
     await unitPg.waitForTimeout(400);
     await unitPg.click('.tab[data-view="macros"]');
     await unitPg.waitForTimeout(300);
-    await openDay(unitPg);
+    await openMeal(unitPg, 'b');
+    /* The dial is grams for a recipe with a serving weight (2026-10-04), so
+       the count is said in the small print beside the macros; a recipe with
+       no weight still says it on the dial. */
     const plateWords = await unitPg.evaluate(() => {
       const out = {};
-      document.querySelectorAll('.mitem').forEach((row) => {
+      document.querySelectorAll('#modalRoot .mitem').forEach((row) => {
         const b = row.querySelector('[data-open]');
+        const u = row.querySelector('.mitem-uom');
         const x = row.querySelector('.mstep-x');
-        if (b && x) out[String(b.dataset.open)] = x.textContent.trim();
+        if (b && (u || x)) out[String(b.dataset.open)] = (u ? u.textContent : x.textContent).trim();
       });
       return out;
     });
@@ -201,8 +205,8 @@ module.exports = nourish({
       await cookPg.waitForTimeout(400);
       await cookPg.click('.tab[data-view="macros"]');
       await cookPg.waitForTimeout(300);
-      await openDay(cookPg);
-      await cookPg.click('.mitem [data-open="' + seed.id + '"]');
+      await openMeal(cookPg, 'l');
+      await cookPg.click('#modalRoot .mitem [data-open="' + seed.id + '"]');
       await cookPg.waitForTimeout(300);
       const label = await cookPg.evaluate(() => (document.querySelector('.addto-x') || {}).textContent || '(no label)');
       cooked.push({ id: seed.id, x: seed.x, label, ok: seed.want.test(label) && !/⅛/.test(label) });
@@ -264,16 +268,15 @@ module.exports = nourish({
     await priceDayPg.waitForTimeout(400);
     await priceDayPg.click('.tab[data-view="macros"]');
     await priceDayPg.waitForTimeout(300);
-    /* The pills are on the folded day card's face (2026-10-04, the RP-style
-       day: "our macro pills are better design"); the open meal shows its
-       capsules instead. So dinner is read where it arrives, folded. */
+    /* The ask is on the dinner's tray, "352 / 959" (2026-10-04): the
+       number after the stroke is the meal's share as it stands. */
     /* Read the price, not the landing: the day-level terms shrink a plate
        after a breakfast like that on their own, so where the plate lands
        proves nothing about which figure the share term used. The figure it
        used is what the test holds to the pill. */
     const priced = await priceDayPg.evaluate(() => {
-      const card = document.querySelector('[data-mdot="d"]').closest('.mslot');
-      const pill = Number(card.querySelector('.mcard-p .mmp.kc').dataset.want);
+      const card = document.querySelector('[data-mdot="d"]').closest('.mtray');
+      const pill = Number(card.querySelector('.mtray-k').textContent.split('/')[1].replace(/[^\d]/g, ''));
       const want = (window.__macroLab.wants().find((a) => a.k === 'd') || {}).want;
       const dayK = 4 * 180 + 4 * 50 + 9 * 50;
       return { pill: pill, want: want && Math.round(want), planShare: Math.round(dayK * 0.39) };
@@ -620,6 +623,10 @@ module.exports = nourish({
     const twicePg = await t.fresh({ viewport: { width: 390, height: 800 } });
     await twicePg.click('.tab[data-view="macros"]');
     await twicePg.waitForTimeout(300);
+    /* The basket and its Add went on 2026-10-04: a tap on a row puts the
+       food on the meal at once, and a second tap takes it back off. So the
+       double press this guarded against is now a double tap on a row, and it
+       must never leave two plates of one food on the meal. */
     const twiceAdd = async (presses) => {
       await twicePg.evaluate(() => {
         const p2 = (n) => (n < 10 ? '0' : '') + n;
@@ -633,38 +640,34 @@ module.exports = nourish({
       await twicePg.waitForTimeout(400);
       await twicePg.click('.tab[data-view="macros"]');
       await twicePg.waitForTimeout(300);
-      await twicePg.click('#macroAdd');
-      await twicePg.waitForTimeout(350);
-      await twicePg.click('[data-mpslot="d"]');
-      await twicePg.waitForTimeout(250);
-      /* Two raw foods, found the way a thumb finds them. Foods rather than
-         recipes because the basket is what is under test, not the ranking. */
+      await openMeal(twicePg, 'd');
+      /* Two raw foods, found the way a thumb finds them. */
       for (const q of ['beef frank', 'bun']) {
         await twicePg.fill('#mpFind', q);
         await twicePg.waitForTimeout(400);
-        await twicePg.evaluate(() => {
+        await twicePg.evaluate((n) => {
           const r = [...document.querySelectorAll('.mpick-row[data-mpick]')]
             .find((x) => x.dataset.mpick.indexOf('f:') === 0);
-          if (r) r.click();
-        });
-        await twicePg.waitForTimeout(150);
+          for (let i = 0; r && i < n; i++) r.click();
+        }, presses);
+        await twicePg.waitForTimeout(250);
       }
-      return twicePg.evaluate((n) => {
-        const b = document.querySelector('[data-mpdone]');
-        for (let i = 0; i < n; i++) b.click();
+      const ids = await twicePg.evaluate(() => {
         const p2 = (x) => (x < 10 ? '0' : '') + x;
         const d = new Date();
         const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
         const day = JSON.parse(localStorage.getItem('bsc.macroDays'))[k] || {};
         return (day.d || []).map((it) => String(it.id));
-      }, presses);
+      });
+      await closeSheet(twicePg);
+      return ids;
     };
     const twiceOnce = await twiceAdd(1);
-    t.ok('two foods chosen and added put two plates on the meal',
+    t.ok('two foods tapped put two plates on the meal',
       twiceOnce.length === 2 && twiceOnce[0] !== twiceOnce[1], twiceOnce.join(','));
     const twiceTwice = await twiceAdd(2);
-    t.ok('and pressing Add again before the sheet has gone adds nothing more',
-      twiceTwice.length === 2, twiceTwice.join(','));
+    t.ok('and a row tapped twice before the sheet redraws never puts the food on twice',
+      twiceTwice.length === new Set(twiceTwice).size && twiceTwice.length <= 2, twiceTwice.join(','));
     await twicePg.context().close();
 
     /* ---- a skipped meal is a meal dealt with -----------------------------
@@ -709,21 +712,17 @@ module.exports = nourish({
 
     /* ---- the bar's order --------------------------------------------------
      *
-     * Blake's grouping: the whole-day actions, then the view, then out, then
-     * in, with the plus last because the far corner is the easiest square on
-     * this bar for a thumb and it is the one pressed most. His own order put
-     * Sweep third, beside Rebalance; the expander sits between them instead,
-     * because Sweep is the only control in this app with no undo and it
-     * should not be one square from the button a thumb crosses most. */
+     * Blake's grouping: the whole-day actions, then out, then the one
+     * primary. Add food and Open all left the bar on 2026-10-04 (a meal's
+     * tray is the one door to adding food, and trays show their foods), so
+     * it is one row: Rebalance, Sweep, Copy day, and the primary. */
     const orderPg = await t.fresh({ viewport: { width: 390, height: 800 } });
     await orderPg.click('.tab[data-view="macros"]');
     await orderPg.waitForTimeout(300);
     const barOrder = await orderPg.evaluate(() =>
       [...document.querySelectorAll('.mday-acts button')].map((b) => b.id).join(' '));
-    /* Two rows since the tools took words (2026-09-27): the four tools in
-       his order, then the two verbs pressed most, Add in the far corner. */
-    t.ok('the day bar reads rebalance, expand, sweep, copy, then Fill and add',
-      barOrder === 'macroRebal macroOpenAll macroSweep macroCopy macroFill macroAdd',
+    t.ok('the day bar reads rebalance, sweep, copy, then Fill',
+      barOrder === 'macroRebal macroSweep macroCopy macroFill',
       barOrder);
     await orderPg.context().close();
   },

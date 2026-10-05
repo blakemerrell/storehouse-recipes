@@ -54,7 +54,7 @@
 
   function mComboSlotName() {
     var slots = mReadSlots(), sk = S.macroPick && S.macroPick.slot;
-    var nm = slots.names[sk] || 'this meal';
+    var nm = (slots.names || {})[sk] || 'this meal';
     slots.list.forEach(function (sl) { if (sl.k === sk) nm = sl.n; });
     return nm;
   }

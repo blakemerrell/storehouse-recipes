@@ -190,7 +190,20 @@
     if (!S.macroPick || !r) return null;
     var k = mViewKey(), slot = null;
     mReadSlots().list.forEach(function (sl) { if (sl.k === S.macroPick.slot) slot = sl; });
-    var e = mRank([r], mDay(k), mDayTargets(k), slot || { k: S.macroPick.slot, w: S.macroPick.w })[0];
+    /* A food a tap has already put on this meal is fitted as if it were not
+       there yet: the chip beside it says what size THIS plate should be, not
+       how much room is left for a second one (which, on a meal it filled, is
+       none — and the chip vanished). The plate steps off the live day for
+       the length of the sum and straight back on: the share and the gap it
+       reads are worked out from the stored day, not from a copy handed in.
+       Nothing draws or saves in between. */
+    var day = mDay(k), sk = S.macroPick.slot, at = S.mpAt && S.mpAt[r.id], off = null;
+    if (S.mpBasket[r.id] !== undefined && at !== undefined && day[sk] && day[sk][at] && String(day[sk][at].id) === String(r.id)) {
+      off = day[sk].splice(at, 1)[0];
+    }
+    var e;
+    try { e = mRank([r], day, mDayTargets(k), slot || { k: sk, w: S.macroPick.w })[0]; }
+    finally { if (off) day[sk].splice(at, 0, off); }
     return e && e.score !== null ? e.x : null;
   }
 

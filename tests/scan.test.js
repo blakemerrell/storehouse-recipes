@@ -52,14 +52,9 @@ module.exports = {
       await p.reload();
       await p.click('.tab[data-view="macros"]');
       await p.waitForTimeout(250);
-      await p.evaluate(() => {
-        if (document.querySelector('.mslot-add')) return;
-        const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-        if (b) b.click();
-      });
-      await p.waitForTimeout(200);
-      await p.evaluate(() => { const a = document.querySelector('.mslot-add'); if (a) a.scrollIntoView({ block: 'center' }); });
-      await p.click('.mslot-add');
+      // a meal's tray opens its sheet, the picker inside it (2026-10-04)
+      await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); if (b) b.scrollIntoView({ block: 'center' }); });
+      await p.click('#macroSlots .mtray-b');
       await p.waitForTimeout(600);
       return p;
     }

@@ -242,7 +242,8 @@
       if (String(mUnitWord(r)).toLowerCase() === 'g') return mGramBase(r);
       if (r.grams) return r.grams;
       var ls = mLabelServing(r);
-      return ls && ls.g ? ls.g / ls.q : 0;
+      // x counts label servings, so one x is the label's own weight (as mPortion)
+      return ls && ls.g ? ls.g : 0;
     }
     var sg = mServeG ? mServeG(r) : null;
     return sg && sg.g > 0 ? sg.g : 0;

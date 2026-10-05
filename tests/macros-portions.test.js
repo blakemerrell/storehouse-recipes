@@ -4,15 +4,9 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, pickerList, openDay } = require('./fixtures/nourish.js');
-
-/* One meal opened the way a thumb opens it. Since 2026-10-04 (Blake: "the RP
-   Diet way") every meal arrives as a folded day card and a press on it opens
-   that meal as its own screen, so a plate's controls are behind that press. */
-async function openMeal(pg, sk) {
-  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
-  if (b) { await b.click(); await pg.waitForTimeout(250); }
-}
+/* Since 2026-10-04 the day is trays and a plate's controls live in its
+   meal's sheet (#modalRoot): openMeal is the tray's own door. */
+const { nourish, openPlan, pickerList, openMeal } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — portions, and the fold',
@@ -43,15 +37,13 @@ module.exports = nourish({
     await units.reload();
     await units.click('.tab[data-view="macros"]');
     await units.waitForTimeout(400);
-    /* .mcard-shut went with the 2026-10-04 RP-style day: a meal folds to a
-       day card now, and Open all is still how every plate comes onto the page. */
-    await openDay(units);
+    await openMeal(units, 'b');
     /* The cup is on the chip now and the weight on the dial — a food
        measured by the cup is dialled by the gram — so the word the table
        chose is read off the chip, and the dial is checked for the thing it
        must not say. */
     const said = await units.evaluate(() => {
-      const x = document.querySelector('.mstep-x'), u = document.querySelector('.mitem-uom');
+      const x = document.querySelector('#modalRoot .mstep-x'), u = document.querySelector('#modalRoot .mitem-uom');
       return x ? { dial: x.textContent.trim(), chip: u ? u.textContent.trim() : '' } : null;
     });
     t.ok('the table states a portion for cheddar, and it is not a whole cheese',
@@ -90,9 +82,8 @@ module.exports = nourish({
     await reopen.waitForTimeout(1000);
     const back = await reopen.evaluate(() => {
       const st = document.querySelector('.mday-stick');
-      /* A folded meal is a day card now (2026-10-04, RP-style), not a
-         .mcard-shut: either one on the screen is the day on the screen. */
-      const items = [...document.querySelectorAll('.mitem, .mday-card')];
+      // a meal is a tray on the day now (2026-10-04)
+      const items = [...document.querySelectorAll('#macroSlots .mtray')];
       return { y: Math.round(window.scrollY), page: document.documentElement.scrollHeight,
         margin: parseFloat((st && st.style.marginBottom) || 0) || 0,
         restoration: history.scrollRestoration,
@@ -146,18 +137,14 @@ module.exports = nourish({
     await qty.waitForTimeout(400);
     await qty.click('.tab[data-view="macros"]');
     await qty.waitForTimeout(300);
-    await qty.evaluate(() => {
-      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-      if (b) b.click();
-    });
-    await qty.waitForTimeout(300);
+    await openMeal(qty, 'b');
     const readX = () => qty.evaluate(() => {
       const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
       const k = Object.keys(days).sort().pop();
       return ((days[k] || {}).b || [])[0].x;
     });
     for (let i = 0; i < 12; i++) {
-      await qty.click('#macroSlots [data-mstep$=":up"]');
+      await qty.click('#modalRoot [data-mstep$=":up"]');
       await qty.waitForTimeout(60);
     }
     const climbed = await readX();
@@ -171,11 +158,11 @@ module.exports = nourish({
     t.ok('and it climbs in whole ones, not in quarters',
       climbed === 13, JSON.stringify({ unit: qtyFood.unit, x: climbed }));
     t.ok('and the plate says so in the food own word',
-      /13\s*nuts?/.test(await qty.textContent('#macroSlots .mstep-x')),
-      await qty.textContent('#macroSlots .mstep-x'));
+      /13\s*nuts?/.test(await qty.textContent('#modalRoot .mstep-x')),
+      await qty.textContent('#modalRoot .mstep-x'));
     /* The floor still holds: a portion never steps to nothing. */
     for (let i = 0; i < 40; i++) {
-      await qty.click('#macroSlots [data-mstep$=":down"]');
+      await qty.click('#modalRoot [data-mstep$=":down"]');
       await qty.waitForTimeout(40);
     }
     t.ok('and it never steps down to nothing',
@@ -204,59 +191,31 @@ module.exports = nourish({
     await lbl.waitForTimeout(400);
     await lbl.click('.tab[data-view="macros"]');
     await lbl.waitForTimeout(300);
-    /* Both plates are on lunch, and a press on a day card opens that one
-       meal as its own screen (2026-10-04) — so lunch is the one opened. */
+    // both plates are on lunch, so lunch's sheet is the one opened
     await openMeal(lbl, 'l');
-    const lblPlate = await lbl.evaluate(() => [...document.querySelectorAll('#macroSlots .mitem')]
+    const lblPlate = await lbl.evaluate(() => [...document.querySelectorAll('#modalRoot .mrows .mitem')]
       .map((it) => it.textContent.replace(/\s+/g, ' ')));
     t.ok('a label noun counts up on the plate: two bars, not "2 bar"',
       lblPlate.some((x) => /Protein bar/.test(x) && /2 bars/.test(x)) &&
         !lblPlate.some((x) => /2 bar(?!s)/.test(x)), JSON.stringify(lblPlate));
-    await lbl.click('[data-mslot="l"]');
-    await lbl.waitForTimeout(400);
+    // the picker is in the same sheet, under the plates
     await pickerList(lbl);
     const lblRows = await lbl.evaluate(() => {
       const fit = (id) => ((document.querySelector('.mpick-row[data-mpick="' + id + '"] .mp-fit') || {}).textContent || '')
         .replace(/\s+/g, ' ').trim();
       return { tam: fit('f:my:tam'), bar: fit('f:my:pbar') };
     });
-    t.ok('and the picker row says the amount the plate says: "2 cups · 452 g", "2 bars · 80 g"',
-      /^2 cups · 452 g · /.test(lblRows.tam) && /^2 bars · 80 g · /.test(lblRows.bar) &&
+    /* Grams first since 2026-10-04 (Blake: "I dial in grams"), the label's
+       own words after. */
+    t.ok('and the picker row says the amount the plate says: "452 g · 2 cups", "80 g · 2 bars"',
+      /^452 g · 2 cups · /.test(lblRows.tam) && /^80 g · 2 bars · /.test(lblRows.bar) &&
         !/0\.5 cup|×/.test(lblRows.tam), JSON.stringify(lblRows));
     await lbl.context().close();
 
     /* ---- Add food at six in the evening is dinner ------------------------
-     *
-     * With no meal named, Add went to the first meal not finished and never
-     * looked at the clock: at 6 pm on an empty day it opened "Add to
-     * Breakfast". It starts at the meal whose time it is now. */
-    const eve = await t.fresh();
-    const addGuess = async (h, day) => {
-      await eve.clock.setFixedTime(new Date(2026, 9, 1, h, 0, 0));
-      await eve.reload();
-      await eve.evaluate((d) => {
-        localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 200 }));
-        localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-10-01': d }));
-      }, day);
-      await eve.reload();
-      await eve.waitForTimeout(400);
-      await eve.click('.tab[data-view="macros"]');
-      await eve.waitForTimeout(300);
-      await eve.click('#macroAdd');
-      await eve.waitForTimeout(350);
-      return eve.evaluate(() => ((document.querySelector('[data-mpslot][aria-pressed="true"]') || {}).dataset || {}).mpslot);
-    };
-    const ateOne = (id) => [{ id, x: 1, eaten: 1 }];
-    const aFood = 'f:banana';
-    const at6 = await addGuess(18, {});
-    const at6ate = await addGuess(18, { d: ateOne(aFood) });
-    const at9 = await addGuess(9, {});
-    const at6all = await addGuess(18, { b: ateOne(aFood), d: ateOne(aFood), s: ateOne(aFood) });
-    t.ok('Add at 6 pm on an empty day is dinner; with dinner eaten, the snacks; at 9 am, breakfast',
-      at6 === 'd' && at6ate === 's' && at9 === 'b', JSON.stringify({ at6, at6ate, at9 }));
-    t.ok('and with everything from dinner on finished it comes round to the first meal not finished',
-      at6all === 'l', JSON.stringify({ at6all }));
-    await eve.context().close();
+     * Gone with the day bar's Add food (2026-10-04): every way in to adding
+     * food names its meal now (a tray opens its own sheet), so there is no
+     * "which meal?" left for the clock to answer. */
 
     /* ---- what it weighs --------------------------------------------------
      * Blake: "sometimes it's just easier for me to measure the food on a scale
@@ -278,13 +237,9 @@ module.exports = nourish({
     await wg.waitForTimeout(400);
     await wg.click('.tab[data-view="macros"]');
     await wg.waitForTimeout(300);
-    await wg.evaluate(() => {
-      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-      if (b) b.click();
-    });
-    await wg.waitForTimeout(300);
+    await openMeal(wg, 'b');
     const weighed = await wg.evaluate(() => {
-      const row = document.querySelector('#macroSlots .mitem');
+      const row = document.querySelector('#modalRoot .mrows .mitem');
       /* It has its own chip on the facts band now, ahead of the figures —
          the weight is how you MEASURE the plate, so it leads the line that
          says what the plate is. */
@@ -294,13 +249,10 @@ module.exports = nourish({
       const gb = g.getBoundingClientRect(), mb = mac.getBoundingClientRect();
       return { text: g.textContent.trim(),
         portion: (row.querySelector('.mstep-x') || {}).textContent.trim(),
-        /* On the chip row that sits directly on top of the cost line. It
-           shared the cost line itself until 2026-10-04, when the food became
-           an RP-style card (Blake: "the RP Diet way"): name, then the chips —
-           the kitchen word first — then the figures, then the amount bar. */
-        sameLine: g.closest('.mfood-chips') !== null &&
-          g.closest('.mfood-chips').nextElementSibling === mac.closest('.mfood-mac') &&
-          gb.bottom <= mb.top + 1 && mb.top - gb.bottom < 16,
+        /* The small print under the name (2026-10-04, the meal sheet): the
+           kitchen word first, then the cost, in one line of it. */
+        sameLine: !!g.closest('.mrow-m') && g.closest('.mrow-m') === mac.closest('.mrow-m') &&
+          gb.top < mb.bottom && mb.top - gb.top < 16,
         quieter: parseFloat(getComputedStyle(g).fontSize) <=
           parseFloat(getComputedStyle(mac).fontSize) };
     });
@@ -311,7 +263,7 @@ module.exports = nourish({
       !!weighed && /^\d+\s*g$/.test(weighed.portion), JSON.stringify(weighed));
     t.ok('and the cup it came in is the chip beside it',
       !!weighed && /cup/.test(weighed.text), JSON.stringify(weighed));
-    t.ok('and it says it on the chip row right above the cost line, where the eye already is',
+    t.ok('and it says it in the small print with the cost, where the eye already is',
       !!weighed && weighed.sameLine, JSON.stringify(weighed));
     t.ok('and quieter than the cost, being how you measure it rather than what it costs',
       !!weighed && weighed.quieter, JSON.stringify(weighed));
@@ -319,14 +271,14 @@ module.exports = nourish({
        grid: a cup of cheddar is 113 g and goes to 115, not to 120. The chip
        only moves when the weight crosses an eighth of a cup; the dial moves
        every time. */
-    await wg.click('#macroSlots [data-mstep$=":up"]');
+    await wg.click('#modalRoot [data-mstep$=":up"]');
     await wg.waitForTimeout(250);
     t.ok('and a tap moves the weight up to the next five grams',
       await wg.evaluate((was) => {
-        const x = document.querySelector('#macroSlots .mstep-x');
+        const x = document.querySelector('#modalRoot .mstep-x');
         return !!x && parseInt(x.textContent, 10) === Math.floor(parseInt(was, 10) / 5) * 5 + 5;
       }, weighed.portion),
-      weighed.portion + ' → ' + await wg.evaluate(() => (document.querySelector('#macroSlots .mstep-x') || {}).textContent));
+      weighed.portion + ' → ' + await wg.evaluate(() => (document.querySelector('#modalRoot .mstep-x') || {}).textContent));
     await wg.context().close();
 
     /* ---- typing a portion ------------------------------------------------
@@ -354,27 +306,21 @@ module.exports = nourish({
     await typ.waitForTimeout(400);
     await typ.click('.tab[data-view="macros"]');
     await typ.waitForTimeout(300);
-    await typ.evaluate(() => {
-      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-      if (b) b.click();
-    });
-    await typ.waitForTimeout(300);
+    await openMeal(typ, 'b');
     const plate = (n) => typ.evaluate((i) => {
-      const e = document.querySelectorAll('#macroSlots .mitem')[i];
+      const e = document.querySelectorAll('#modalRoot .mrows .mitem')[i];
       return { portion: (e.querySelector('.mstep-x') || {}).textContent.trim(),
         mac: (e.querySelector('.mitem-mac') || {}).textContent };
     }, n);
 
-    /* By position among the food cards, not :nth-of-type — the open meal
-       (2026-10-04) puts its capsules and its verdict line, both divs, ahead
-       of the first food in the same box. */
-    const typeOn = (i) => typ.locator('#macroSlots .mitem').nth(i).locator('[data-mtype]').click();
+    // by position among the food rows of the meal's sheet
+    const typeOn = (i) => typ.locator('#modalRoot .mrows .mitem').nth(i).locator('[data-mtype]').click();
     await typeOn(0);
     await typ.waitForTimeout(200);
     t.ok('tapping a portion opens a box holding the number that was there',
-      (await typ.inputValue('#macroSlots .mstep-in')) === '1',
-      await typ.inputValue('#macroSlots .mstep-in'));
-    await typ.fill('#macroSlots .mstep-in', '30');
+      (await typ.inputValue('#modalRoot .mstep-in')) === '1',
+      await typ.inputValue('#modalRoot .mstep-in'));
+    await typ.fill('#modalRoot .mstep-in', '30');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);
     const nuts = await plate(0);
@@ -389,9 +335,9 @@ module.exports = nourish({
     await typeOn(1);
     await typ.waitForTimeout(200);
     t.ok('a food measured in grams opens on its grams, not on its multiplier',
-      (await typ.inputValue('#macroSlots .mstep-in')) === '100',
-      await typ.inputValue('#macroSlots .mstep-in'));
-    await typ.fill('#macroSlots .mstep-in', '185');
+      (await typ.inputValue('#modalRoot .mstep-in')) === '100',
+      await typ.inputValue('#modalRoot .mstep-in'));
+    await typ.fill('#modalRoot .mstep-in', '185');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);
     const rice = await plate(1);
@@ -416,14 +362,14 @@ module.exports = nourish({
        food off the day arithmetic. */
     await typeOn(0);
     await typ.waitForTimeout(200);
-    await typ.fill('#macroSlots .mstep-in', 'abc');
+    await typ.fill('#modalRoot .mstep-in', 'abc');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);
     t.ok('and nonsense typed into it changes nothing',
       /^30\s*nuts?$/.test((await plate(0)).portion), JSON.stringify(await plate(0)));
     await typeOn(0);
     await typ.waitForTimeout(200);
-    await typ.fill('#macroSlots .mstep-in', '0');
+    await typ.fill('#modalRoot .mstep-in', '0');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);
     t.ok('and nor does a nought, which is not a portion either',
@@ -450,9 +396,8 @@ module.exports = nourish({
     await typ.waitForTimeout(400);
     await typ.click('.tab[data-view="macros"]');
     await typ.waitForTimeout(300);
-    /* Rebalance is on the day's bar, and the bar steps aside while a meal is
-       its own screen (2026-10-04) — so it is pressed from the day, and the
-       meal opened afterwards to read the plate. */
+    /* Rebalance is on the day's bar, so it is pressed from the day, and the
+       meal's sheet opened afterwards to read the plate. */
     await typ.click('#macroRebal');
     await typ.waitForTimeout(700);
     await openMeal(typ, 'b');
@@ -595,15 +540,15 @@ module.exports = nourish({
     await batch.reload();
     await batch.click('.tab[data-view="macros"]');
     await batch.waitForTimeout(300);
-    // a meal that already has something on it opens shut; the plate is behind that
-    /* .mcard-shut went with the 2026-10-04 RP-style day: a meal folds to a
-       day card now, and Open all is still how every plate comes onto the page. */
-    await openDay(batch);
+    await openMeal(batch, 'b');
     const batCard = await batch.evaluate(() => {
-      const row = document.querySelector('.mitem');
+      const row = document.querySelector('#modalRoot .mrows .mitem');
       if (!row) return null;
       return {
-        amount: row.querySelector('.mstep-x').textContent.trim(),
+        /* The dial is grams since 2026-10-04 (recipes too, from their serving
+           weight); the portion in servings is the small print beside it. */
+        amount: (row.querySelector('.mitem-uom') || {}).textContent.trim(),
+        dial: row.querySelector('.mstep-x').textContent.trim(),
         chips: [...row.querySelectorAll('.mchip')].map((c) => c.textContent.trim()),
         from: (row.querySelector('.mitem-from') || {}).textContent || '',
         mac: (row.querySelector('.mitem-mac') || {}).textContent || ''
@@ -611,8 +556,8 @@ module.exports = nourish({
     });
     t.ok('a plate holding part of a batch says the part, not the batch',
       !!batCard && batCard.amount.indexOf('1') === 0 && /¾/.test(batCard.amount) &&
-        batCard.amount.indexOf(String(bat.servN)) < 0,
-      bat.name + ' (' + bat.servings + ') at ×1¾ shows "' + (batCard && batCard.amount) + '"');
+        batCard.amount.indexOf(String(bat.servN)) < 0 && /^~?[\d,]+ g$/.test(batCard.dial),
+      bat.name + ' (' + bat.servings + ') at ×1¾ shows "' + (batCard && batCard.amount) + '", dial "' + (batCard && batCard.dial) + '"');
     t.ok('and the calories on that line are for the part as well',
       !!batCard && Math.abs(parseInt(batCard.mac.replace(/[^\d]/, ''), 10) -
         Math.round(bat.kcal * 1.75)) <= 1,
@@ -665,12 +610,10 @@ module.exports = nourish({
     await saltPage.reload();
     await saltPage.click('.tab[data-view="macros"]');
     await saltPage.waitForTimeout(300);
-    /* .mcard-shut went with the 2026-10-04 RP-style day: a meal folds to a
-       day card now, and Open all is still how every plate comes onto the page. */
-    await openDay(saltPage);
+    await openMeal(saltPage, 'b');
     t.ok('a salty plate says so in words, whole, inside its own box on every edge',
       await saltPage.evaluate(() => {
-        const el = document.querySelector('#macroSlots .msalt');
+        const el = document.querySelector('#modalRoot .msalt');
         if (!el) return false;
         const meta = el.closest('.mitem-r2');
         const mb = meta.getBoundingClientRect(), sb = el.getBoundingClientRect();
@@ -685,7 +628,7 @@ module.exports = nourish({
           el.scrollHeight <= el.clientHeight + 1;
       }),
       await saltPage.evaluate(() => {
-        const el = document.querySelector('#macroSlots .msalt');
+        const el = document.querySelector('#modalRoot .msalt');
         if (!el) return 'no salt warning drawn';
         const box = (e) => { const b = e.getBoundingClientRect();
           return [b.top, b.bottom, b.left, b.right].map(Math.round).join(','); };
@@ -696,8 +639,8 @@ module.exports = nourish({
        is no border left to say it. */
     t.ok('and says it in the warning colour, not in the colour of the figures',
       await saltPage.evaluate(() => {
-        const el = document.querySelector('#macroSlots .msalt');
-        const mac = document.querySelector('#macroSlots .mitem-mac');
+        const el = document.querySelector('#modalRoot .msalt');
+        const mac = document.querySelector('#modalRoot .mitem-mac');
         if (!el || !mac) return false;
         return getComputedStyle(el).color !== getComputedStyle(mac).color;
       }));
@@ -724,9 +667,22 @@ module.exports = nourish({
     await ph.waitForTimeout(250);
     await ph.click('#macroFill');
     await ph.waitForTimeout(500);
-    /* .mcard-shut went with the 2026-10-04 RP-style day: a meal folds to a
-       day card now, and Open all is still how every plate comes onto the page. */
-    await openDay(ph);
+    /* The fold needs a day longer than the screen to scroll through. Open all
+       used to give it one; the day is compact trays since 2026-10-04, so the
+       day here is made long the honest way, with more on every meal. */
+    await ph.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const k = Object.keys(d).sort().pop();
+      ['b', 'l', 'd', 's'].forEach((sk) => {
+        d[k][sk] = d[k][sk] || [];
+        for (let i = 0; i < 6; i++) d[k][sk].push({ id: 'f:banana', x: 1, eaten: 0 });
+      });
+      localStorage.setItem('bsc.macroDays', JSON.stringify(d));
+    });
+    await ph.reload();
+    await ph.waitForTimeout(500);
+    await ph.click('.tab[data-view="macros"]');
+    await ph.waitForTimeout(400);
     t.ok('at the top of the day the readout is open and the pills are put away',
       await ph.evaluate(() => {
         const st = document.querySelector('.mday-stick');
@@ -994,7 +950,7 @@ module.exports = nourish({
         page: document.documentElement.scrollHeight,
         margin: parseFloat(st.style.marginBottom) || 0,
         cardOnScreen: r.bottom > 0 && r.top < window.innerHeight,
-        platesOnScreen: [...document.querySelectorAll('.mitem')]
+        platesOnScreen: [...document.querySelectorAll('#macroSlots .mtray')]
           .filter((e) => { const q = e.getBoundingClientRect(); return q.bottom > 0 && q.top < window.innerHeight; }).length
       };
     });
@@ -1038,7 +994,7 @@ module.exports = nourish({
     await ph.waitForTimeout(350);
     const absurd = await ph.evaluate(() => {
       const st = document.querySelector('.mday-stick');
-      const items = [...document.querySelectorAll('.mitem, .mday-card')];
+      const items = [...document.querySelectorAll('#macroSlots .mtray')];
       return {
         margin: parseFloat(st.style.marginBottom) || 0,
         page: document.documentElement.scrollHeight,

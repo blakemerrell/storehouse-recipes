@@ -7,38 +7,38 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, openBasket, pickerList } = require('./fixtures/nourish.js');
+const { nourish, addOn, pickerList, closeSheet } = require('./fixtures/nourish.js');
 
-/* Since 2026-10-04 (Blake: "the RP Diet way") the day is a list of folded meal
-   cards and a press on one opens that meal as its own screen, the rest of the
-   day stepped aside. A meal's plates, its scales and its Add are behind that
-   press, so a test reaching for them opens the meal the way a thumb does —
-   coming back to the day first if another meal is the one on screen. */
+/* Since 2026-10-04 the day is trays and a meal's plates, its scales and its
+   ⋯ live in the meal's sheet (#modalRoot .msheet), opened by its tray — the
+   one place food is added or changed. A test reaching for them opens that
+   sheet, leaving any other meal's first. */
 async function openMeal(pg, sk) {
-  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
-  if (back && (await back.getAttribute('data-mfold')) !== sk) {
-    await back.click();
-    await pg.waitForTimeout(250);
+  const cur = await pg.$('#modalRoot .msheet');
+  if (cur) {
+    if (await pg.$('#modalRoot .msh-h [data-mdot="' + sk + '"], #modalRoot .msh-h [data-mmenu="' + sk + '"]')) return;
+    await closeSheet(pg);
   }
-  const b = await pg.$('#macroSlots [data-mfold="' + sk + '"][aria-expanded="false"]');
-  if (b) { await b.click(); await pg.waitForTimeout(250); }
+  await pg.evaluate((k) => {
+    const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
+    if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
+  }, sk);
+  await pg.waitForTimeout(300);
 }
-async function backToDay(pg) {
-  const back = await pg.$('#macroSlots .mscreen-focus .mscreen-back');
-  if (back) { await back.click(); await pg.waitForTimeout(250); }
-}
+async function backToDay(pg) { await closeSheet(pg); }
 /* A plate added to a meal whose time has come arrives eaten, and an eaten
-   plate's keys are quiet. There is no per-food tick to undo that any more
-   (2026-10-04: "No individual foods ticks... I'll complete the whole meal"),
-   so a test that means to dial what it just added unticks the meal's own. */
+   plate's keys are quiet. There is no per-food tick to undo that
+   (2026-10-04: "I'll complete the whole meal"), so a test that means to dial
+   what it just added unticks the meal's own — the sheet's, when one is open. */
 async function asPlannedMeal(pg, sk) {
-  const dot = await pg.$('#macroSlots [data-mdot="' + sk + '"][aria-pressed="true"]');
+  const dot = await pg.$('#modalRoot .msh-h [data-mdot="' + sk + '"][aria-pressed="true"]') ||
+    await pg.$('#macroSlots [data-mdot="' + sk + '"][aria-pressed="true"]');
   if (dot) { await dot.click(); await pg.waitForTimeout(250); }
 }
-/* The meal's ⋯ holds Try another, Save meal and Repeat a day (2026-10-04). */
+/* The meal's ⋯ in its sheet holds Try another, Save meal and Repeat a day. */
 async function openMealMenu(pg, sk) {
-  if (await pg.$('#macroSlots .mscreen-menu')) return;
-  await pg.click('#macroSlots [data-mmenu="' + sk + '"]');
+  if (await pg.$('#modalRoot .msh-menu')) return;
+  await pg.click('#modalRoot [data-mmenu="' + sk + '"]');
   await pg.waitForTimeout(200);
 }
 
@@ -49,35 +49,33 @@ module.exports = nourish({
     const bar = await t.fresh();
     await bar.click('.tab[data-view="macros"]');
     await bar.waitForTimeout(200);
-    /* Two rows since the tools took their words (2026-09-27): the four
-       tools, then Fill and Add food. Still one bar, and it still leaves the
-       day most of the screen. */
-    t.ok('everything you do to today is in the bar, in two rows',
+    /* One row since 2026-10-04: three tools, each an icon over its word, and
+       the one primary. Adding food is not on the bar any more — a meal's tray
+       is the one door to that (Blake: "ONE way to add and select food"). */
+    t.ok('everything you do to today is in the bar, in one row, and adding food is not one of them',
       await bar.evaluate(() => {
         const b2 = [...document.querySelectorAll('.mday-acts button')]
           .filter((x) => !x.classList.contains('hide')).map((x) => x.id);
         const rows = new Set([...document.querySelectorAll('.mday-acts button')]
           .map((x) => Math.round(x.getBoundingClientRect().top)));
-        return b2.indexOf('macroAdd') >= 0 && b2.indexOf('macroRebal') >= 0 && rows.size === 2 &&
-          document.querySelector('.mday-acts').getBoundingClientRect().height < 120;
-      }), await bar.evaluate(() => Math.round(document.querySelector('.mday-acts').getBoundingClientRect().height) + 'px'));
-    /* The gear keeps the title row; opening every meal went down to the bar.
-       It is a thing you do WHILE reading the day, with the thumb already at
-       the bottom of the screen — Blake: "the auto expander button at the very
-       top, I think I want to move to the bottom rail." The gear stays up
-       there because setting the day up is not something you do mid-scroll. */
-    t.ok('the gear keeps the title row and the expander went to the bar',
+        return b2.join() === 'macroRebal,macroSweep,macroCopy,macroFill' && rows.size === 1 &&
+          document.querySelector('.mday-acts').getBoundingClientRect().height < 80;
+      }), await bar.evaluate(() => Math.round(document.querySelector('.mday-acts').getBoundingClientRect().height) + 'px ' +
+        [...document.querySelectorAll('.mday-acts button')].map((x) => x.id).join(',')));
+    /* The gear keeps the title row, because setting the day up is not
+       something you do mid-scroll. Open all went with the meal screens it
+       opened (2026-10-04): every tray already shows its foods. */
+    t.ok('the gear keeps the title row, and there is no Open all to keep',
       await bar.evaluate(() => {
         const head = document.querySelector('.mday-head');
-        const acts = document.querySelector('.mday-acts');
-        const all = document.getElementById('macroOpenAll'), gear = document.getElementById('macroMore');
-        if (!head.contains(gear) || !acts.contains(all)) return false;
+        const gear = document.getElementById('macroMore');
+        if (!head.contains(gear) || document.getElementById('macroOpenAll')) return false;
         const h = head.getBoundingClientRect(), g = gear.getBoundingClientRect();
         return g.left > document.getElementById('macroNext').getBoundingClientRect().right &&
           h.right - g.right < 24;
       }), await bar.evaluate(() =>
         'gear in head ' + document.querySelector('.mday-head').contains(document.getElementById('macroMore')) +
-        ' / expander in bar ' + document.querySelector('.mday-acts').contains(document.getElementById('macroOpenAll'))));
+        ' / Open all ' + !!document.getElementById('macroOpenAll')));
     /* The bar's barcode button has gone — it opened the same sheet the plus
        opens, one step further in, and that sheet carries a camera in its own
        search field. Blake: "the plus button and the scanner button are the
@@ -87,20 +85,15 @@ module.exports = nourish({
     t.ok('the bar has no second door to the same sheet',
       await bar.evaluate(() => !document.getElementById('macroScan')));
 
-    /* Opened from the bar, the sheet has to ask which meal — and answer it
-       first, with the one you have not finished eating. */
-    await bar.click('#macroAdd');
-    await bar.waitForTimeout(300);
-    t.ok('the bar asks which meal, and guesses the one you mean',
+    /* A tray opens its own meal's sheet: the meal is named by the door you
+       came in by, so there is no "which meal?" to ask. */
+    await openMeal(bar, 'd');
+    t.ok('the dinner tray opens the sheet for dinner',
       await bar.evaluate(() => {
-        const chips = [...document.querySelectorAll('[data-mpslot]')];
-        const on = document.querySelector('[data-mpslot][aria-pressed="true"]');
-        return chips.length >= 4 && !!on;
+        const s2 = document.querySelector('#modalRoot .msheet');
+        return !!s2 && /Dinner/i.test(s2.getAttribute('aria-label') || '') &&
+          !document.querySelector('[data-mpslot]');
       }));
-    await bar.click('[data-mpslot="d"]');
-    await bar.waitForTimeout(250);
-    t.ok('and choosing a different one re-aims the whole sheet',
-      /Dinner/i.test(await bar.textContent('.sheet-eyebrow')));
 
     // three raw foods onto dinner, through the one box
     await pickerList(bar);
@@ -118,6 +111,8 @@ module.exports = nourish({
         return rows.length > 0 && rows[0].dataset.mpick.indexOf('f:') === 0;
       }));
 
+    /* Each tap puts the food on dinner at once (2026-10-04: no basket, no
+       Add N), and the plates arrive in the list above the picker. */
     for (const q of ['chicken breast', 'honey', 'peanut']) {
       await bar.fill('#mpFind', q);
       await bar.waitForTimeout(400);
@@ -126,23 +121,25 @@ module.exports = nourish({
           .find((x) => x.dataset.mpick.indexOf('f:') === 0);
         if (r) r.click();
       });
-      await bar.waitForTimeout(180);
+      await bar.waitForTimeout(250);
     }
-    await bar.click('[data-mpdone]');
-    await bar.waitForTimeout(350);
-    /* The meal the picker just filled comes back open; opened here in case
-       it did not, and its tick undone so the plates can be dialled. */
-    await openMeal(bar, 'd');
+    t.ok('each tap puts its food on the meal there and then, listed above the picker',
+      await bar.evaluate(() => {
+        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+        const day = d[Object.keys(d).sort().pop()] || {};
+        return (day.d || []).length === 3 && document.querySelectorAll('#modalRoot .mrows .mrow').length === 3;
+      }));
+    // its tick undone so the plates can be dialled
     await asPlannedMeal(bar, 'd');
-    /* The scales sit on the open meal's head and Save meal in its ⋯
-       (2026-10-04, RP-style): both offered, one tap and two away. */
+    /* The scales sit on the sheet's head and Save meal in its ⋯: both
+       offered, one tap and two away. */
     const balOffered = await bar.evaluate(() => {
-      const b2 = document.querySelector('.mscreen-h [data-mbal="d"]');
+      const b2 = document.querySelector('#modalRoot .msh-h [data-mbal="d"]');
       return !!b2 && !b2.disabled;
     });
     await openMealMenu(bar, 'd');
     t.ok('a meal of parts offers to be balanced and to be kept',
-      balOffered && await bar.evaluate(() => !!document.querySelector('.mscreen-menu [data-mkeep="d"]')));
+      balOffered && await bar.evaluate(() => !!document.querySelector('#modalRoot .msh-menu [data-mkeep="d"]')));
 
     /* Knock the portions out of shape, then solve them. The target of a meal
        is its weight's worth of the DAY — not what is left of the day after
@@ -150,7 +147,7 @@ module.exports = nourish({
        target down to a quarter of itself. */
     await bar.evaluate(() => {
       for (let i = 0; i < 8; i++) {
-        const b2 = document.querySelector('[data-mstep$=":up"]');
+        const b2 = document.querySelector('#modalRoot [data-mstep$=":up"]');
         if (b2) b2.click();
       }
     });
@@ -322,15 +319,12 @@ module.exports = nourish({
     await comboPage2.waitForTimeout(400);
     await comboPage2.click('.tab[data-view="macros"]');
     await comboPage2.waitForTimeout(300);
-    /* The last meal's Add is at the foot of that meal's own screen
-       (2026-10-04), so the last meal is opened first. */
+    // the last meal's sheet, opened by its tray
     const lastMeal = await comboPage2.evaluate(() => {
-      const hs = [...document.querySelectorAll('#macroSlots [data-mfold][aria-expanded="false"]')];
-      return hs.length ? hs[hs.length - 1].dataset.mfold : null;
+      const hs = [...document.querySelectorAll('#macroSlots .mtray-b[data-mopen]')];
+      return hs.length ? hs[hs.length - 1].dataset.mopen : null;
     });
     await openMeal(comboPage2, lastMeal);
-    await comboPage2.click('#macroSlots .mslot-add');
-    await comboPage2.waitForTimeout(400);
 
     /* The heading says how many foods are actually under it. A meal whose
        protein is already covered gets two levers, and the old panel read
@@ -379,13 +373,9 @@ module.exports = nourish({
       withHist[0] === 'Whey protein' && noHistLevers[0] !== 'Whey protein',
       'no history: ' + noHistLevers.join(' | ') + ' -- with: ' + withHist.join(' | '));
 
-    /* Ordinary rows: tapping one puts it in the BASKET at the portion the
-       band offered, and touches nothing on the plate. Food arriving on the
-       plate with no ✓ in between would be the only thing in this sheet that
-       commits itself.
-     *
-       The add-all button went with the panel and is not missed — the basket
-       accumulates and the bar along the bottom totals what it will add. */
+    /* Ordinary rows: since 2026-10-04 a tap puts the food on the meal itself
+       at the portion the row offered (Blake: no basket, no "Add N"), and it
+       wears the ✓ so a second tap can take it back off. */
     const offered = (await closersOf(histPage)).names.length;
     for (let i = 0; i < offered; i++) {
       await histPage.evaluate((nm) => {
@@ -396,20 +386,19 @@ module.exports = nourish({
       }, (await closersOf(histPage)).names[0]);
       await histPage.waitForTimeout(300);
     }
-    await openBasket(histPage);
-    t.ok('tapping them fills the basket and leaves the plate alone',
-      offered > 0 && await histPage.evaluate((n) => {
-        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
-        const p2 = (x) => (x < 10 ? '0' : '') + x;
-        const dd = new Date();
-        const k = dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate());
-        return document.querySelectorAll('.mpb-out').length === n &&
-          ((d[k] || {}).b || []).length === 0;
-      }, offered),
-      'offered ' + offered + ', basket ' +
-      await histPage.evaluate(() => document.querySelectorAll('.mpb-out').length));
+    const onMeal = await histPage.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const p2 = (x) => (x < 10 ? '0' : '') + x;
+      const dd = new Date();
+      const k = dd.getFullYear() + '-' + p2(dd.getMonth() + 1) + '-' + p2(dd.getDate());
+      return { plates: ((d[k] || {}).b || []).length, ticked: document.querySelectorAll('#modalRoot .mpick-wrap.in').length,
+        rows: document.querySelectorAll('#modalRoot .mrows .mrow').length };
+    });
+    t.ok('tapping them puts them on the meal at once, each row ticked',
+      offered > 0 && onMeal.plates === offered && onMeal.rows === offered && onMeal.ticked >= offered,
+      'offered ' + offered + ', ' + JSON.stringify(onMeal));
 
-    /* And once the basket covers the share, more foods to close it is not
+    /* And once the meal is closed by them, more foods to close it is not
        help — the heading goes with them. */
     t.ok('and it stops offering once there is nothing left to close',
       (await closersOf(histPage)).cap === null);
@@ -438,108 +427,59 @@ module.exports = nourish({
     await gaugePage.waitForTimeout(400);
     await gaugePage.click('.tab[data-view="macros"]');
     await gaugePage.waitForTimeout(350);
-    /* The four pills are on the folded day card's face since the RP-style
-       day (2026-10-04, "our macro pills are better design for showing
-       macros"); an open meal shows its capsules instead. Every meal arrives
-       folded, so the pills are read where they are, without opening any. */
-
-    const gz = await gaugePage.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('.mslot').forEach((card) => {
-        const nm = card.querySelector('.mslot-name');
-        const gg = card.querySelector('.mmps');
-        out.push({
-          name: nm ? nm.textContent : '',
-          /* No food on the plate. NOT "has no .mitem rows" — a folded meal
-             renders no rows either. Since 2026-10-04 an empty meal is a day
-             card like any other (it opens to its own screen to be filled),
-             so the flat name it used to wear is gone; the card says it has
-             food by being .filled. */
-          empty: card.classList.contains('mday-card') && !card.classList.contains('filled'),
-          hasGauges: !!gg,
-          planned: !!gg && gg.classList.contains('planned'),
-          /* A meal with nothing on it prints its TARGET where a fed one
-             prints its plate, so the strip says which end it is speaking
-             from. NOT `.empty` — that is a global utility class carrying
-             60px of padding, and wearing it grew every blank meal's header
-             from 38px to 156. */
-          blank: !!gg && gg.classList.contains('mmps-blank'),
-          /* Every figure's resolved colour, so "quiet" can be asserted
-             against a real reference rather than against whatever colour
-             some other meal happens to be wearing. */
-          inks: gg ? [...gg.querySelectorAll('.mmp-v')]
-            .map((v) => getComputedStyle(v).color) : [],
-          bars: gg ? [...gg.querySelectorAll('.mmp')].map((o) => ({
-            l: o.querySelector('i').textContent + o.querySelector('.mmp-v').textContent,
-            v: Number(o.querySelector('.mmp-v').textContent),
-            st: (o.className.match(/mmp(?: kc)? (\w+)/) || [, ''])[1],
-            /* The fill is the rail under the figure. It used to be painted
-               as a gradient stop on the pill itself and read off the paint;
-               it is a width on a real element now, which is the same number
-               in the place an eye can also see it. */
-            fill: parseFloat(((o.querySelector('.mmp-tr i') || {}).style || {}).width || 0),
-            tick: parseFloat(o.dataset.want || 0),
-          })) : [],
-        });
-      });
-      return out;
-    });
-    const fed = gz.filter((c) => c.hasGauges);
-    /* Selected by having no item rows. Filtering on "has no gauges" and then
-       asserting it has no gauges was a tautology, and it passed happily with
-       the gauges drawn on every empty meal. */
-    const noFood = gz.filter((c) => c.empty);
+    /* Since 2026-10-04 a meal's tray carries one figure, its calories against
+       its share, and its four pills are in its sheet — so the gauges are read
+       there, a meal at a time, and the tray read for what it still says. */
+    const trays = await gaugePage.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')].map((tr) => {
+      const k = (tr.querySelector('.mtray-k') || {}).textContent || '';
+      const m = /^([\d,]+)\s*\/\s*([\d,]+)/.exec(k.trim()) || [];
+      const n = (x) => Number(String(x || '').replace(/,/g, ''));
+      const kEl = tr.querySelector('.mtray-k');
+      return { sk: tr.querySelector('[data-mopen]').dataset.mopen, name: tr.querySelector('.mtray-n').textContent,
+        got: n(m[1]), want: n(m[2]), filled: tr.classList.contains('filled'),
+        verdict: !!kEl && (kEl.classList.contains('over') || kEl.classList.contains('on')),
+        foods: tr.querySelectorAll('.mtray-f:not(.mtray-none)').length, h: Math.round(tr.getBoundingClientRect().height),
+        say: tr.querySelector('.mtray-b').getAttribute('aria-label') || '' };
+    }));
+    const gz = [];
+    for (const tr of trays) {
+      await openMeal(gaugePage, tr.sk);
+      const caps = await gaugePage.evaluate(() => [...document.querySelectorAll('#modalRoot .msh-top .mcap')].map((c) => {
+        const t2 = c.querySelector('.mcap-t');
+        const em = t2.querySelector('em');
+        return { l: t2.textContent, v: Number(t2.textContent.replace(em ? em.textContent : '', '').replace(/[^\d]/g, '')),
+          want: Number(c.dataset.want || 0), cls: c.classList.contains('over') ? 'over' : c.classList.contains('on') ? 'on' : '',
+          fill: parseFloat(c.querySelector('.mcap-fl').style.width || 0) };
+      }));
+      gz.push(Object.assign({}, tr, { caps: caps }));
+    }
+    await closeSheet(gaugePage);
+    const fed = gz.filter((c) => c.filled);
+    const noFood = gz.filter((c) => !c.filled);
 
     t.ok('a meal with food carries four gauges, calories among them',
-      fed.length >= 2 && fed.every((c) => c.bars.length === 4 &&
-        /\uD83D\uDD25\s*\d/.test(c.bars[0].l)),
-      JSON.stringify(fed.map((c) => c.name + ':' + c.bars.length)));
+      fed.length >= 2 && fed.every((c) => c.caps.length === 4 && /🔥/.test(c.caps[0].l)),
+      JSON.stringify(fed.map((c) => c.name + ':' + c.caps.length)));
 
-    /* A length needs something to be long against. It was a tick on a bar;
-       it is the target written out on the pill now — "128/316" — which says
-       the number the tick could only point at. Every pill must carry one. */
     t.ok('and every pill states the target it is filling toward',
-      fed.length > 0 && fed.every((c) => c.bars.every((g) => g.tick > 0)),
-      JSON.stringify(fed[0] && fed[0].bars));
+      fed.length > 0 && fed.every((c) => c.caps.every((g) => g.want > 0)),
+      JSON.stringify(fed[0] && fed[0].caps));
 
-    /* The target lives in two places now and must not drift. It came off the
-       glyph — 7.5px at 55% opacity was not a comparison, it was a rumour —
-       and landed in two: data-want, for anything mechanical, and the head's
-       own aria-label, in words, which is the first time this strip has been
-       readable to a screen reader at all. Two spellings of one fact is how
-       facts diverge, so the suite reads both and insists they agree. */
-    t.ok('and what the pills claim is what the head says out loud',
-      await gaugePage.evaluate(() => {
-        const heads = [...document.querySelectorAll('#macroSlots .mslot-head')]
-          .filter((h) => h.querySelector('.mmp[data-want]'));
-        if (!heads.length) return false;
-        return heads.every((head) => {
-          const said = head.getAttribute('aria-label') || '';
-          /* Every meal's day card carries its pills since 2026-10-04, the
-             empty ones included, and an empty meal's pill prints its target
-             (see below) while the plate under it is nought — so for those the
-             head says "0 of" the same target the pill prints. */
-          const blank = !!head.querySelector('.mmps-blank');
-          return [...head.querySelectorAll('.mmp[data-want]')].every((pl) => {
-            const got = blank ? '0' : (pl.querySelector('.mmp-v') || {}).textContent.trim();
-            return said.indexOf(got + ' of ' + pl.dataset.want) >= 0;
-          });
-        });
+    /* Two spellings of one fact is how facts diverge: the tray's door says the
+       meal's numbers aloud ("… 280 of 316 kcal …"), and every figure it says
+       must be one a pill in the sheet prints. */
+    t.ok('and what the pills claim is what the tray says out loud',
+      fed.length > 0 && fed.every((c) => {
+        const said = [...c.say.matchAll(/(\d+) of (\d+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+        return said.length >= 2 && said.every((p2) => c.caps.some((g) => g.v === p2[0] && g.want === p2[1]));
       }),
-      await gaugePage.evaluate(() => {
-        const head = document.querySelector('#macroSlots .mslot-head');
-        if (!head) return 'no head';
-        return (head.getAttribute('aria-label') || '') + ' || pills ' +
-          [...head.querySelectorAll('.mmp[data-want]')].map((pl) =>
-            (pl.querySelector('.mmp-v') || {}).textContent.trim() + '/' + pl.dataset.want).join(' ');
-      }));
+      JSON.stringify(fed.map((c) => c.say + ' || ' + c.caps.map((g) => g.v + '/' + g.want).join(' '))));
 
-    /* A plate past its share runs the fill pastPlan the tick, and the tick stays
-       put — a bar pinned at its own maximum cannot say HOW far past. */
+    /* A plate past its share fills its pill and prints how far past. */
     const pastPlan = [];
-    fed.forEach((c) => c.bars.forEach((g) => { if (g.st === 'x') pastPlan.push(g); }));
+    fed.forEach((c) => c.caps.forEach((g) => { if (g.cls === 'over') pastPlan.push(g); }));
     t.ok('a plate past the plan says how far past, not merely that it is',
-      pastPlan.length > 0 && pastPlan.every((g) => g.fill >= 99 && g.tick < 99),
+      pastPlan.length > 0 && pastPlan.every((g) => g.fill >= 99 && g.v > g.want),
       JSON.stringify(pastPlan));
 
     /* Colour says whether it matters; length says how much. They may not
@@ -561,98 +501,46 @@ module.exports = nourish({
       bandRule.half === 'u' && bandRule.most === 'o' &&
       bandRule.on === 'o' && bandRule.past === 'x', JSON.stringify(bandRule));
 
-    /* Planned but not eaten draws faded — a full-looking dinner at eleven in
-       the morning otherwise reads as food you have already had. */
-    t.ok('a meal planned but not eaten draws faded, an eaten one solid',
-      fed.some((c) => c.planned) && fed.some((c) => !c.planned),
-      JSON.stringify(fed.map((c) => c.name + (c.planned ? ':faded' : ':solid'))));
-
     /* Blake: "I don't like the at it's share. it's not intuitive to me." The
        number survives; the vocabulary does not. */
     t.ok('an empty meal says what it is for with no vocabulary to learn',
-      noFood.length > 0 && noFood.every((c) => c.bars.length === 4) &&
+      noFood.length > 0 && noFood.every((c) => c.want > 0) &&
       !(await gaugePage.evaluate(() => /at its share/i.test(document.body.textContent))),
-      JSON.stringify(noFood.map((c) => c.name + ':' + c.bars.length)));
+      JSON.stringify(noFood.map((c) => c.name + ':' + c.got + '/' + c.want)));
 
-    /* Reversed twice, and this is the second one.
-     *
-       It first asserted that an empty meal draws NO tracks — "four at zero
-       times five meals is what the morning would open on". Blake asked for
-       the opposite: the meal you have not filled is precisely the one you
-       need the numbers for. So it drew four pills, faded, all reading 0.
+    /* Blake, on his own breakfast: "I can't see what my target macros are
+       from the main screen. I simply want this breakfast to show a greyed out
+       target number instead of zeros." An empty tray prints what it is for,
+       its calories against its share: nothing yet, out of the target. */
+    t.ok('a meal with nothing on it prints its target, not a bare nought',
+      noFood.length > 0 && noFood.every((c) => c.got === 0 && c.want > 0),
+      JSON.stringify(noFood.map((c) => c.name + ' ' + c.got + '/' + c.want)));
 
-       And that was still not the number. The target lived in the LENGTH of
-       the rail, which says nothing when the fill is nought, and in data-want
-       and a screen-reader sentence — every audience but the one holding the
-       phone. Blake, on his own breakfast: "I can't see what my target macros
-       are from the main screen. I simply want this breakfast to show a
-       greyed out target number instead of zeros."
-
-       So a blank meal PRINTS what it is for. Mutation-proof by construction:
-       print `got` there instead of `want` and every figure goes to nought
-       while data-want does not, and the first clause fails. */
-    t.ok('a meal with nothing on it prints its target, not four noughts',
-      noFood.length > 0 && noFood.every((c) => c.blank && c.bars.length === 4 &&
-        c.bars.every((g) => g.tick > 0 && g.v === g.tick)),
-      JSON.stringify(noFood.map((c) => c.name + ' ' +
-        c.bars.map((g) => g.v + '/' + g.tick).join(' '))));
-
-    /* And a fed meal still prints the plate. Without this the one above is
-       satisfied by printing the target everywhere, which would be the same
-       screen with the other number missing. */
     t.ok('while a meal with food on it still prints the food',
-      fed.length > 0 && fed.some((c) => c.bars.some((g) => g.v !== g.tick)),
-      JSON.stringify(fed.map((c) => c.name + ' ' +
-        c.bars.map((g) => g.v + '/' + g.tick).join(' '))));
+      fed.length > 0 && fed.every((c) => c.got > 0),
+      JSON.stringify(fed.map((c) => c.name + ' ' + c.got + '/' + c.want)));
 
-    /* Quiet, still. A blank meal wears no verdict colour: six untouched
-       meals would otherwise draw twenty-four ochre "short" marks first thing
-       in the morning, about food the day has not got to yet. The colour
-       arrives with the food, which is when it starts meaning something. */
-    /* Resolved through the same engine the pills are, so the comparison is
-       between two colours and not between two spellings of one. */
-    const greyRef = await gaugePage.evaluate(() => {
-      const el = document.createElement('span');
-      el.style.color = 'var(--muted)';
-      document.body.appendChild(el);
-      const c = getComputedStyle(el).color;
-      el.remove();
-      return c;
-    });
-    t.ok('and it reads quietly — every figure the same grey, no verdict',
-      noFood.length > 0 && noFood.every((c) => c.inks.length === 4 &&
-        c.inks.every((x) => x === greyRef)),
-      JSON.stringify({ grey: greyRef, blank: noFood.map((c) => c.name + ':' + c.inks.join('|')) }));
-
-    /* ...and the colour does arrive with the food, or the rule above is
-       satisfied by painting the whole strip grey for ever. */
+    /* Quiet, still: an empty meal wears no verdict colour, about food the day
+       has not got to yet. The colour arrives with the food. */
+    t.ok('and it reads quietly — no verdict on an empty meal',
+      noFood.length > 0 && noFood.every((c) => !c.verdict),
+      JSON.stringify(noFood.map((c) => c.name + ':' + c.verdict)));
     t.ok('while a fed meal wears its verdict in colour',
-      fed.length > 0 && fed.some((c) => c.inks.some((x) => x !== greyRef)),
-      JSON.stringify(fed.map((c) => c.name + ':' + c.inks.join('|'))));
+      fed.length > 0 && fed.some((c) => c.caps.some((g) => g.cls)),
+      JSON.stringify(fed.map((c) => c.name + ':' + c.caps.map((g) => g.cls || '-').join('|'))));
 
-    /* The header does not grow to make room for it. This is the whole reason
-       the figure went INTO the pill rather than beside it or under it: at 390
-       the four groups fit exactly as they are, and a blank meal's row is the
-       same height as a fed one's. */
-    t.ok('and a blank meal is the same height as a fed one',
-      await gaugePage.evaluate(() => {
-        const hs = [...document.querySelectorAll('.mslot')]
-          .filter((s2) => s2.querySelector('.mmps'))
-          .map((s2) => Math.round(s2.querySelector('.mslot-h').getBoundingClientRect().height));
-        return hs.length > 1 && Math.max.apply(null, hs) === Math.min.apply(null, hs);
-      }),
-      await gaugePage.evaluate(() => [...document.querySelectorAll('.mslot')]
-        .filter((s2) => s2.querySelector('.mmps'))
-        .map((s2) => ((s2.querySelector('.mslot-name') || {}).textContent || '').trim() + ':' +
-          Math.round(s2.querySelector('.mslot-h').getBoundingClientRect().height)).join(' ')));
+    /* An empty tray is no taller than one holding a single food: it says
+       "Nothing yet" on the line the food would take. */
+    const one = gz.filter((c) => c.foods === 1);
+    t.ok('and a blank meal is the same height as a one-food one',
+      one.length > 0 && noFood.length > 0 && noFood.every((c) => Math.abs(c.h - one[0].h) <= 1),
+      JSON.stringify(gz.map((c) => c.name + ':' + c.foods + ':' + c.h)));
 
-    /* The gauges went on the header row first and rendered BREAKFAST as
-       BREAKFAS. They live on the seam for that reason. */
     t.ok('and the meal keeps its whole name at phone width',
       await gaugePage.evaluate(() =>
-        [...document.querySelectorAll('.mslot-name')]
+        [...document.querySelectorAll('#macroSlots .mtray-n')]
           .every((n) => n.scrollWidth <= n.clientWidth + 1)),
-      await gaugePage.evaluate(() => [...document.querySelectorAll('.mslot-name')]
+      await gaugePage.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray-n')]
         .filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent).join(', ')));
     await gaugePage.context().close();
 
@@ -684,73 +572,66 @@ module.exports = nourish({
     await tinyPhone.waitForTimeout(400);
     await tinyPhone.click('.tab[data-view="macros"]');
     await tinyPhone.waitForTimeout(300);
-    await tinyPhone.click('[data-mfold="b"]');
-    await tinyPhone.waitForTimeout(350);
+    await openMeal(tinyPhone, 'b');
 
-    /* 34, not the 44 the rest of the app holds. Blake, off the built row:
-       "Smaller buttons. A but less space between buttons. Wider serving box"
-       — and a plate is the one surface where that trade is affordable,
-       because every control on it repeats something reachable at full size
-       somewhere else: the bin and the lock in the recipe, the portion by
-       typing it, the tick by the meal's own. 34 clears the 24px floor with
-       room, and the figure is asserted as a FLOOR so the next design pass
-       can go up but not quietly back to nothing. */
-    /* Re-aimed at the RP-style food card (2026-10-04, Blake: "the RP Diet
-       way"): every food is a card whose amount bar — lock, amount, −, + — is
-       always there, with the star and the ⋯ on its top line, and the meal's
-       own head carries back, tick, scales and ⋯. All of those hold the 34
-       floor; the amount bar's − and + are the keys a thumb uses most, and the
-       new bar gives them 44, so they are held to that. */
+    /* Re-aimed at the meal sheet (2026-10-04): every food is one compact row
+       — name and small print, then − grams + and ⋯ — and the sheet's head
+       carries the meal's tick, the scales, its ⋯ and ×. Blake: "controls no
+       larger than the food text needs, while keeping 44 px tap targets."
+       So the reach is measured, not the drawing: how far from its centre a
+       thumb can land and still hit the control (elementFromPoint, so the
+       invisible ring a small key carries counts). 44 tall for everything;
+       wide enough (34) not to be a sliver. */
     const targets44 = await tinyPhone.evaluate(() => {
-      const box = (e) => { const b = e.getBoundingClientRect();
-        return { w: Math.round(b.width), h: Math.round(b.height),
-          what: (e.getAttribute('data-mstep') ? 'key ' : '') + (e.className.split(' ')[0] || e.tagName) }; };
-      const plate = [...document.querySelectorAll(
-        '#macroSlots .mfood [data-mlock], #macroSlots .mfood .mstep-x, #macroSlots .mfood [data-mfav], ' +
-        '#macroSlots .mfood [data-mfmenu], #macroSlots .mscreen-h button')];
-      const keys = [...document.querySelectorAll('#macroSlots .mfood .mstep-keys button[data-mstep]')];
-      const small = plate.map(box).filter((x) => x.w < 34 || x.h < 34)
-        .concat(keys.map(box).filter((x) => x.w < 44 || x.h < 44));
-      return { n: plate.length + keys.length, keys: keys.length, small: small };
+      const reach = (el) => {
+        const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const on = (x, y) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h)); };
+        let up = 0, dn = 0, lf = 0, rt = 0;
+        while (up < 40 && on(cx, cy - up - 1)) up++;
+        while (dn < 40 && on(cx, cy + dn + 1)) dn++;
+        while (lf < 40 && on(cx - lf - 1, cy)) lf++;
+        while (rt < 40 && on(cx + rt + 1, cy)) rt++;
+        return { w: lf + rt + 1, h: up + dn + 1, what: (el.getAttribute('data-mstep') ? 'key ' + el.getAttribute('data-mstep')
+          : el.className.split(' ')[0] || el.tagName) };
+      };
+      const els = [...document.querySelectorAll('#modalRoot .mrows .mrow [data-mstep], #modalRoot .mrows .mrow .mstep-x, ' +
+        '#modalRoot .mrows .mrow [data-mfmenu], #modalRoot .msh-h button')];
+      const all = els.map(reach);
+      return { n: els.length, keys: all.filter((x) => /^key/.test(x.what)).length, small: all.filter((x) => x.h < 44 || x.w < 34) };
     });
     t.ok('every control on a plate is a thumb wide at the narrowest phone',
-      targets44.n >= 6 && targets44.keys >= 4 && targets44.small.length === 0,
+      targets44.n >= 8 && targets44.keys >= 4 && targets44.small.length === 0,
       JSON.stringify(targets44));
 
-    /* The food's own line used to be name, amount, calories and a tick; the
-       tick went with the 2026-10-04 redesign ("No individual foods ticks...
-       I'll complete the whole meal"). What now has to hold one line at 320 is
-       the amount bar: lock, amount, − and +, side by side, none over its
-       neighbour, and the bar not scrolling sideways. */
-    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-amt')].map((r) => {
+    /* What has to hold one line at 320 is the dial: −, the grams and +, side
+       by side, none over its neighbour, and the row not scrolling sideways. */
+    const strip320 = await tinyPhone.evaluate(() => [...document.querySelectorAll('#modalRoot .mrows .mrow')].map((row) => {
       const R = (e) => e.getBoundingClientRect();
-      const parts = [r.querySelector('[data-mlock]'), r.querySelector('.mstep-x'),
-        r.querySelector('[data-mstep$=":down"]'), r.querySelector('[data-mstep$=":up"]')];
-      if (parts.some((e) => !e)) return { missing: true };
-      // one line: every control inside the bar's own band, top to bottom
-      const bar = R(r);
+      const dial = row.querySelector('.mrow-dial');
+      const parts = [row.querySelector('[data-mstep$=":down"]'), row.querySelector('.mstep-x'), row.querySelector('[data-mstep$=":up"]')];
+      if (!dial || parts.some((e) => !e)) return { missing: true };
+      const bar = R(dial);
       return { sameLine: parts.every((e) => R(e).top >= bar.top - 1 && R(e).bottom <= bar.bottom + 1),
         clear: parts.every((e, i) => !i || R(e).left >= R(parts[i - 1]).right - 1),
-        fits: r.scrollWidth <= r.clientWidth + 1, amt: Math.round(R(parts[1]).width) };
+        fits: row.scrollWidth <= row.clientWidth + 1, amt: Math.round(R(parts[1]).width) };
     }));
-    t.ok('a food’s amount bar fits one line at 320, each control clear of the one before',
+    t.ok('a food’s dial fits one line at 320, each control clear of the one before',
       strip320.length >= 2 && strip320.every((x) => !x.missing && x.sameLine && x.clear && x.fits),
       JSON.stringify(strip320));
 
-    /* The meal's own verbs, drawn without words, each named aloud. Since
-       2026-10-04 those are the open meal's head — back, the meal's tick, the
-       scales and ⋯ — with Try another, Save meal and Repeat a day worded
-       inside the ⋯ rather than drawn on the face. */
+    /* The meal's own verbs on the sheet's head, drawn without words, each
+       named aloud; Try another, Save meal and Repeat a day are worded inside
+       the ⋯ rather than drawn on the face. */
     const verbs320 = await tinyPhone.evaluate(() => {
-      const row = document.querySelector('#macroSlots .mscreen-h');
+      const row = document.querySelector('#modalRoot .msh-h');
       if (!row) return null;
-      const bs = [...row.querySelectorAll('button')];
+      const bs = [...row.querySelectorAll(':scope > button')];
       return {
         n: bs.length,
         rows: new Set(bs.map((b) => Math.round(b.getBoundingClientRect().top))).size,
         worded: bs.filter((b) => { const w = b.querySelector('span'); return w && w.getBoundingClientRect().width > 0; }).length,
-        // the tick is a ring drawn in CSS; every other verb is a glyph
-        drawn: bs.filter((b) => b.hasAttribute('data-mdot') ||
+        // the tick is a ring drawn in CSS, × a glyph; every other verb is a drawing
+        drawn: bs.filter((b) => b.hasAttribute('data-mdot') || b.classList.contains('sheet-x') ||
           (b.querySelector('svg') && b.querySelector('svg').getBoundingClientRect().width > 0)).length,
         unnamed: bs.filter((b) => !/\w/.test(b.getAttribute('aria-label') || '')).map((b) => b.className),
       };
@@ -760,64 +641,62 @@ module.exports = nourish({
         verbs320.drawn === verbs320.n && verbs320.unnamed.length === 0,
       JSON.stringify(verbs320));
 
-    /* The panel's icons are the size the mockup Blake approved drew them
-       (22px in a 44px circle), asserted as a ceiling so a stray rule cannot
-       quietly blow them up. The panel went with the 2026-10-04 food card; its
-       glyphs — the star, the ⋯ and the lock — are on the card itself now. */
+    /* The glyphs are the size the plate asks for, as a ceiling, so a stray
+       rule cannot quietly blow them up. */
     t.ok('and the glyph inside it is the size the plate asks for, not a leftover',
       await tinyPhone.evaluate(() => {
-        const g = [...document.querySelectorAll('#macroSlots .mfood .mfood-i svg, #macroSlots .mfood [data-mlock] svg')];
+        const g = [...document.querySelectorAll('#modalRoot .mrow-more svg, #modalRoot .msh-i svg')];
         return g.length >= 3 && g.every((e) => Math.round(e.getBoundingClientRect().width) <= 22);
       }),
       await tinyPhone.evaluate(() => [...new Set(
-        [...document.querySelectorAll('#macroSlots .mfood .mfood-i svg, #macroSlots .mfood [data-mlock] svg')]
+        [...document.querySelectorAll('#modalRoot .mrow-more svg, #modalRoot .msh-i svg')]
           .map((e) => Math.round(e.getBoundingClientRect().width)))].join(', ')));
 
     /* The star reaches everything a plate can hold.
      *
        Blake, on a breakfast of it: "I am not seeing a star on Greek yogurt.
        Why?" The control asked whether the thing was a recipe, so it was
-       drawn for half of what a plate can carry and skipped the half he adds
-       most — a food out of the reference table. Nothing was stopping it;
-       Store.toggleFav takes an id and keeps a list of them.
-     *
-       The plate here holds `f:whey`, which is exactly that kind of food. */
+       drawn for half of what a plate can carry. It lives in the food's ⋯
+       since 2026-10-04, as Favourite. The plate here holds `f:whey`, a food
+       out of the reference table. */
+    const favMenu = async () => {
+      if (!(await tinyPhone.$('#modalRoot .mrow-menu'))) {
+        await tinyPhone.click('#modalRoot [data-mfmenu="b:0"]');
+        await tinyPhone.waitForTimeout(250);
+      }
+    };
+    await favMenu();
     const foodStar = await tinyPhone.evaluate(() =>
-      !!document.querySelector('.mitem [data-mfav="f:whey"]'));
-    t.ok('a food from the table wears a star, the same as a recipe', foodStar);
+      !!document.querySelector('#modalRoot .mrow-menu [data-mfav="f:whey"]'));
+    t.ok('a food from the table offers Favourite, the same as a recipe', foodStar);
     if (foodStar) {
-      await tinyPhone.click('.mitem [data-mfav="f:whey"]');
+      await tinyPhone.click('#modalRoot .mrow-menu [data-mfav="f:whey"]');
       await tinyPhone.waitForTimeout(250);
+      await favMenu();
       t.ok('and tapping it keeps the food',
         await tinyPhone.evaluate(() => window.Store.isFav('f:whey') === true &&
-          document.querySelector('.mitem [data-mfav="f:whey"]')
+          document.querySelector('#modalRoot .mrow-menu [data-mfav="f:whey"]')
             .getAttribute('aria-pressed') === 'true'));
-      /* Put it back, so the rows below are measured on the same plate the
-         rows above were. */
-      await tinyPhone.click('.mitem [data-mfav="f:whey"]');
+      // put it back, so the rows below are measured on the same plate
+      await tinyPhone.click('#modalRoot .mrow-menu [data-mfav="f:whey"]');
       await tinyPhone.waitForTimeout(250);
     }
 
     /* And the row still fits — targets that overflow are not a fix. */
     t.ok('and the row still fits without scrolling sideways',
       await tinyPhone.evaluate(() =>
-        [...document.querySelectorAll('.mitem-r2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
+        [...document.querySelectorAll('#modalRoot .mitem-r2')].every((e) => e.scrollWidth <= e.clientWidth + 1) &&
         document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-    /* "A portion either fits or gets its own row; it never gets clipped" —
-       the rule this file has stated twice and enforced neither time. It was
-       false here: the 380px block gave the dial `flex: 1 1 100%` and the 54%
-       cap three hundred lines up quietly outranked it, so the dial took a
-       whole line and was squeezed onto half of it. Measured at 320, "1
-       serving" wanted 58px of text, got 46, and reached the screen as "1
-       servin". A portion that silently loses its last letters is the app
-       misreporting what you ate, which is the one thing this tab is for. */
+    /* "A portion either fits or gets its own row; it never gets clipped." A
+       portion that silently loses its last letters is the app misreporting
+       what you ate, which is the one thing this tab is for. */
     t.ok('and no portion on it is clipped, on the narrowest phone there is',
       await tinyPhone.evaluate(() =>
-        [...document.querySelectorAll('#macroSlots .mstep-x')].length > 0 &&
-        [...document.querySelectorAll('#macroSlots .mstep-x')].every((e) =>
+        [...document.querySelectorAll('#modalRoot .mstep-x')].length > 0 &&
+        [...document.querySelectorAll('#modalRoot .mstep-x')].every((e) =>
           e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1)),
       await tinyPhone.evaluate(() =>
-        [...document.querySelectorAll('#macroSlots .mstep-x')].map((e) =>
+        [...document.querySelectorAll('#modalRoot .mstep-x')].map((e) =>
           JSON.stringify(e.textContent.trim()) + ' box ' + Math.round(e.clientWidth) + 'x' +
           Math.round(e.clientHeight) + ' needs ' + e.scrollWidth + 'x' + e.scrollHeight).join(' | ')));
     await tinyPhone.context().close();
@@ -846,42 +725,33 @@ module.exports = nourish({
     await spacePhone.waitForTimeout(400);
     await spacePhone.click('.tab[data-view="macros"]');
     await spacePhone.waitForTimeout(300);
-    await spacePhone.click('[data-mfold="b"]');
-    await spacePhone.waitForTimeout(300);
-    /* The food's ⋯ (2026-10-04, RP-style card): Swap and Pin are one group
-       and Remove stands apart at the far end, so the destructive one is
-       never a neighbour of the others. (It was the panel's lock, swap, pin,
-       star and bin until the panel went with that redesign.) */
-    await spacePhone.click('#macroSlots [data-mfmenu="b:0"]');
+    await openMeal(spacePhone, 'b');
+    /* The food's ⋯ in the meal sheet (2026-10-04) is a short worded list:
+       Lock, Swap, Pin, Favourite, then Remove last — the destructive one at
+       the end, in the warning colour, never in the middle of the others. */
+    await spacePhone.click('#modalRoot [data-mfmenu="b:0"]');
     await spacePhone.waitForTimeout(250);
     const spacing = await spacePhone.evaluate(() => {
-      const icons = [...document.querySelectorAll('#macroSlots .mfood-menu button')];
+      const icons = [...document.querySelectorAll('#modalRoot .mrow-menu button')];
       if (icons.length < 3) return null;
       const g = icons.map((e) => e.getBoundingClientRect());
       const bin = icons.findIndex((e) => e.hasAttribute('data-mdel'));
-      if (bin !== icons.length - 1) return { binNotLast: true };
-      /* The air between two buttons measured in both directions, because
-         the menu is allowed to wrap: the larger of the horizontal and the
-         vertical gap is how far apart they actually sit. */
-      const air = (a, b) => Math.round(Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom));
-      const within = air(g[0], g[1]);
-      const between = Math.min.apply(null, g.slice(0, bin).map((o) => air(o, g[bin])));
-      return { within, between, box: Math.round(g[0].width),
-        rows: new Set(g.map((o) => Math.round(o.top))).size };
+      const air = (a2, b2) => Math.round(Math.max(b2.left - a2.right, a2.left - b2.right, b2.top - a2.bottom, a2.top - b2.bottom));
+      return { binLast: bin === icons.length - 1, within: air(g[0], g[1]),
+        warn: getComputedStyle(icons[bin]).color !== getComputedStyle(icons[0]).color,
+        overlap: g.some((o, i) => i && o.top < g[i - 1].bottom - 1) };
     });
     t.ok('two verbs sit within a target of each other, not scattered',
-      !!spacing && !spacing.binNotLast && spacing.within <= 44,
-      JSON.stringify(spacing));
-    t.ok('and the air inside the group is less than the air around it',
-      !!spacing && !spacing.binNotLast && spacing.within < spacing.between,
-      JSON.stringify(spacing));
+      !!spacing && spacing.within <= 44 && !spacing.overlap, JSON.stringify(spacing));
+    t.ok('and Remove stands last, in the warning colour',
+      !!spacing && spacing.binLast && spacing.warn, JSON.stringify(spacing));
     t.ok('and it bought that without shrinking a single target',
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-menu button')]
-        .every((e) => { const b = e.getBoundingClientRect();
-          return Math.round(b.width) >= 34 && Math.round(b.height) >= 34; })),
-      await spacePhone.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood-menu button')]
-        .map((e) => { const b = e.getBoundingClientRect();
-          return Math.round(b.width) + 'x' + Math.round(b.height); }).join(' ')));
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#modalRoot .mrow-menu button')]
+        .every((e) => { const b2 = e.getBoundingClientRect();
+          return Math.round(b2.width) >= 34 && Math.round(b2.height) >= 34; })),
+      await spacePhone.evaluate(() => [...document.querySelectorAll('#modalRoot .mrow-menu button')]
+        .map((e) => { const b2 = e.getBoundingClientRect();
+          return Math.round(b2.width) + 'x' + Math.round(b2.height); }).join(' ')));
     await spacePhone.context().close();
 
     /* ---- what is held, said where it can be seen -------------------------
@@ -910,12 +780,14 @@ module.exports = nourish({
     await heldPage.waitForTimeout(400);
     await heldPage.click('.tab[data-view="macros"]');
     await heldPage.waitForTimeout(300);
-    await heldPage.click('[data-mfold="b"]');           // open breakfast
-    await heldPage.waitForTimeout(300);
-    const heldOk = await heldPage.evaluate(() => document.querySelectorAll('[data-mlock]').length > 0);
+    await openMeal(heldPage, 'b');                      // breakfast's sheet
+    // the lock is in the food's ⋯ since 2026-10-04
+    await heldPage.click('#modalRoot [data-mfmenu="b:0"]');
+    await heldPage.waitForTimeout(250);
+    const heldOk = await heldPage.evaluate(() => document.querySelectorAll('#modalRoot [data-mlock]').length > 0);
     t.ok('an open plate offers the lock', heldOk);
 
-    await heldPage.click('[data-mlock]');
+    await heldPage.click('#modalRoot [data-mlock]');
     await heldPage.waitForTimeout(300);
     t.ok('and tapping it is recorded on the plate, not just drawn',
       await heldPage.evaluate(() => {
@@ -924,27 +796,21 @@ module.exports = nourish({
         return (day.b || []).some((it) => it.l);
       }));
 
-    /* The folded card named its foods and counted the held ones ("1 kept")
-       until 2026-10-04; the RP-style day card names no foods at all, only
-       the meal and its pills. So the mark is held where the food now is: fold
-       the meal, open it again, and the plate still says Kept, with its lock
-       still pressed — the hold survives the fold, and it is the one plate. */
-    await heldPage.click('#macroSlots [data-mfold="b"][aria-expanded="true"]');   // fold it again
-    await heldPage.waitForTimeout(300);
-    const foldedBack = await heldPage.evaluate(() =>
-      !!document.querySelector('#macroSlots .mday-card [data-mfold="b"][aria-expanded="false"]'));
-    await heldPage.click('#macroSlots [data-mfold="b"][aria-expanded="false"]');
-    await heldPage.waitForTimeout(300);
+    /* The hold is said where the food is: shut the meal's sheet, open it
+       again, and the plate still says Kept — the hold survives, and it is the
+       one plate. */
+    await closeSheet(heldPage);
+    const foldedBack = await heldPage.evaluate(() => !document.querySelector('#modalRoot .msheet'));
+    await openMeal(heldPage, 'b');
     t.ok('and the fold still says which food is being held',
       foldedBack && await heldPage.evaluate(() => {
-        const held = [...document.querySelectorAll('#macroSlots .mfood')].filter((f) =>
-          [...f.querySelectorAll('.mfood-chip.kept')].some((c) => /Kept/.test(c.textContent)) &&
-          (f.querySelector('[data-mlock]') || {}).getAttribute('aria-pressed') === 'true');
+        const held = [...document.querySelectorAll('#modalRoot .mrows .mrow')].filter((f) =>
+          [...f.querySelectorAll('.mrow-mk.kept')].some((c) => /Kept/.test(c.textContent)));
         return held.length === 1 && held[0].classList.contains('held');
       }),
-      await heldPage.evaluate(() => [...document.querySelectorAll('#macroSlots .mfood')]
-        .map((f) => f.className + ' [' + (f.querySelector('.mfood-chips') || {}).textContent + ']').join(' | ') || 'no plates'));
-    // and back to the day, where Rebalance is pressed with the meal folded
+      await heldPage.evaluate(() => [...document.querySelectorAll('#modalRoot .mrows .mrow')]
+        .map((f) => f.className + ' [' + (f.querySelector('.mitem-nm') || {}).textContent + ']').join(' | ') || 'no plates'));
+    // and back to the day, where Rebalance is pressed
     await backToDay(heldPage);
 
     /* The point of the mark: Rebalance is about to skip that plate, and you
@@ -1016,40 +882,35 @@ module.exports = nourish({
     await deadFold.click('.tab[data-view="macros"]');
     await deadFold.waitForTimeout(300);
 
-    /* Reversed on 2026-10-04 (Blake: "the RP Diet way"). An empty meal is a
-       day card like any other now, and pressing it is no longer a press that
-       does nothing: it opens that meal's own screen, which says it is empty
-       and carries Add foods and the camera — the press does something you can
-       see. What has to stay true is the consequence below. */
-    await deadFold.click('#macroSlots [data-mfold="b"][aria-expanded="false"]');
-    await deadFold.waitForTimeout(300);
-    t.ok('an empty meal’s card opens to a screen with something to do on it',
+    /* An empty meal is a tray like any other, and pressing it opens its
+       sheet, which says it is empty and carries the search and the picker
+       under it — the press does something you can see. What has to stay true
+       is the consequence below. */
+    await openMeal(deadFold, 'b');
+    t.ok('an empty meal’s tray opens to a sheet with something to do on it',
       await deadFold.evaluate(() => {
-        const sc = document.querySelector('#macroSlots .mscreen-focus');
-        return !!sc && !!sc.querySelector('.mscreen-empty') &&
-          !!sc.querySelector('[data-mslot="b"]') && !!sc.querySelector('[data-mscan="b"]');
+        const sc = document.querySelector('#modalRoot .msheet');
+        return !!sc && !!sc.querySelector('.mscreen-empty') && !!sc.querySelector('#mpFind') &&
+          sc.querySelectorAll('#mpList [data-mpick]').length > 0;
       }));
 
     /* The consequence, which is what actually bit: press it, then Fill —
-       from the day, since the bar steps aside while a meal is on screen. */
+       from the day. */
     await backToDay(deadFold);
     await deadFold.click('#macroFill');
     await deadFold.waitForTimeout(700);
     const afterFill = await deadFold.evaluate(() =>
-      [...document.querySelectorAll('#macroSlots .mslot')]
-        .filter((c) => c.querySelector('.mslot-name'))
-        .map((c) => ({ n: c.querySelector('.mslot-name').textContent.trim(),
-          k: (c.querySelector('[data-mfold]') || {}).dataset.mfold,
-          folded: c.classList.contains('mday-card'),
+      [...document.querySelectorAll('#macroSlots .mtray')]
+        .map((c) => ({ n: c.querySelector('.mtray-n').textContent.trim(),
+          k: (c.querySelector('[data-mopen]') || {}).dataset.mopen,
           filled: c.classList.contains('filled') })));
     /* Every meal Fill drafted comes back the same way — the one pressed
-       first is not singled out — and that one opens onto its steppers. */
+       first is not singled out — and its sheet opens onto its dials. */
     await openMeal(deadFold, 'b');
     const bSteppers = await deadFold.evaluate(() =>
-      document.querySelectorAll('#macroSlots .mscreen [data-mstep^="b:"]').length);
-    t.ok('and pressing it before Fill does not bring one meal back folded',
-      afterFill.length >= 3 && afterFill.every((m) => m.filled) &&
-        afterFill.every((m) => m.folded === afterFill[0].folded) && bSteppers > 0,
+      document.querySelectorAll('#modalRoot .mrows [data-mstep^="b:"]').length);
+    t.ok('and pressing it before Fill does not leave that meal behind',
+      afterFill.length >= 3 && afterFill.every((m) => m.filled) && bSteppers > 0,
       JSON.stringify({ afterFill, bSteppers }));
     await deadFold.context().close();
 

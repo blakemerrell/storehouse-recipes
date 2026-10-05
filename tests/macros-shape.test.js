@@ -5,39 +5,40 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, pickRecipe, pickerList, openDay } = require('./fixtures/nourish.js');
+const { nourish, openPlan, pickRecipe, pickerList } = require('./fixtures/nourish.js');
 
-/* The RP-style day (Blake, 2026-10-04): every meal arrives folded to its
-   card, a meal opens as its own screen, and the verbs live behind a ⋯ —
-   the meal's (Try another, Save meal, Repeat a day, Skip) on its head, a
-   plate's (Swap, Pin, Remove) on the plate. These say "the way a thumb gets
-   there" once, so each step below can keep asking for what it always did. */
+/* Trays and the meal sheet (Blake, 2026-10-04): the day is a small tray a
+   meal, and a meal opens as its sheet — the one place food is added or
+   changed — where the verbs live behind a ⋯: the meal's (Try another, Save
+   meal, Repeat a day, Skip) on its header, a plate's (Lock, Swap, Pin,
+   Remove) on the plate. These say "the way a thumb gets there" once, so each
+   step below can keep asking for what it always did. */
 const home = async (pg) => {
-  await pg.evaluate(() => {
-    const b = document.querySelector('#macroSlots .mscreen-focus .mscreen-back');
+  const was = await pg.evaluate(() => {
+    const b = document.querySelector('#modalRoot .msheet .sheet-x');
     if (b) b.click();
+    return !!b;
   });
-  await pg.waitForTimeout(250);
+  if (was) await pg.waitForTimeout(300);
 };
-/* A meal open by its key, or by its place on the day. */
+/* A meal's sheet open, by its key or by its place on the day. */
 const openMeal = async (pg, sk) => {
-  const open = await pg.evaluate((k) => typeof k === 'number'
-    ? !![...document.querySelectorAll('#macroSlots .mslot')][k].querySelector('[data-mfold][aria-expanded="true"]')
-    : !!document.querySelector('#macroSlots [data-mfold="' + k + '"][aria-expanded="true"]'), sk);
+  const key = await pg.evaluate((k) => typeof k === 'number'
+    ? ([...document.querySelectorAll('#macroSlots [data-mopen]')][k] || { dataset: {} }).dataset.mopen
+    : k, sk);
+  const open = await pg.evaluate((k) => !!document.querySelector('#modalRoot .msheet .msh-h [data-mdot="' + k + '"]'), key);
   if (open) return;
   await home(pg);
   await pg.evaluate((k) => {
-    const b = typeof k === 'number'
-      ? [...document.querySelectorAll('#macroSlots .mslot')][k].querySelector('[data-mfold]')
-      : document.querySelector('#macroSlots [data-mfold="' + k + '"][aria-expanded="false"]');
-    if (b) b.click();
-  }, sk);
-  await pg.waitForTimeout(250);
+    const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
+    if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
+  }, key);
+  await pg.waitForTimeout(300);
 };
 const mealMenu = async (pg, sk) => {
   await openMeal(pg, sk);
   await pg.evaluate((k) => {
-    const b = document.querySelector('[data-mmenu="' + k + '"]');
+    const b = document.querySelector('#modalRoot [data-mmenu="' + k + '"]');
     if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
   }, sk);
   await pg.waitForTimeout(200);
@@ -45,14 +46,15 @@ const mealMenu = async (pg, sk) => {
 const foodMenu = async (pg, tag) => {
   await openMeal(pg, tag.split(':')[0]);
   await pg.evaluate((k) => {
-    const b = document.querySelector('[data-mfmenu="' + k + '"]');
+    const b = document.querySelector('#modalRoot [data-mfmenu="' + k + '"]');
     if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
   }, tag);
   await pg.waitForTimeout(200);
 };
-/* Every plate on a meal back to a plan. There is no per-plate tick any
-   more; the meal's tick completes or un-completes the whole meal, so one
-   press clears an eaten meal and two clear a half-eaten one. */
+/* Every plate on a meal back to a plan. There is no per-plate tick; the
+   meal's tick completes or un-completes the whole meal, so one press clears
+   an eaten meal and two clear a half-eaten one. Pressed on its tray, which
+   may sit under the meal's open sheet. */
 const asPlanned = async (pg, sk) => {
   for (let i = 0; i < 2; i++) {
     const any = await pg.evaluate((k) => {
@@ -60,10 +62,15 @@ const asPlanned = async (pg, sk) => {
       return Object.values(d).some((day) => (day[k] || []).some((it) => it.eaten));
     }, sk);
     if (!any) break;
-    await pg.click('#macroSlots [data-mdot="' + sk + '"]');
+    await pg.evaluate((k) => document.querySelector('#macroSlots [data-mdot="' + k + '"]').click(), sk);
     await pg.waitForTimeout(200);
   }
 };
+const dayX = (pg, sk, i) => pg.evaluate(([k, n]) => {
+  const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+  const day = d[Object.keys(d).sort().pop()] || {};
+  return ((day[k] || [])[n] || {}).x;
+}, [sk, i]);
 
 module.exports = nourish({
   name: 'Macros — your meals, locks and pins, and signing in',
@@ -96,7 +103,7 @@ module.exports = nourish({
     await m.click('[data-mtarg="save"]');
     await m.waitForTimeout(300);
     const slotNames = () => m.evaluate(() =>
-      [...document.querySelectorAll('#macroSlots .mslot-name')].map((n) => n.textContent));
+      [...document.querySelectorAll('#macroSlots .mtray-n')].map((n) => n.textContent));
     t.ok('the day now has five meals, the brew first',
       (await slotNames()).length === 5 && (await slotNames())[0] === 'Crio Brü',
       (await slotNames()).join(' | '));
@@ -114,7 +121,6 @@ module.exports = nourish({
     // put something on the brew and on Lunch, for the two tests that follow
     for (const which of [0, 2]) {
       await openMeal(m, which);
-      await m.evaluate((n) => [...document.querySelectorAll('#macroSlots .mslot')][n].querySelector('[data-mslot]').click(), which);
       await pickerList(m);
       await m.waitForTimeout(250);
       /* A RECIPE, because what follows opens the plate as a recipe and scales
@@ -126,10 +132,10 @@ module.exports = nourish({
           .find((x) => !/^f:/.test(x.dataset.mpick));
         if (r) r.click();
       });
-      await m.waitForTimeout(200);
-      await m.click('[data-mpdone]');
       await m.waitForTimeout(300);
+      await home(m);
     }
+    await openMeal(m, 0);
 
     /* The portion ports into the recipe: the sheet opens at the batch that
        makes the plate — x over servN, snapped to the eighths it prints in. */
@@ -145,7 +151,7 @@ module.exports = nourish({
       if (e8 === 0) return String(wh || 0); if (e8 === 8) return String(wh + 1);
       return (wh ? wh + ' ' : '') + { 1: '⅛', 2: '¼', 3: '⅜', 4: '½', 5: '⅝', 6: '¾', 7: '⅞' }[e8];
     };
-    await m.click('.mitem-name');
+    await m.click('#modalRoot .mitem-name');
     await m.waitForTimeout(250);
     t.ok('opening a plate opens its recipe at the batch that makes the portion',
       (await m.textContent('.scaler-val')).trim() === fmt(snapped) + '×',
@@ -169,19 +175,19 @@ module.exports = nourish({
     await m.waitForTimeout(300);
     t.ok('a removed meal with food on the day keeps its card',
       await m.evaluate(() => {
-        const names = [...document.querySelectorAll('#macroSlots .mslot-name')].map((n) => n.textContent);
+        const names = [...document.querySelectorAll('#macroSlots .mtray-n')].map((n) => n.textContent);
         return names.length === 5 && names.indexOf('Lunch') === 4;
       }), (await slotNames()).join(' | '));
-    /* Asked of the meal OPEN: on the day every meal is a card with no Add
-       on it (2026-10-04), so the folded card would pass against the bug. */
+    /* Asked of its sheet: the tray is a door, and the sheet is where adding
+       lives (2026-10-04). Its plate is there; the way to add to it, and the
+       meal's ⋯, are not. */
     await openMeal(m, 4);
     t.ok('but loses its Add button — it is history, not a plan',
       await m.evaluate(() => {
-        const cards = document.querySelectorAll('#macroSlots .mslot');
-        const last = cards[cards.length - 1];
-        return last.classList.contains('mscreen') && !!last.querySelector('.mitem') &&
-          !last.querySelector('.mslot-add') && !last.querySelector('[data-mmenu]');
-      }), await m.evaluate(() => [...document.querySelectorAll('#macroSlots .mslot')].map((c) => c.className).join(' | ')));
+        const s2 = document.querySelector('#modalRoot .msheet');
+        return !!s2 && !!s2.querySelector('.mitem') && !s2.querySelector('#mpFind, [data-mpick]') && !s2.querySelector('[data-mmenu]');
+      }), await m.evaluate(() => { const s2 = document.querySelector('#modalRoot .msheet');
+        return s2 ? JSON.stringify({ items: s2.querySelectorAll('.mitem').length, find: !!s2.querySelector('#mpFind'), menu: !!s2.querySelector('[data-mmenu]') }) : 'no sheet'; }));
     await home(m);
     t.ok('and its grams still count',
       (await m.evaluate(() => document.querySelector('.mb-num').textContent)) === beforeP);
@@ -195,7 +201,6 @@ module.exports = nourish({
 
     // the picker's sort is a lens: order changes, portions stay
     await openMeal(z, 'b');
-    await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
     /* The RANKED band only, and its recipe rows only.
@@ -261,22 +266,22 @@ module.exports = nourish({
 
     // one plate on the day, shrunk by hand, put right by the button
     await pickRecipe(z);
-    await z.click('[data-mpdone]');
     await z.waitForTimeout(300);
     await asPlanned(z, 'b');
-    for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
+    for (let i = 0; i < 20; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
+    const shrunkX = await dayX(z, 'b', 0);
     // how far the day is off its protein, signed, straight from its row
     const protGap = () => z.evaluate(() =>
       Number(document.querySelector('.mbrow[data-macro="p"] .mb-d').dataset.d));
     const leftBefore = await protGap();
-    await home(z);                          // the bar steps aside while a meal is open
+    await home(z);                          // the bar sits under the meal's sheet
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
     await openMeal(z, 'b');
+    const grownX = await dayX(z, 'b', 0);
     t.ok('Rebalance grows a shrunken plate back toward the day',
-      await z.evaluate(() => document.querySelector('.mstep-x').textContent !== '×¼'),
-      await z.textContent('.mstep-x'));
+      grownX > shrunkX, shrunkX + ' → ' + grownX + ' (' + await z.textContent('#modalRoot .mstep-x') + ')');
     t.ok('and the day is nearer its protein than before',
       Math.abs(await protGap()) < Math.abs(leftBefore),
       'was ' + leftBefore + ', now ' + (await protGap()));
@@ -285,19 +290,19 @@ module.exports = nourish({
        meant deleting a plate and reopening the picker. Try again walks down
        the ranked list a step at a time. */
     const firstPick = await z.evaluate(() =>
-      document.querySelector('.mitem-name').dataset.open);
+      document.querySelector('#modalRoot .mitem-name').dataset.open);
     await mealMenu(z, 'b');
     await z.click('[data-mtry="b"]');
     await z.waitForTimeout(250);
     const second = await z.evaluate(() =>
-      document.querySelector('.mitem-name').dataset.open);
+      document.querySelector('#modalRoot .mitem-name').dataset.open);
     t.ok('Try again swaps the plate for another one',
       second && second !== firstPick, firstPick + ' → ' + second);
     await mealMenu(z, 'b');
     await z.click('[data-mtry="b"]');
     await z.waitForTimeout(250);
     const third = await z.evaluate(() =>
-      document.querySelector('.mitem-name').dataset.open);
+      document.querySelector('#modalRoot .mitem-name').dataset.open);
     t.ok('and again walks a further step, not back to the first',
       third && third !== second && third !== firstPick,
       [firstPick, second, third].join(' → '));
@@ -312,7 +317,7 @@ module.exports = nourish({
        recipe from breakfast's sections, or a food you can eat as it comes. */
     t.ok('and only ever offering what the meal draws from',
       await z.evaluate(() => {
-        const id = document.querySelector('.mitem-name').dataset.open;
+        const id = document.querySelector('#modalRoot .mitem-name').dataset.open;
         if (/^f:/.test(id)) {
           const f = window.Nutrition.FOODS[String(id).replace(/^f:/, '')];
           return !!f && !!(f.eat || f.side);
@@ -321,25 +326,28 @@ module.exports = nourish({
         return !!r && r.book === 1 && r.secNum === 1;   // breakfast's own sections
       }));
 
-    // the lock holds against the machine, not the hand
-    await z.click('[data-mlock="b:0"]');
+    // the lock holds against the machine, not the hand (Lock is in the plate's ⋯)
+    await foodMenu(z, 'b:0');
+    await z.click('#modalRoot [data-mlock="b:0"]');
     await z.waitForTimeout(150);
+    await foodMenu(z, 'b:0');
     t.ok('a plate can be locked', await z.evaluate(() =>
-      document.querySelector('[data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
-    for (let i = 0; i < 20; i++) await z.click('[data-mstep="b:0:down"]');
+      document.querySelector('#modalRoot [data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
+    const lockedX = await dayX(z, 'b', 0);
+    for (let i = 0; i < 20; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
     await mealMenu(z, 'b');
     t.ok('a locked plate is not the machine\u2019s to swap, nor joined by another',
       await z.evaluate(async () => {
-        const before = document.querySelector('.mitem-name').dataset.open;
-        const n = document.querySelectorAll('.mitem').length;
-        document.querySelector('[data-mtry="b"]').click();
+        const before = document.querySelector('#modalRoot .mitem-name').dataset.open;
+        const n = document.querySelectorAll('#modalRoot .mitem').length;
+        document.querySelector('#modalRoot [data-mtry="b"]').click();
         await new Promise((r) => setTimeout(r, 250));
-        return document.querySelector('.mitem-name').dataset.open === before &&
-          document.querySelectorAll('.mitem').length === n;
+        return document.querySelector('#modalRoot .mitem-name').dataset.open === before &&
+          document.querySelectorAll('#modalRoot .mitem').length === n;
       }));
     t.ok('the stepper still obeys the hand on a locked plate',
-      (await z.textContent('.mstep-x')).indexOf('¼') >= 0);
+      (await dayX(z, 'b', 0)) < lockedX, lockedX + ' → ' + await dayX(z, 'b', 0));
     t.ok('but Rebalance has nothing left to move, and says so',
       await z.evaluate(() => document.getElementById('macroRebal').disabled));
 
@@ -386,7 +394,6 @@ module.exports = nourish({
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await openMeal(z, 'b');
-    await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
     /* Every RECIPE the ranking offers comes from that section. Single foods
@@ -431,7 +438,6 @@ module.exports = nourish({
     await z.click('[data-mtarg="save"]');
     await z.waitForTimeout(300);
     await openMeal(z, 'b');
-    await z.click('[data-mslot="b"]');
     await pickerList(z);
     await z.waitForTimeout(200);
     const w60 = await z.evaluate((id) => {
@@ -482,23 +488,21 @@ module.exports = nourish({
 
     // pin a plate; a brand-new today arrives with it already served
     await openMeal(y, 'b');
-    await y.click('[data-mslot="b"]');
     await pickerList(y);
     await y.waitForTimeout(200);
     await pickRecipe(y);
-    await y.click('[data-mpdone]');
     await y.waitForTimeout(300);
     const pinned = await y.evaluate(() => {
-      const b = document.querySelector('.mitem-name');
+      const b = document.querySelector('#modalRoot .mitem-name');
       return { id: b.dataset.open, x: Number(b.dataset.mx) };
     });
     await foodMenu(y, 'b:0');
-    await y.click('[data-mpin="b:0"]');
+    await y.click('#modalRoot [data-mpin="b:0"]');
     await y.waitForTimeout(200);
     await foodMenu(y, 'b:0');
     t.ok('the pin takes hold on the plate and in the meal',
       await y.evaluate((id) => {
-        const btn = document.querySelector('[data-mpin="b:0"]');
+        const btn = document.querySelector('#modalRoot [data-mpin="b:0"]');
         const slots = JSON.parse(localStorage.getItem('bsc.macroSlots'));
         const b = slots.list.find((s) => s.k === 'b');
         return btn.getAttribute('aria-pressed') === 'true' &&
@@ -507,23 +511,24 @@ module.exports = nourish({
     await y.evaluate(() => localStorage.removeItem('bsc.macroDays'));   // tomorrow, in effect
     await y.reload();
     await y.waitForTimeout(400);
-    await openDay(y);
+    await y.click('.tab[data-view="macros"]');
+    await y.waitForTimeout(200);
     await foodMenu(y, 'b:0');
     t.ok('a new day wakes up with the routine already on it',
       await y.evaluate(([id, x]) => {
         const days = JSON.parse(localStorage.getItem('bsc.macroDays'));
         const day = days[Object.keys(days)[0]];
         return day.b.length === 1 && String(day.b[0].id) === id && day.b[0].x === x &&
-          document.querySelector('[data-mpin="b:0"]').getAttribute('aria-pressed') === 'true';
+          document.querySelector('#modalRoot [data-mpin="b:0"]').getAttribute('aria-pressed') === 'true';
       }, [pinned.id, pinned.x]));
     await foodMenu(y, 'b:0');
-    await y.click('[data-mpin="b:0"]');
+    await y.click('#modalRoot [data-mpin="b:0"]');
     await y.waitForTimeout(200);
     t.ok('unpinning stops tomorrow but keeps today’s copy',
       await y.evaluate(() => {
         const slots = JSON.parse(localStorage.getItem('bsc.macroSlots'));
         const b = slots.list.find((s) => s.k === 'b');
-        return (!b.pins || !b.pins.length) && document.querySelectorAll('.mitem').length === 1;
+        return (!b.pins || !b.pins.length) && document.querySelectorAll('#modalRoot .mitem').length === 1;
       }));
 
     // the family's plan feeds in as a picker lens, portioned for your targets
@@ -535,7 +540,6 @@ module.exports = nourish({
     });
     await y.waitForTimeout(300);
     await openMeal(y, 'd');
-    await y.click('[data-mslot="d"]');
     await pickerList(y);
     await y.waitForTimeout(200);
     t.ok('the picker offers the family’s plan when there is one',
@@ -578,7 +582,7 @@ module.exports = nourish({
       window.__probe = r.id;
       window.Store.state.plan.mon = [];
     });
-    await y.click('.mitem-name');
+    await y.click('#modalRoot .mitem-name');
     await y.waitForTimeout(300);
     const cook = await y.evaluate(() => {
       const v = document.querySelector('.scaler-val');
@@ -628,7 +632,7 @@ module.exports = nourish({
     await a2.click('.tab[data-view="macros"]');
     await a2.waitForTimeout(200);
     t.ok('the whole tab works with nobody signed in',
-      await a2.evaluate(() => document.querySelectorAll('.mslot').length === 4));
+      await a2.evaluate(() => document.querySelectorAll('#macroSlots .mtray').length === 4));
     /* One sheet, two cards, split by whose it is: your day is private and
        carried between your own devices; the pantry is shared with people by a
        code. The distinction is the point, so it is drawn by heading rather
@@ -850,7 +854,6 @@ module.exports = nourish({
     await a2.click('.tab[data-view="macros"]');
     await a2.waitForTimeout(200);
     await openMeal(a2, 'b');
-    await a2.click('[data-mslot="b"]');
     await pickerList(a2);
     await a2.waitForTimeout(300);
     t.ok('and opening the picker runs nothing',

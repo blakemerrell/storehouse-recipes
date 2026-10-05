@@ -63,12 +63,19 @@
   }
 
   function mOpenPicker(slotKey, mode) {
-    var srec = null;
-    mReadSlots().list.forEach(function (sl) { if (sl.k === slotKey) srec = sl; });
-    if (!srec) srec = mNextMeal();
-    if (!srec) return;
-    rememberOpener();
-    S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
+    var slots = mReadSlots(), srec = null;
+    slots.list.forEach(function (sl) { if (sl.k === slotKey) srec = sl; });
+    /* A meal taken off the plan still has its plates on the days it was
+       eaten, and its tray opens them — as history: no picker (below). */
+    if (!srec && slotKey && (mDay(mViewKey())[slotKey] || []).length) {
+      rememberOpener();
+      S.macroPick = { slot: slotKey, n: slots.names[slotKey] || 'Meal', secs: [], w: 1, gone: true };
+    } else {
+      if (!srec) srec = mNextMeal();
+      if (!srec) return;
+      rememberOpener();
+      S.macroPick = { slot: srec.k, n: srec.n, secs: mSlotSecs(srec), w: mSlotW(srec) };
+    }
     S.mpSec = 'meal';
     S.mpSort = 'fit';
     /* ONE query. There were two — S.mpQuery behind the Recipes box and
@@ -118,6 +125,8 @@
         '<div class="msh-top">' + P.head + (P.stick || '') + '</div>' + inner + '</div></div>';
     };
     if (P.skipped) return wrap(P.body);
+    // a meal off the plan: what it held, and no way to add to it
+    if (!P.onPlan) return wrap(P.rows);
 
     if (S.mpMode === 'scan') {
       /* One way back, because the three tiles that used to offer it are gone.

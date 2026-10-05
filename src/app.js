@@ -5227,12 +5227,14 @@
     $('modalRoot').addEventListener('click', function (e) {
       if (!S.macroPick || S.openId || S.foodOpen || S.keepMeal || S.mCopyFrom || S.newFood) return;
       if (!e.target.closest || !e.target.closest('.msheet')) return;
+      // × closes the sheet, menu or no menu: the document's listener does it
+      if (e.target.closest('.sheet-x, .sheet-done')) return;
       if (S.mMenu && !e.target.closest('.mfood-menu, [data-mfmenu], [data-mmenu]')) {
         S.mMenu = '';
         if (!e.target.closest('button, input, select')) { renderModal(); return; }
         renderModal();
       }
-      if (e.target.closest('.msh-top, .mrows')) mDayClick(e);
+      if (e.target.closest('.msh-top, .mrows, .msh-skipped')) mDayClick(e);
     });
 
     function mDayClick(e) {
@@ -6747,8 +6749,16 @@
           S.mMarks = { k: pk, sk: psk, was: {}, fresh: mpFresh(at2, pid), snap: null };
         }
         if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
+        /* The list stays where you were reading it. The scroll position is
+           kept by the redraw, but the meal's own list above the picker just
+           grew (or shrank) a row, which moves everything under it — so the
+           row you tapped is put back under your finger. */
+        var pSel = '#mpList [data-mpick="' + String(pid).replace(/"/g, '') + '"]';
+        var pBefore = (document.querySelector(pSel) || pel).getBoundingClientRect().top;
         renderMacros();
         renderModal();
+        var pAfter = document.querySelector(pSel), pScr = document.querySelector('#modalRoot .scrim');
+        if (pAfter && pScr) pScr.scrollTop += pAfter.getBoundingClientRect().top - pBefore;
         return;
       }
 
