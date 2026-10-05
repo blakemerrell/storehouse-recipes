@@ -12,9 +12,8 @@ const { nourish, openWeigh, openPlan, pickerList } = require('./fixtures/nourish
    and the bar, so anything that reaches for them comes back to the day
    first — by the sheet's ×, the way a thumb would. */
 async function toDay(pg) {
-  const x = await pg.$('#modalRoot .msheet .sheet-x');
-  if (!x) return;
-  await x.click();
+  if (!(await pg.$('#modalRoot .msheet .sheet-x'))) return;
+  await pg.click('#modalRoot .msheet .sheet-x');
   await pg.waitForTimeout(250);
 }
 /* Opens one meal's sheet: out of any other meal's first, then that meal's

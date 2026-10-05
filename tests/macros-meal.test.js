@@ -1448,7 +1448,7 @@ module.exports = nourish({
     await pickerList(gapRow);
     await gapRow.waitForTimeout(300);
     const pickBtn = await gapRow.$('#modalRoot [data-mpick]');
-    if (pickBtn) { await pickBtn.click(); await gapRow.waitForTimeout(350); }
+    if (pickBtn) { await gapRow.click('#modalRoot [data-mpick]'); await gapRow.waitForTimeout(350); }
     t.ok('a plate on the meal is never graded against it',
       await gapRow.evaluate(() =>
         document.querySelectorAll('#modalRoot .mrows .mgc.lands, #modalRoot .mrows .mgc.busts').length === 0),

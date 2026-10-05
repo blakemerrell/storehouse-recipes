@@ -145,7 +145,7 @@ module.exports = {
     const ban = await p.$('#modalRoot [data-mpick="f:banana"]');
     t.ok('Recent offers what dinner has had', !!ban);
     if (ban) {
-      await ban.click();
+      await p.click('#modalRoot [data-mpick="f:banana"]');
       await p.waitForTimeout(400);
       const d1 = await mealOf(p, 'd');
       const on = await p.evaluate(() => ({ pressed: (document.querySelector('#modalRoot [data-mpick="f:banana"]') || {}).getAttribute('aria-pressed'),

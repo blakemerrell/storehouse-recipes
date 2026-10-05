@@ -7843,3 +7843,6 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mrow-mk { letter-spacing: 0.03em; }
 .mrow-g small { line-height: 1.1; }
 .msheet .mcap.mcap-max { border-color: var(--dial-over); }
+/* The small print wraps wherever it must: no piece of it is allowed to push
+   the row sideways on the narrowest phone, whatever the system font. */
+.msheet .mrow .mrow-m, .msheet .mrow .mrow-m * { white-space: normal; overflow-wrap: anywhere; }

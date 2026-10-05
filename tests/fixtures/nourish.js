@@ -144,8 +144,12 @@ async function revealPlanFields(pg) {
 
   /* Out of the meal's sheet, by its ×. */
   async function closeSheet(pg) {
-    const x = await pg.$('#modalRoot .msheet .sheet-x');
-    if (x) { await x.click(); await pg.waitForTimeout(250); }
+    /* By selector, not by a handle: the sheet can redraw between finding
+       the × and pressing it, and a handle would be to a node now gone. */
+    if (await pg.$('#modalRoot .msheet .sheet-x')) {
+      await pg.click('#modalRoot .msheet .sheet-x');
+      await pg.waitForTimeout(250);
+    }
   }
 
   async function pickRecipe(pg) {
