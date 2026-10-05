@@ -4697,6 +4697,8 @@
     summary: mSummaryHTML,
     daySummary: mDaySummary,
     ask: function (sk) { return mMealAsk(sk, mDayTargets(mViewKey()), mReadSlots()); },
+    // what a tap puts down for a food never logged, sized to this meal (mMealFitX): the app's own number, not a test's copy
+    mealFit: function (sk, id) { return mMealFitX(sk, BY_ID[id]); },
     slotFor: function (id) { var sl = mSlotForRecipe(BY_ID[id], mReadSlots()); return sl ? sl.k : null; },
     /* The profile as the app reads it — weight from the scale, not the stale
        copy in storage. Exposed so a test can check the arithmetic against the

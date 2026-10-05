@@ -338,19 +338,20 @@ module.exports = {
     await q.click('.tab[data-view="macros"]');
     await q.waitForTimeout(250);
     /* A meal opens as its sheet (trays and the meal sheet, 2026-10-04): the
-       verbs are the head's icons (scales, the ⋯, ×) and the words in the
-       meal's menu behind the ⋯, so the menu is opened the way a thumb would
-       before they are measured. */
+       verbs are the head's ⋯ and the words in the meal's menu behind it, so
+       the menu is opened the way a thumb would before they are measured.
+       Balance and Done moved down to the tray along the bottom on 2026-10-05
+       (the ⚖ and × left the head), and are measured there. */
     await q.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); if (b) b.click(); });
     await q.waitForTimeout(300);
     await q.evaluate(() => { const b = document.querySelector('#modalRoot [data-mmenu][aria-expanded="false"]'); if (b) b.click(); });
     await q.waitForTimeout(250);
-    rs = await reach('#modalRoot .msh-i, #modalRoot .msh-menu .mfood-mi', true);
+    rs = await reach('#modalRoot .msh-i, #modalRoot .msh-menu .mfood-mi, #modalRoot .msh-bal, #modalRoot .msh-done', true);
     t.ok('a meal\'s verbs are each a thumb wide and tall', rs.length >= 2 && rs.every((r) => r.hit), report(rs) || JSON.stringify(rs));
-    // the menu shut first (a tap on the title), then the sheet by its ×
+    // the menu shut first (a tap on the title), then the sheet by its Done
     await q.evaluate(() => { const t2 = document.querySelector('#modalRoot .msh-t'); if (t2) t2.click(); });
     await q.waitForTimeout(150);
-    await q.evaluate(() => { const x = document.querySelector('#modalRoot .msheet .sheet-x'); if (x) x.click(); });
+    await q.evaluate(() => { const x = document.querySelector('#modalRoot .msheet .msh-done, #modalRoot .msheet .sheet-x'); if (x) x.click(); });
     await q.waitForTimeout(300);
     // the toast's Undo
     await q.evaluate(() => {

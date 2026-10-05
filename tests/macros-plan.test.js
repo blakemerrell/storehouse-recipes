@@ -276,7 +276,7 @@ module.exports = nourish({
        used is what the test holds to the pill. */
     const priced = await priceDayPg.evaluate(() => {
       const card = document.querySelector('[data-mdot="d"]').closest('.mtray');
-      const pill = Number(card.querySelector('.mtray-k').textContent.split('/')[1].replace(/[^\d]/g, ''));
+      const pill = Number(card.querySelector('.mtray-caps .mcap').dataset.want);
       const want = (window.__macroLab.wants().find((a) => a.k === 'd') || {}).want;
       const dayK = 4 * 180 + 4 * 50 + 9 * 50;
       return { pill: pill, want: want && Math.round(want), planShare: Math.round(dayK * 0.39) };

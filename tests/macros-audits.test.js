@@ -540,11 +540,11 @@ module.exports = nourish({
       await dp.reload();
       await dp.click('.tab[data-view="macros"]');
       await dp.waitForTimeout(300);
-      /* Lunch's tray says its calories against its share, coloured by where
-         they stand (2026-10-04); the sheet it opens says the same in its
-         flame pill. Read shut, then opened. */
+      /* Lunch's tray says its calories against its share in its flame pill,
+         coloured by where they stand (2026-10-05); the sheet it opens says
+         the same in its own. Read shut, then opened. */
       const cardSt = await dp.evaluate(() => {
-        const k = document.querySelector('[data-mopen="l"]').closest('.mtray').querySelector('.mtray-k');
+        const k = document.querySelector('[data-mopen="l"]').closest('.mtray').querySelector('.mtray-caps .mcap');
         return [k.classList.contains('over') ? 'x' : k.classList.contains('on') ? 'o' : 'u',
           k.textContent.replace(/[^\d/]/g, '')];
       });

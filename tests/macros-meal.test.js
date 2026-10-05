@@ -7,14 +7,15 @@
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
 const { nourish, pickerList, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
-/* What each meal is asked for, read off its tray: "352 / 959" says the meal
-   holds 352 and is asked for 959 (trays, 2026-10-04). */
+/* What each meal is asked for, read off its tray: the calorie pill's share
+   (trays, 2026-10-04; the pills, 2026-10-05). */
 const trayAsks = (pg) => pg.evaluate(() => {
   const out = {};
   document.querySelectorAll('#macroSlots .mtray').forEach((c) => {
     const n = (c.querySelector('.mtray-n') || {}).textContent;
-    const k = ((c.querySelector('.mtray-k') || {}).textContent || '').split('/')[1];
-    if (n && k) out[n.trim()] = Number(k.replace(/[^\d]/g, ''));
+    const cap = c.querySelector('.mtray-caps .mcap');
+    const k = cap && cap.dataset.want;
+    if (n && k) out[n.trim()] = Number(k);
   });
   return out;
 });

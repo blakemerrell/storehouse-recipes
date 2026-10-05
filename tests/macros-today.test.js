@@ -457,9 +457,9 @@ module.exports = nourish({
           .find((c) => ((c.querySelector('.mtray-n') || {}).textContent || '') === 'Lunch');
         const L = window.__macroLab.read();
         const meal = L.meals.find((m) => m.k === 'l') || { items: [] };
-        const k = tray && ((tray.querySelector('.mtray-k') || {}).textContent || '').split('/')[1];
+        const cap = tray && tray.querySelector('.mtray-caps .mcap');
         return {
-          want: k ? [Number(k.replace(/[^\d]/g, ''))] : null,
+          want: cap ? [Number(cap.dataset.want)] : null,
           kcal: Math.round(meal.items.reduce((n, i) => n + i.kcal * i.x, 0)),
           xs: meal.items.map((i) => i.x).join(','),
         };

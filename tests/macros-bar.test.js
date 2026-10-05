@@ -245,8 +245,13 @@ module.exports = nourish({
       return { top: Math.round(document.querySelector('.scrim').scrollTop),
         y: r ? Math.round(r.getBoundingClientRect().y + 12) : null };
     }, target && target.id);
-    t.ok('and adding it leaves the list where you were reading it',
-      !!target && heldScroll.top >= 300 && heldScroll.y !== null && Math.abs(heldScroll.y - target.y) <= 2,
+    /* Held by where the row SITS, not by scrollTop: since 2026-10-05 a tap
+       re-fits the meal and Fits best re-ranks toward what it still needs,
+       so rows above the one you tapped can move below it, and the scroll
+       moves to keep yours under your finger. The bug this guards threw the
+       row to the top of the sheet. */
+    t.ok('and adding it leaves the row you tapped where you were reading it',
+      !!target && heldScroll.y !== null && Math.abs(heldScroll.y - target.y) <= 2,
       JSON.stringify({ target, heldScroll }));
     await jumpPg.context().close();
 
@@ -315,13 +320,16 @@ module.exports = nourish({
       /* Where the tapped row SITS: each tap also puts a row on the meal's
          list above the picker (2026-10-04), so a held scrollTop alone would
          let the list slide down a row per tap. */
-      heldAt.push({ was: box.y, now: await barPg2.evaluate((id) => {
+      heldAt.push(Object.assign({ was: box.y }, await barPg2.evaluate((id) => {
         const r = document.querySelector('#mpList .mpick-row[data-mpick="' + id + '"]');
-        return r ? Math.round(r.getBoundingClientRect().y + 12) : null;
-      }, box.id) });
+        return { now: r ? Math.round(r.getBoundingClientRect().y + 12) : null, top: Math.round(document.querySelector('.scrim').scrollTop) };
+      }, box.id)));
     }
+    /* The tap re-fits the meal and Fits best re-ranks (2026-10-05), so what
+       sits above the row can shrink. The scroll gives that back; only at the
+       very top, with nothing left to give, may the row ride up. */
     t.ok('adding something leaves the list where you were reading it',
-      heldAt.length === 3 && heldAt.every((h) => h.now !== null && Math.abs(h.now - h.was) <= 2),
+      heldAt.length === 3 && heldAt.every((h) => h.now !== null && (Math.abs(h.now - h.was) <= 2 || (h.top === 0 && h.now < h.was))),
       JSON.stringify(heldAt));
     /* The ✓ and the green wash a picked row wears had nothing to wear them
        while picked rows disappeared. */

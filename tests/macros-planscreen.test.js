@@ -253,8 +253,9 @@ module.exports = nourish({
     const bKcal = await pinPg.evaluate(() => {
       const day = window.__macroLab.read ? null : null;
       const b = document.querySelector('[data-mopen="b"]');
-      const k2 = b && b.closest('.mtray') && b.closest('.mtray').querySelector('.mtray-k b');
-      return k2 ? Number(k2.textContent.replace(/,/g, '')) : null;
+      const k2 = b && b.closest('.mtray') && b.closest('.mtray').querySelector('.mtray-caps .mcap .mcap-t');
+      const m = k2 && /([\d,]+)\s*\//.exec(k2.textContent);
+      return m ? Number(m[1].replace(/,/g, '')) : null;
     });
     t.ok('and fills the meal around it rather than counting it as done',
       bKcal !== null && bKcal > 100, 'breakfast came to ' + bKcal + ' kcal');
@@ -498,8 +499,8 @@ module.exports = nourish({
         }
         return out;
       });
-      await auPg.evaluate(() => document.querySelector('.sheet-x').click());
-      await auPg.waitForTimeout(250);
+      // out by Done (the × left the meal's head on 2026-10-05)
+      await closeSheet(auPg);
       return rows;
     };
     const auSnack = await fitsOf('s');

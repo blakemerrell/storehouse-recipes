@@ -7,12 +7,14 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, pickerList, closeSheet } = require('./fixtures/nourish.js');
+const { nourish, addOn, pickerList, closeSheet, openTray } = require('./fixtures/nourish.js');
 
 /* Since 2026-10-04 the day is trays and a meal's plates, its scales and its
    ⋯ live in the meal's sheet (#modalRoot .msheet), opened by its tray — the
    one place food is added or changed. A test reaching for them opens that
-   sheet, leaving any other meal's first. */
+   sheet, leaving any other meal's first. Since 2026-10-05 the plates ride in
+   a tray along the sheet's bottom, shut to a line of chips, so it opens that
+   too. */
 async function openMeal(pg, sk) {
   const cur = await pg.$('#modalRoot .msheet');
   if (cur) {
@@ -24,6 +26,7 @@ async function openMeal(pg, sk) {
     if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
   }, sk);
   await pg.waitForTimeout(300);
+  await openTray(pg);
 }
 async function backToDay(pg) { await closeSheet(pg); }
 /* A plate added to a meal whose time has come arrives eaten, and an eaten
@@ -112,7 +115,8 @@ module.exports = nourish({
       }));
 
     /* Each tap puts the food on dinner at once (2026-10-04: no basket, no
-       Add N), and the plates arrive in the list above the picker. */
+       Add N), and the plates arrive in the tray under the picker (2026-10-05):
+       a chip each while it is shut, a row each when it is open, as it is here. */
     for (const q of ['chicken breast', 'honey', 'peanut']) {
       await bar.fill('#mpFind', q);
       await bar.waitForTimeout(400);
@@ -123,18 +127,21 @@ module.exports = nourish({
       });
       await bar.waitForTimeout(250);
     }
-    t.ok('each tap puts its food on the meal there and then, listed above the picker',
-      await bar.evaluate(() => {
-        const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
-        const day = d[Object.keys(d).sort().pop()] || {};
-        return (day.d || []).length === 3 && document.querySelectorAll('#modalRoot .mrows .mrow').length === 3;
-      }));
+    const tapped = await bar.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}');
+      const day = d[Object.keys(d).sort().pop()] || {};
+      return { plates: (day.d || []).length, chips: document.querySelectorAll('#modalRoot .msh-tray .msh-chip').length,
+        rows: document.querySelectorAll('#modalRoot .msh-tray .mrow').length };
+    });
+    t.ok('each tap puts its food on the meal there and then, in the tray under the picker',
+      tapped.plates === 3 && (tapped.chips === 3 || tapped.rows === 3), JSON.stringify(tapped));
     // its tick undone so the plates can be dialled
     await asPlannedMeal(bar, 'd');
-    /* The scales sit on the sheet's head and Save meal in its ⋯: both
-       offered, one tap and two away. */
+    /* Balance sits in the tray under the thumb (2026-10-05; it was the
+       scales on the sheet's head) and Save meal in the ⋯: both offered, one
+       tap and two away. */
     const balOffered = await bar.evaluate(() => {
-      const b2 = document.querySelector('#modalRoot .msh-h [data-mbal="d"]');
+      const b2 = document.querySelector('#modalRoot .msh-tray [data-mbal="d"]');
       return !!b2 && !b2.disabled;
     });
     await openMealMenu(bar, 'd');
@@ -144,11 +151,18 @@ module.exports = nourish({
     /* Knock the portions out of shape, then solve them. The target of a meal
        is its weight's worth of the DAY — not what is left of the day after
        it, which is the picker's question and would solve a meal already on
-       target down to a quarter of itself. */
+       target down to a quarter of itself.
+     *
+       Since the meal re-fits itself (2026-10-05), + on one plate is answered
+       by the others giving way, so every plate is pushed up: each + marks
+       its plate Kept, and Balance is what lets them all move again. */
+    await openTray(bar);
     await bar.evaluate(() => {
-      for (let i = 0; i < 8; i++) {
-        const b2 = document.querySelector('#modalRoot [data-mstep$=":up"]');
-        if (b2) b2.click();
+      for (let n = 0; n < 4; n++) {
+        for (let i = 0; i < 3; i++) {
+          const b2 = document.querySelector('#modalRoot [data-mstep="d:' + i + ':up"]');
+          if (b2) b2.click();
+        }
       }
     });
     await bar.waitForTimeout(350);
@@ -427,14 +441,14 @@ module.exports = nourish({
     await gaugePage.waitForTimeout(400);
     await gaugePage.click('.tab[data-view="macros"]');
     await gaugePage.waitForTimeout(350);
-    /* Since 2026-10-04 a meal's tray carries one figure, its calories against
-       its share, and its four pills are in its sheet — so the gauges are read
-       there, a meal at a time, and the tray read for what it still says. */
+    /* A meal's tray carries its pills small (2026-10-05) and its sheet the
+       full ones — so the gauges are read there, a meal at a time, and the
+       tray read for what its flame pill says. */
     const trays = await gaugePage.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')].map((tr) => {
-      const k = (tr.querySelector('.mtray-k') || {}).textContent || '';
-      const m = /^([\d,]+)\s*\/\s*([\d,]+)/.exec(k.trim()) || [];
+      const kEl = tr.querySelector('.mtray-caps .mcap');
+      const k = (kEl || {}).textContent || '';
+      const m = /([\d,]+)\s*\/\s*([\d,]+)/.exec(k.trim()) || [];
       const n = (x) => Number(String(x || '').replace(/,/g, ''));
-      const kEl = tr.querySelector('.mtray-k');
       return { sk: tr.querySelector('[data-mopen]').dataset.mopen, name: tr.querySelector('.mtray-n').textContent,
         got: n(m[1]), want: n(m[2]), filled: tr.classList.contains('filled'),
         verdict: !!kEl && (kEl.classList.contains('over') || kEl.classList.contains('on')),
@@ -595,7 +609,7 @@ module.exports = nourish({
           : el.className.split(' ')[0] || el.tagName) };
       };
       const els = [...document.querySelectorAll('#modalRoot .mrows .mrow [data-mstep], #modalRoot .mrows .mrow .mstep-x, ' +
-        '#modalRoot .mrows .mrow [data-mfmenu], #modalRoot .msh-h button')];
+        '#modalRoot .mrows .mrow [data-mfmenu], #modalRoot .msh-h button, #modalRoot .msh-acts button')];
       const all = els.map(reach);
       return { n: els.length, keys: all.filter((x) => /^key/.test(x.what)).length, small: all.filter((x) => x.h < 44 || x.w < 34) };
     });
@@ -621,7 +635,9 @@ module.exports = nourish({
 
     /* The meal's own verbs on the sheet's head, drawn without words, each
        named aloud; Try another, Save meal and Repeat a day are worded inside
-       the ⋯ rather than drawn on the face. */
+       the ⋯ rather than drawn on the face. Since 2026-10-05 the head is the
+       tick and the ⋯ alone: Balance and Done went down to the tray, worded,
+       where the thumb is. */
     const verbs320 = await tinyPhone.evaluate(() => {
       const row = document.querySelector('#modalRoot .msh-h');
       if (!row) return null;
@@ -637,7 +653,7 @@ module.exports = nourish({
       };
     });
     t.ok('at 320 a meal’s verbs are drawings on one row, each named aloud',
-      !!verbs320 && verbs320.n >= 3 && verbs320.rows === 1 && verbs320.worded === 0 &&
+      !!verbs320 && verbs320.n >= 2 && verbs320.rows === 1 && verbs320.worded === 0 &&
         verbs320.drawn === verbs320.n && verbs320.unnamed.length === 0,
       JSON.stringify(verbs320));
 
@@ -1003,18 +1019,21 @@ module.exports = nourish({
       JSON.stringify({ couldClash: couldClash, recent: fits.recent.length,
         dupes: fits.dupes }));
 
-    /* The portions are still solved — but offered beside the row, not as it.
-       Blake: "Default to what you had last time (else 1 serving); 'fits the
-       meal' becomes a one-tap chip beside it." So the row arrives at what you
-       have, and the chip at what the fit engine worked out. */
-    const fitRank = await fitsPg.evaluate(() => {
-      const o = {}; window.__macroLab.rank('b', 60).forEach((e) => { o[String(e.id)] = e.x; }); return o;
-    });
-    t.ok('and every row arrives at what you have, with the fitted portion on a chip beside it',
-      fits.fits.length > 0 && fits.fits.every((e) => e.x > 0) &&
-      fits.fits.some((e) => e.fit && e.fit !== e.x) &&
-      fits.fits.every((e) => e.fit === null || Math.abs(e.fit - fitRank[e.id]) < 1e-6),
-      JSON.stringify(fits.fits.map((e) => [e.x, e.fit, fitRank[e.id]])));
+    /* What a row arrives at. Blake, earlier: "Default to what you had last
+       time (else 1 serving); 'fits the meal' becomes a one-tap chip beside
+       it." On 2026-10-05 the meal began re-fitting itself as you add, and the
+       chip went: "Last time, else what fits". So a food you have had arrives
+       at that, a food you never have at what fits THIS meal (mMealFitX, not
+       the room left in the day), and no row carries a chip. */
+    const fitMeal = await fitsPg.evaluate((ids) => {
+      const o = {}; ids.forEach((id) => { o[id] = window.__macroLab.mealFit('b', id); }); return o;
+    }, fits.fits.map((e) => e.id));
+    const chips = await fitsPg.evaluate(() => document.querySelectorAll('.sheet [data-mpfit]').length);
+    t.ok('and every row arrives at what you had last time, else at what fits the meal, with no chip beside it',
+      fits.fits.length > 0 && chips === 0 && fits.fits.every((e) => e.x > 0) &&
+      fits.fits.every((e) => String(e.id) === String(seedId) ? e.x === 1 : Math.abs(e.x - fitMeal[e.id]) < 1e-6) &&
+      fits.fits.some((e) => e.x !== 1),
+      JSON.stringify({ chips, rows: fits.fits.map((e) => [e.id, e.x, fitMeal[e.id]]) }));
 
     /* And it really is ranked, not merely listed: the bench scores the same
        pool and the band must agree with its order. */
