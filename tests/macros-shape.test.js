@@ -15,25 +15,34 @@ const { nourish, openPlan, pickRecipe, pickerList } = require('./fixtures/nouris
    step below can keep asking for what it always did. */
 const home = async (pg) => {
   const was = await pg.evaluate(() => {
-    const b = document.querySelector('#modalRoot .msheet .sheet-x');
+    // Done in the tray since 2026-10-05; a skipped or bygone meal keeps its ×
+    const b = document.querySelector('#modalRoot .msheet .msh-done') || document.querySelector('#modalRoot .msheet .sheet-x');
     if (b) b.click();
     return !!b;
   });
   if (was) await pg.waitForTimeout(300);
 };
-/* A meal's sheet open, by its key or by its place on the day. */
+/* A meal's sheet open, by its key or by its place on the day, with the tray
+   along its bottom open on the plates (2026-10-05: shut, it is a row of chips). */
+const openTray = async (pg) => {
+  if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+    await pg.click('#modalRoot .msh-tray .msh-trn');
+    await pg.waitForTimeout(250);
+  }
+};
 const openMeal = async (pg, sk) => {
   const key = await pg.evaluate((k) => typeof k === 'number'
     ? ([...document.querySelectorAll('#macroSlots [data-mopen]')][k] || { dataset: {} }).dataset.mopen
     : k, sk);
   const open = await pg.evaluate((k) => !!document.querySelector('#modalRoot .msheet .msh-h [data-mdot="' + k + '"]'), key);
-  if (open) return;
+  if (open) { await openTray(pg); return; }
   await home(pg);
   await pg.evaluate((k) => {
     const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
     if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
   }, key);
   await pg.waitForTimeout(300);
+  await openTray(pg);
 };
 const mealMenu = async (pg, sk) => {
   await openMeal(pg, sk);
@@ -264,18 +273,40 @@ module.exports = nourish({
     await z.selectOption('#mpSec', 'meal');
     await z.waitForTimeout(150);
 
-    // one plate on the day, shrunk by hand, put right by the button
+    /* One plate on the day, shrunk, put right by the button. Since
+       2026-10-05 a plate shrunk by hand is Kept — "hand-set stays" — and a
+       Kept plate is no more the day's Rebalance's to move than a locked one,
+       so that is pinned first; then the same plate left small with nothing
+       keeping it, which is what Rebalance is for. */
     await pickRecipe(z);
     await z.waitForTimeout(300);
     await asPlanned(z, 'b');
-    for (let i = 0; i < 20; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
+    await openTray(z);
+    /* A few steps, not twenty: the plate goes on at what fits breakfast
+       (2026-10-05), a quarter of a bowl, and twenty 5 g steps would walk it
+       off the plate. */
+    for (let i = 0; i < 3; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
+    const handX = await dayX(z, 'b', 0);
+    await home(z);                          // the bar sits under the meal's sheet
+    const handRebal = await z.evaluate(() => document.getElementById('macroRebal').disabled);
+    t.ok('a plate shrunk by hand is Kept: Rebalance has nothing to move, and leaves it where the hand put it',
+      handRebal && await dayX(z, 'b', 0) === handX, JSON.stringify({ handRebal, handX }));
+    await z.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('bsc.macroDays'));
+      const k = Object.keys(d).sort().pop();
+      d[k].b[0].x = 0.125; delete d[k].b[0].l;
+      localStorage.setItem('bsc.macroDays', JSON.stringify(d));
+    });
+    await z.reload();
+    await z.waitForTimeout(400);
+    await z.click('.tab[data-view="macros"]');
+    await z.waitForTimeout(200);
     const shrunkX = await dayX(z, 'b', 0);
     // how far the day is off its protein, signed, straight from its row
     const protGap = () => z.evaluate(() =>
       Number(document.querySelector('.mbrow[data-macro="p"] .mb-d').dataset.d));
     const leftBefore = await protGap();
-    await home(z);                          // the bar sits under the meal's sheet
     await z.click('#macroRebal');
     await z.waitForTimeout(250);
     await openMeal(z, 'b');
@@ -334,7 +365,7 @@ module.exports = nourish({
     t.ok('a plate can be locked', await z.evaluate(() =>
       document.querySelector('#modalRoot [data-mlock="b:0"]').getAttribute('aria-pressed') === 'true'));
     const lockedX = await dayX(z, 'b', 0);
-    for (let i = 0; i < 20; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
+    for (let i = 0; i < 3; i++) await z.click('#modalRoot [data-mstep="b:0:down"]');
     await z.waitForTimeout(150);
     await mealMenu(z, 'b');
     t.ok('a locked plate is not the machine\u2019s to swap, nor joined by another',

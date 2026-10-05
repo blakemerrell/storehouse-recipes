@@ -27,6 +27,10 @@ const SETUP = (lunch) => {
       d: [{ id: wrap.id, x: 1, eaten: 0 }, f('whey', 1)],
     } }));
 };
+// the meal's rows live in its tray along the bottom (2026-10-05), which opens shut
+const openTray = async (p) => {
+  if (await p.$('#modalRoot .msh-tray:not(.open) .msh-trn')) { await p.click('#modalRoot .msh-tray .msh-trn'); await p.waitForTimeout(250); }
+};
 const mealOf = (p, sk) => p.evaluate((a) => JSON.parse(localStorage.getItem('bsc.macroDays'))[a[0]][a[1]] || [], [DAY, sk]);
 
 module.exports = {
@@ -52,7 +56,8 @@ module.exports = {
       return { trays: tr.length, skip: document.querySelectorAll('#macroSlots .mtray-skip').length,
         skipText: (document.querySelector('.mtray-skip') || {}).textContent,
         lines: lines, grams: lines.every((l) => / g$/.test(l)),
-        k: (lunch.querySelector('.mtray-k') || {}).textContent,
+        caps: lunch.querySelectorAll('.mtray-caps .mcap').length,
+        measured: lines.filter((l) => /(cups?|tbsp|whole|lb)/.test(l)).length,
         tick: !!lunch.querySelector('.mday-dot[data-mdot="l"]'),
         controls: lunch.querySelectorAll('button').length,
         add: !!document.getElementById('macroAdd'), openAll: !!document.getElementById('macroOpenAll'),
@@ -60,8 +65,9 @@ module.exports = {
     });
     t.ok('the day is one small tray a meal, and a skipped meal is one line', day.trays === 3 && day.skip === 1 &&
       /Wake Up/i.test(day.skipText) && /skipped/.test(day.skipText), JSON.stringify(day));
-    t.ok('a tray: the tick, its calories against its share, and its foods as lines in grams', day.tick && day.lines.length === 7 &&
-      day.grams && /^[\d,]+ \/ [\d,]+$/.test(day.k), JSON.stringify(day));
+    t.ok('a tray: the tick, the meal\u2019s four pills, and its foods as lines ending in grams', day.tick && day.lines.length === 7 &&
+      day.grams && day.caps === 4, JSON.stringify(day));
+    t.ok('each food in the kitchen\u2019s words before its weight (Blake: "if I just want to eyeball it I can")', day.measured === 7, JSON.stringify(day.lines));
     t.ok('and nothing else to press on it: the tick and the tray itself', day.controls === 2, JSON.stringify(day));
     t.ok('the bar is Rebalance, Sweep, Copy day and the one primary: no Add food, no Open all', !day.add && !day.openAll &&
       day.bar.join() === 'macroRebal,macroSweep,macroCopy,macroFill', JSON.stringify(day.bar));
@@ -69,6 +75,10 @@ module.exports = {
     /* ---- the sheet ---- */
     await p.click('[data-mopen="l"]');
     await p.waitForTimeout(500);
+    const shut = await p.evaluate(() => ({ chips: document.querySelectorAll('#modalRoot .msh-tray .msh-chip').length,
+      rows: document.querySelectorAll('#modalRoot .mrows .mrow').length }));
+    t.ok('the sheet opens with its foods in the tray along the bottom, shut: one chip a food', shut.chips === 7 && shut.rows === 0, JSON.stringify(shut));
+    await openTray(p);
     const sh = await p.evaluate(() => {
       const s = document.querySelector('#modalRoot .msheet');
       if (!s) return null;
@@ -80,7 +90,7 @@ module.exports = {
         find: !!s.querySelector('.msh-find #mpFind'), shelves: !!s.querySelector('.msh-find #mpShelves'),
         basket: !!s.querySelector('[data-mpdone], [data-mpbasket]'), tall: Math.max.apply(null, rows.map((r) => r.offsetHeight)) };
     });
-    t.ok('tapping a tray opens the meal\'s sheet: its four pills and one row a food', !!sh && sh.caps === 4 && sh.rows === 7, JSON.stringify(sh));
+    t.ok('opened, the tray is one row a food, under the meal\'s four pills', !!sh && sh.caps === 4 && sh.rows === 7, JSON.stringify(sh));
     t.ok('every food: − grams + and ⋯, and no tick of its own', sh && sh.dial && sh.ticks === 0, JSON.stringify(sh));
     t.ok('the rows are compact', sh && sh.tall <= 72, JSON.stringify(sh));
     t.ok('under them, the picker: the search box and the shelves, and no basket or Add', sh && sh.find && sh.shelves && !sh.basket, JSON.stringify(sh));
@@ -93,6 +103,7 @@ module.exports = {
     const g = await p.evaluate(() => document.querySelector('#modalRoot [data-mtype="l:0"]').textContent);
     t.ok('+ dials it up five grams, in the sheet', Math.round(x1 * 140) === Math.round(x0 * 140) + 5 &&
       g === Math.round(x1 * 140) + ' g' && !!(await p.$('#modalRoot .msheet')), JSON.stringify({ x0, x1, g }));
+    t.ok('and an amount you dial is yours: Kept, so the re-fit works around it', (await mealOf(p, 'l'))[0].l === 1);
 
     /* the food's ⋯ */
     await p.click('#modalRoot [data-mfmenu="l:5"]');
@@ -104,19 +115,18 @@ module.exports = {
     t.ok('Lock holds the avocado, and the menu closes', (await mealOf(p, 'l'))[5].l === 1 &&
       !(await p.$('#modalRoot .mrow-menu')), '');
 
-    /* Balance, its "was" marks and Undo */
+    /* Balance, in the tray: everything moves again, what you set included,
+       and what moved says what it was. No Undo (Blake: "No need for undo.
+       I can simply remove that from my tray"). */
     const before = await mealOf(p, 'l');
-    await p.click('#modalRoot [data-mbal="l"]');
+    await p.click('#modalRoot .msh-tray [data-mbal="l"]');
     await p.waitForTimeout(400);
     const after = await mealOf(p, 'l');
     const bal = await p.evaluate(() => ({ was: [...document.querySelectorAll('#modalRoot .mrow-g small')].filter((s) => /^was /.test(s.textContent)).length,
-      undo: !!document.querySelector('#modalRoot [data-mbalundo="l"]') }));
+      undo: !!document.querySelector('#modalRoot [data-mbalundo], #modalRoot .mcard-undo') }));
     const changed = after.filter((it, i) => it.x !== before[i].x).length;
-    t.ok('the locked avocado holds through the scales', after[5].x === before[5].x, JSON.stringify(after[5]));
-    t.ok('what moved says what it was, and Undo is offered', changed > 0 && bal.was === changed && bal.undo, JSON.stringify({ changed, bal }));
-    await p.click('#modalRoot [data-mbalundo="l"]');
-    await p.waitForTimeout(300);
-    t.ok('Undo puts every amount back', (await mealOf(p, 'l')).every((it, i) => it.x === before[i].x));
+    t.ok('Balance lets go of what you kept and locked: nothing on the meal is held after it', after.every((it) => !it.l), JSON.stringify(after));
+    t.ok('what moved says what it was, and there is no Undo', changed > 0 && bal.was === changed && !bal.undo, JSON.stringify({ changed, bal }));
 
     /* the meal's ⋯ */
     await p.click('#modalRoot [data-mmenu="l"]');
@@ -127,20 +137,21 @@ module.exports = {
     await p.waitForTimeout(200);
     t.ok('a tap elsewhere closes it', !(await p.$('#modalRoot .msh-menu')));
 
-    /* the tick, in the sheet, completes the meal; × goes back to the day */
+    /* the tick, in the sheet, completes the meal; Done goes back to the day */
     await p.click('#modalRoot .msh-h [data-mdot="l"]');
     await p.waitForTimeout(300);
     t.ok('the sheet\'s tick marks every food on the meal eaten', (await mealOf(p, 'l')).every((it) => it.eaten));
     const spent = await p.evaluate(() => [...document.querySelectorAll('#modalRoot [data-mstep="l:0:up"]')].every((b) => b.disabled));
     t.ok('and an eaten meal\'s dials go quiet', spent);
-    await p.click('#modalRoot .msheet .sheet-x');
+    await p.click('#modalRoot .msheet .msh-done');
     await p.waitForTimeout(400);
-    t.ok('× goes back to the day, the tray ticked', !(await p.$('#modalRoot .msheet')) &&
+    t.ok('Done goes back to the day, the tray ticked', !(await p.$('#modalRoot .msheet')) &&
       await p.evaluate(() => document.querySelector('[data-mopen="l"]').closest('.mtray').classList.contains('done')));
 
     /* ---- adding: one tap, straight onto the meal ---- */
     await p.click('[data-mopen="d"]');
     await p.waitForTimeout(500);
+    await openTray(p);
     const n0 = (await mealOf(p, 'd')).length;
     const ban = await p.$('#modalRoot [data-mpick="f:banana"]');
     t.ok('Recent offers what dinner has had', !!ban);
@@ -150,7 +161,7 @@ module.exports = {
       const d1 = await mealOf(p, 'd');
       const on = await p.evaluate(() => ({ pressed: (document.querySelector('#modalRoot [data-mpick="f:banana"]') || {}).getAttribute('aria-pressed'),
         row: [...document.querySelectorAll('#modalRoot .mrows .mrow')].some((r) => /Banana/i.test(r.textContent) && r.classList.contains('fresh')) }));
-      t.ok('a tap puts it on dinner at once, at what you had last time, marked New in the list above',
+      t.ok('a tap puts it on dinner at once, at what you had last time, marked New in the tray',
         d1.length === n0 + 1 && d1[d1.length - 1].id === 'f:banana' && d1[d1.length - 1].x === 1 && on.pressed === 'true' && on.row, JSON.stringify({ d1, on }));
       await p.click('#modalRoot [data-mpick="f:banana"]');
       await p.waitForTimeout(400);
@@ -191,6 +202,9 @@ module.exports = {
     });
     t.ok('scrolled, the meal\'s header and pills stay pinned, and the search and shelves under them',
       pin.scrolled > 200 && pin.topAt <= 2 && Math.abs(pin.findAt - pin.topBottom) <= 2, JSON.stringify(pin));
+    const trayAt = await p.evaluate(() => Math.round(innerHeight - document.querySelector('#modalRoot .msh-tray').getBoundingClientRect().bottom));
+    t.ok('and the tray stays pinned along the bottom, Balance and Done under the thumb', Math.abs(trayAt) <= 2 &&
+      !!(await p.$('#modalRoot .msh-tray .msh-bal')) && !!(await p.$('#modalRoot .msh-tray .msh-done')), String(trayAt));
 
     /* a recipe's name opens the recipe; back lands on the meal's sheet */
     await p.evaluate(() => { const s = document.querySelector('#modalRoot .scrim'); s.scrollTop = 0; });
@@ -213,6 +227,7 @@ module.exports = {
     await p.waitForTimeout(500);
     await p.click('[data-mopen="d"]');
     await p.waitForTimeout(400);
+    await openTray(p);
     const wi = (await mealOf(p, 'd')).findIndex((it) => it.id === 'f:whey');
     let whey = null;
     if (wi >= 0) {
@@ -222,6 +237,43 @@ module.exports = {
         m: document.querySelectorAll('#modalRoot .mrows .mrow')[i].querySelector('.mitem-uom').textContent }), wi);
     }
     t.ok('a scoop steps a quarter at a time and says it in grams, the scoop in the small print', !!whey && whey.val === '24 g' && whey.m === '¾ scoop', JSON.stringify(whey));
+
+    /* ---- the pills hold their numbers on the narrowest phone ----
+       Four equal pills cut the target short at 320 px — "581/89" for 581 of
+       898, a number that is not there — and on a big meal on any phone. A
+       pill takes the room its numbers need; an ordinary meal stays one row,
+       and a big one breaks two and two rather than lose a digit. */
+    const pillsAt320 = async (targets, foods) => {
+      const q = await t.fresh({ viewport: { width: 320, height: 640 }, hasTouch: true, isMobile: true });
+      await q.evaluate(([tg, fs]) => {
+        localStorage.setItem('bsc.macroTargets', JSON.stringify(tg));
+        const d = new Date(), p2 = (n) => (n < 10 ? '0' : '') + n;
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { d: fs.map(([id, x]) => ({ id: 'f:' + id, x: x, eaten: 0 })) } }));
+      }, [targets, foods]);
+      await q.reload();
+      await q.waitForTimeout(500);
+      await q.click('.tab[data-view="macros"]');
+      await q.waitForTimeout(400);
+      await q.click('[data-mopen="d"]');
+      await q.waitForTimeout(400);
+      const out = await q.evaluate(() => {
+        const caps = [...document.querySelectorAll('#modalRoot .msh-top .mcap')];
+        const R = (e) => e.getBoundingClientRect();
+        return { n: caps.length, rows: new Set(caps.map((c) => Math.round(R(c).top))).size,
+          cut: caps.filter((c) => { const tx = R(c.querySelector('.mcap-t')); return tx.left < R(c).left || tx.right > R(c).right; })
+            .map((c) => c.textContent),
+          said: caps.map((c) => c.textContent), wide: document.documentElement.scrollWidth > innerWidth };
+      });
+      await q.context().close();
+      return out;
+    };
+    const usual = await pillsAt320({ p: 190, f: 70, c: 230 }, [['egg_white', 3], ['cheddar', 0.25], ['banana', 1]]);
+    t.ok('at 320 an ordinary meal’s four pills say every digit, on one row', usual.n === 4 && usual.cut.length === 0 && usual.rows === 1 && !usual.wide,
+      JSON.stringify(usual));
+    const big = await pillsAt320({ p: 250, f: 110, c: 400 }, [['egg_white', 6], ['cheddar', 1], ['banana', 3], ['oats', 2]]);
+    t.ok('and a big meal’s break two and two rather than lose one', big.n === 4 && big.cut.length === 0 && big.rows === 2 && !big.wide,
+      JSON.stringify(big));
 
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
   },

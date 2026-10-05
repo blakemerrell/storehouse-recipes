@@ -111,26 +111,21 @@
   var I_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg>';
   var I_MINUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   var I_PLUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  var I_UP = ICO('<path d="M6 15l6-6 6 6"/>');
+  var I_DOWN = ICO('<path d="M6 9l6 6 6-6"/>');
 
   var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
 
-  /* A meal says one sentence about how it sits against its share. */
-  function verdict(sub, aim, eatenAll, n) {
-    if (!n) return { cls: '', say: '' };
-    if (eatenAll) return { cls: 'is-eaten', say: 'Eaten' };
-    if (!aim) return { cls: '', say: '' };
-    var aimK = aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0));
-    if (!(aimK > 0)) return { cls: '', say: '' };
-    var dk = sub.kcal - aimK;
-    var devs = [['protein', 'p'], ['fat', 'f'], ['carbs', 'c']].map(function (m) {
-      var a = aim[m[1]] || 0;
-      return [m[0], a > 0 ? (sub[m[1]] - a) / a : 0];
-    }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
-    if (Math.abs(dk) <= aimK * 0.05 && Math.abs(devs[0][1]) <= 0.15) return { cls: 'is-on', say: 'on its aim' };
-    var over = dk > aimK * 0.08;
-    return { cls: over ? 'is-over' : 'is-short',
-      say: (dk >= 0 ? fmtK(dk) + ' over' : fmtK(-dk) + ' short') +
-        (Math.abs(devs[0][1]) > 0.15 ? ' · ' + devs[0][0] + (devs[0][1] > 0 ? ' over' : ' short') : '') };
+  /* Millilitres beside a cup or a spoon, for eyeballing with a measuring
+     jug: "1 ½ cups · 355 mL". Read off the measure as it is printed
+     (fmtNum's eighths), so the two can never disagree. US cup and spoons. */
+  var ML_PER = { cup: 236.6, cups: 236.6, tbsp: 14.8, tsp: 4.9 };
+  var EIGHTHS = { '⅛': 0.125, '¼': 0.25, '⅜': 0.375, '½': 0.5, '⅝': 0.625, '¾': 0.75, '⅞': 0.875 };
+  function mlOf(measure) {
+    var m = /^(\d+)?\s?([⅛¼⅜½⅝¾⅞])?\s+(cups?|tbsp|tsp)$/.exec(String(measure || ''));
+    if (!m || (!m[1] && !m[2])) return '';
+    var ml = ((m[1] ? Number(m[1]) : 0) + (m[2] ? EIGHTHS[m[2]] : 0)) * ML_PER[m[3]];
+    return (ml >= 50 ? Math.round(ml / 5) * 5 : Math.max(1, Math.round(ml))) + ' mL';
   }
 
   /* What Balance moved and what the picker just put down, on this meal, if
@@ -154,7 +149,7 @@
   function capsHTML(sub, aim, spent, capped) {
     if (!aim) return '';
     spent = spent || {};
-    return [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
+    var c = [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
       /* A macro the day can no longer pay for says so: a dashed pill and the
          figure on the plate (or a dash), never "N/0" — the old day pills'
          rule (mMealPillsHTML), kept for the sheet. */
@@ -173,7 +168,12 @@
       return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"' +
         (capped && x[0] === 'kcal' ? ' title="The most this meal can be asked for"' : '') + '><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
         '<span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' + fmtK(have) + '<em>/' + fmtK(a) + '</em></span></span>';
-    }).join('');
+    });
+    /* In twos, so that when the sheet's row has to break (a big meal, a
+       narrow phone) it breaks into two and two rather than leaving carbs
+       alone on a line of its own; the day's trays lay the four out on their
+       own grid and never see the pairs. */
+    return '<span class="mcaps-two">' + c[0] + c[1] + '</span><span class="mcaps-two">' + c[2] + c[3] + '</span>';
   }
 
   /* Everything the tray and the sheet say about one meal, worked out once. */
@@ -200,7 +200,7 @@
       ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten' : 'Mark all of ' + esc(name) + ' eaten') + '"></button>';
     return { k: k, sk: sk, name: name, onPlan: onPlan, items: items, pins: (srec && srec.pins) || [],
       sub: sub, ask: ask, aim: aim, eatenAll: eatenAll, live: live, dot: dot,
-      said: verdict(sub, aim, eatenAll, live), pillsSay: mMealPillsSay(sub, ask, targets) };
+      pillsSay: mMealPillsSay(sub, ask, targets) };
   }
 
   /* One food in the meal sheet: its name (the door to the recipe or the
@@ -268,9 +268,20 @@
     '</div>';
   }
 
-  /* The meal sheet's own half: its header (the tick, the name, Balance, the
-     meal's ⋯ and ×), the pills with their one line, and the foods. The
-     picker underneath is picksheet.js's. */
+  /* The meal sheet's own half: its header (the tick, the name and the
+     meal's ⋯), the pills, and the tray of its foods along the bottom. The
+     picker between them is picksheet.js's.
+   *
+     Blake, 2026-10-05: the foods "at the bottom. The top needs to be sticky
+     so I can see the scanner... and the search... Obviously the macro pill
+     so I can see that the foods that I'm selecting are auto balancing as I
+     select them." The rows used to sit between the pills and the search and
+     scrolled away the moment you went looking for something; in a tray
+     pinned to the bottom they stay in sight while you pick. Balance and
+     Done ride in it, "so it's not at the very top where my thumb has to
+     stretch to reach it", which is why ⚖ and × left the header. The line
+     under the pills went too: "I can see visually in the pills what I need
+     to do still." Mockup: https://claude.ai/artifact/TQTp3xjDsvsEabnWYfFF7y */
   function mMealSheetParts(sk) {
     var k = mViewKey(), day = mDay(k), targets = mDayTargets(k), slots = mReadSlots();
     var rec = null;
@@ -284,11 +295,8 @@
     var head = '<div class="msh-h">' +
         (skipped ? '<span class="msh-gap"></span>' : M.dot) +
         '<span class="msh-t"><span class="mslot-name">' + esc(name) + '</span><small>' + esc(mLongDate(k)) + '</small></span>' +
-        (skipped || !M.onPlan ? '' :
-          '<button class="msh-i mslot-bal" data-mbal="' + esc(sk) + '"' + (items.length >= 2 ? '' : ' disabled') +
-            ' aria-label="Balance the portions on ' + esc(name) + '" title="Solve these portions against this meal’s share">' + mIcon('scales') + '</button>' +
+        (skipped || !M.onPlan ? '<button class="msh-i sheet-x" data-close="1" aria-label="Close">&times;</button>' :
           '<button class="msh-i" data-mmenu="' + esc(sk) + '" aria-haspopup="true" aria-expanded="' + menuOpen + '" aria-label="More for ' + esc(name) + '">' + I_DOTS + '</button>') +
-        '<button class="msh-i sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         (menuOpen ? '<div class="mfood-menu msh-menu no-print" role="menu">' +
           (items.length
             ? '<button class="mfood-mi mslot-try" role="menuitem" data-mtry="' + esc(sk) + '">' + mIcon('another') + 'Try another</button>'
@@ -302,17 +310,55 @@
         body: '<div class="msh-skipped">' + esc(name) + ' is skipped today. Its share went to the rest.' +
           '<button class="ghost mslot-unskip" data-mskip="' + esc(sk) + '">Put ' + esc(name) + ' back</button></div>' };
     }
-    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>' +
-      (mk.snap
-        ? '<div class="mscreen-say">' + (mk.n ? mk.n + (mk.n === 1 ? ' amount' : ' amounts') + ' changed' : 'Already as close as it gets') +
-          ' <button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button></div>'
-        : '<div class="mscreen-say ' + M.said.cls + '">' + esc(M.said.say) + '</div>');
+    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>';
     var rows = items.map(function (it, i) {
       var r = LIVE.BY_ID[it.id];
       return r ? foodRowHTML(M, r, it, i, mk) : '';
     }).join('');
-    return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan,
-      rows: '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet.</div>') + '</div>' };
+    rows = '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet. Tap a food above.</div>') + '</div>';
+    return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan, rows: rows,
+      tray: sheetTrayHTML(M, mk, rows) };
+  }
+
+  /* The tray: shut, the foods as a strip of chips, newest first, each with
+     its amount, ↑ or ↓ when the last re-fit moved it and a lock when you set
+     it; open, the rows themselves with their dials. Either way Balance and
+     Done under them. Shut until asked, so the list keeps the screen. */
+  function sheetTrayHTML(M, mk, rows) {
+    var sk = M.sk, open = !!S.mTrayOpen;
+    var live = [];
+    M.items.forEach(function (it, i) { if (LIVE.BY_ID[it.id]) live.push(i); });
+    var n = live.length;
+    var said = n + (n === 1 ? ' food' : ' foods') + ' &middot; ' + fmtK(M.sub.kcal) + ' kcal';
+    var body;
+    if (open) {
+      body = '<div class="msh-trh"><span class="msh-trt"><b>On ' + esc(M.name) + '</b><small class="num">' + said + '</small></span>' +
+          '<button class="msh-i" data-mtray="0" aria-expanded="true" aria-label="Hide the foods on ' + esc(M.name) + '">' + I_DOWN + '</button></div>' +
+        '<div class="msh-trrows">' + rows + '</div>';
+    } else {
+      var chips = live.slice().reverse().map(function (i) {
+        var it = M.items[i], r = LIVE.BY_ID[it.id], was = mk.was[i];
+        var arrow = was === undefined ? '' : it.x > was ? '&uarr;' : '&darr;';
+        return '<button class="msh-chip' + (mk.fresh[i] ? ' fresh' : '') + '" data-mtray="1" aria-label="' + esc(r.name) + ', ' +
+            esc(mDialText(r, it.x)) + '. Show the foods on ' + esc(M.name) + '">' +
+          '<span class="msh-chn">' + esc(r.name) + '</span>' +
+          '<span class="msh-chg num">' + (it.l ? LOCK_SM : '') + esc(mDialText(r, it.x)) + (arrow ? '<em>' + arrow + '</em>' : '') + '</span></button>';
+      }).join('');
+      body = '<div class="msh-trc">' +
+          '<button class="msh-trn" data-mtray="1" aria-expanded="false" aria-label="' + said.replace('&middot;', 'and') + ' on ' + esc(M.name) + '. Show them">' +
+            '<b class="num">' + n + '</b><small>' + (n === 1 ? 'food' : 'foods') + '</small></button>' +
+          '<span class="msh-chips">' + (chips || '<span class="msh-none">Tap a food above to put it here.</span>') + '</span>' +
+          '<button class="msh-i" data-mtray="1" aria-expanded="false" aria-label="Show the foods on ' + esc(M.name) + '">' + I_UP + '</button></div>';
+    }
+    /* A food's ⋯ opens upward, over the list; while it is open the rows stop
+       scrolling inside the tray, or the menu is cut off at the tray's edge. */
+    var menuing = open && String(S.mMenu || '').indexOf(sk + ':') === 0;
+    return '<div class="msh-tray no-print' + (open ? ' open' : '') + (menuing ? ' menuing' : '') + '">' + body +
+      '<div class="msh-acts">' +
+        '<button class="msh-bal" data-mbal="' + esc(sk) + '"' + (n ? '' : ' disabled') +
+          ' aria-label="Balance every food on ' + esc(M.name) + ', the amounts you set included">' + mIcon('scales') + 'Balance</button>' +
+        '<button class="btn-primary msh-done sheet-done">Done</button>' +
+      '</div></div>';
   }
 
   function mRenderDay() {
@@ -526,20 +572,33 @@
           '</button>' + skSend;
       }
 
+      /* Each food in the kitchen's words first and its weight after (Blake,
+         2026-10-05: "If I just want to eyeball it I can... The grams is there
+         for sure if I want to weigh it"): a cup or a spoon with its mL, a
+         count, ounces; a food with no measure but its weight shows that. */
       var lines = items.map(function (it) {
         var r = LIVE.BY_ID[it.id];
         if (!r) return '';
+        var byG = mDialG(r);
+        var kitchen = byG ? mDialMeasure(r, it.x) : mDialText(r, it.x);
+        var weight = byG ? mDialText(r, it.x) : mDialMeasure(r, it.x);
+        if (kitchen === weight) kitchen = '';
+        var ml = mlOf(kitchen);
         return '<span class="mtray-f"><span class="mtray-fn">' + esc(r.name) + '</span>' +
-          '<em class="num">' + esc(mDialText(r, it.x)) + '</em></span>';
+          (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small><i> &middot; </i>' + ml + '</small>' : '') + '</span>' : '') +
+          '<em class="num">' + esc(weight) + '</em></span>';
       }).join('');
-      var aimK = M.aim ? Math.round(M.aim.kcal || (4 * M.aim.p + 9 * M.aim.f + 4 * M.aim.c)) : 0;
-      var st = !aimK ? '' : M.sub.kcal > aimK * 1.08 ? ' over' : M.sub.kcal >= aimK * 0.92 ? ' on' : '';
       return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
           M.dot +
           '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
             (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
             '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
-              '<span class="mtray-k num' + st + '"><b>' + fmtK(M.sub.kcal) + '</b>' + (aimK ? ' / ' + fmtK(aimK) : ' kcal') + '</span></span>' +
+              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') + '</span>' +
+            /* The meal's pills, small: what it holds against its share, the
+               way its sheet says it (Blake: "adding back the subtle pills
+               that show me that meal's calories and macros"). An empty meal
+               shows them too: 0 of its share is what it is for. */
+            (M.aim ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
             '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
           '</button>' +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');

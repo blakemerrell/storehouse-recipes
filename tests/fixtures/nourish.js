@@ -101,6 +101,8 @@ async function revealPlanFields(pg) {
     await pg.waitForTimeout(150);
     await pg.click('#macroSlots .mtray-b');
     await pg.waitForTimeout(250);
+    // the meal's rows are in its tray, which opens shut
+    await openTray(pg);
   }
 
   /* A plate added to a meal whose time has come arrives eaten, and an eaten
@@ -140,14 +142,28 @@ async function revealPlanFields(pg) {
       if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
     }, sk);
     await pg.waitForTimeout(250);
+    await openTray(pg);
   }
 
-  /* Out of the meal's sheet, by its ×. */
+  /* Out of the meal's sheet, by Done in its tray (the × left the header on
+     2026-10-05; a skipped or bygone meal, with no tray, keeps one). */
   async function closeSheet(pg) {
     /* By selector, not by a handle: the sheet can redraw between finding
-       the × and pressing it, and a handle would be to a node now gone. */
-    if (await pg.$('#modalRoot .msheet .sheet-x')) {
-      await pg.click('#modalRoot .msheet .sheet-x');
+       the button and pressing it, and a handle would be to a node now gone. */
+    for (const sel of ['#modalRoot .msheet .msh-done', '#modalRoot .msheet .sheet-x']) {
+      if (await pg.$(sel)) {
+        await pg.click(sel);
+        await pg.waitForTimeout(250);
+        return;
+      }
+    }
+  }
+
+  /* The meal's tray, opened on its rows: shut, it shows the foods as chips,
+     and the dials, the ⋯ and the typed amounts are in the rows. */
+  async function openTray(pg) {
+    if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+      await pg.click('#modalRoot .msh-tray .msh-trn');
       await pg.waitForTimeout(250);
     }
   }
@@ -255,4 +271,4 @@ function nourish(def) {
   };
 }
 
-module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, openMeal, closeSheet, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };
+module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, openMeal, closeSheet, openTray, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };

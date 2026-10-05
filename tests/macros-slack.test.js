@@ -4,7 +4,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, openMeal, closeSheet } = require('./fixtures/nourish.js');
+const { nourish, openPlan, openMeal, closeSheet, openTray } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — salt, a meal\'s tray, and handing slack on',
@@ -179,7 +179,7 @@ module.exports = nourish({
         const row = b.closest('.mtray').getBoundingClientRect();
         const r = b.getBoundingClientRect();
         return r.width >= row.width * 0.7 && !!b.querySelector('.mtray-n') &&
-          !!b.querySelector('.mtray-k') && b.querySelectorAll('.mtray-f').length > 0;
+          !!b.querySelector('.mtray-caps') && b.querySelectorAll('.mtray-f').length > 0;
       }),
       await fold.evaluate(() => {
         const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
@@ -196,13 +196,13 @@ module.exports = nourish({
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
         .map((h) => [...h.querySelectorAll('button')].map((b) => b.className.split(' ')[0]).join('+'))
         .join(' | ')));
-    /* Nothing on the tray wraps: the name and its calories share one line,
+    /* Nothing on the tray wraps: the name is one line, its pills one row,
        and each food is one line of its own. */
     t.ok('and nothing on a tray wraps onto a second line',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')].every((c) => {
-        const nm = c.querySelector('.mtray-n'), k = c.querySelector('.mtray-k');
-        const nr = nm.getBoundingClientRect(), kr = k.getBoundingClientRect();
-        return Math.abs((nr.top + nr.height / 2) - (kr.top + kr.height / 2)) <= 8 &&
+        const caps = [...c.querySelectorAll('.mtray-caps .mcap')].map((x) => x.getBoundingClientRect());
+        return c.querySelector('.mtray-n').getBoundingClientRect().height <= 22 &&
+          caps.every((r) => Math.abs(r.top - caps[0].top) <= 1 && r.height <= 30) &&
           [...c.querySelectorAll('.mtray-f')].every((f) => f.getBoundingClientRect().height <= 24);
       })),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
@@ -231,10 +231,11 @@ module.exports = nourish({
       opened.sheet && opened.name === headGeo.name, JSON.stringify(opened));
 
     /* The sheet's head: the meal's tick at the left, then its name, then the
-       scales, the ⋯ and × — and only those three push, together, to the right
-       edge. This was the RP-style screen's back arrow and its foot's Add
-       line; the sheet's way out is ×, and adding is the picker in the sheet
-       itself, its search box a line of its own. */
+       ⋯ alone at the right edge. It carried the scales and × as well until
+       2026-10-05, when Balance and Done went down to the tray along the
+       sheet's bottom, under the thumb (Blake: "so it's not at the very top
+       where my thumb has to stretch to reach it"). Adding is the picker in
+       the sheet itself, its search box a line of its own. */
     const headRow = await fold.evaluate(() => {
       const h = document.querySelector('#modalRoot .msheet .msh-h');
       if (!h) return null;
@@ -252,12 +253,11 @@ module.exports = nourish({
     t.ok('the sheet’s head starts with the meal’s tick, a thumb square, at its left edge',
       !!dotK && /mday-dot/.test(dotK.c) && dotK.w >= 44 && dotK.h >= 44 && dotK.x <= headRow.pad + 1,
       JSON.stringify(headRow));
-    t.ok('and only the scales, the ⋯ and × push, together, to the right edge, with the search box a line of its own',
-      !!headRow && headRow.kids.length === 5 &&
-        /mslot-bal/.test(headRow.kids[2].c) && /msh-i/.test(headRow.kids[3].c) && /sheet-x/.test(headRow.kids[4].c) &&
-        headRow.kids[3].x - (headRow.kids[2].x + headRow.kids[2].w) <= headRow.gap + 1 &&
-        headRow.kids[4].x - (headRow.kids[3].x + headRow.kids[3].w) <= headRow.gap + 1 &&
-        headRow.kids[4].right <= headRow.padR + 1 &&
+    t.ok('and only the ⋯ sits at the right edge, Balance and Done in the tray below, with the search box a line of its own',
+      !!headRow && headRow.kids.length === 3 && /msh-i/.test(headRow.kids[2].c) &&
+        headRow.kids[2].right <= headRow.padR + 1 &&
+        await fold.evaluate(() => !!document.querySelector('#modalRoot .msheet .msh-tray .msh-bal') &&
+          !!document.querySelector('#modalRoot .msheet .msh-tray .msh-done')) &&
         await fold.evaluate(() => { const f = document.querySelector('#modalRoot .msheet #mpFind');
           const s = document.querySelector('#modalRoot .msheet');
           return !!f && f.closest('.mp-find').getBoundingClientRect().width >= s.getBoundingClientRect().width - 48; }),
@@ -293,7 +293,7 @@ module.exports = nourish({
       };
     });
     t.ok('a meal’s verbs are drawings on one row at 360px, each a thumb wide and named',
-      narrow.n >= 4 && narrow.rows === 1 && narrow.worded === 0 && narrow.unnamed === 0 && narrow.offThumb === 0 &&
+      narrow.n >= 2 && narrow.rows === 1 && narrow.worded === 0 && narrow.unnamed === 0 && narrow.offThumb === 0 &&
         narrow.menu.length >= 2 && narrow.menu.every((m) => m.t && m.svg && m.h >= 44 && m.inside),
       JSON.stringify(narrow));
     await fold.setViewportSize({ width: 375, height: 720 });
@@ -609,9 +609,10 @@ module.exports = nourish({
         document.querySelectorAll('#macroSlots .mtray').length > 0 && !document.querySelector('#macroSlots .mrow')),
       await fold.evaluate(() => 'sheets ' + document.querySelectorAll('#modalRoot .msheet').length));
     /* A tray says its foods by name, each with its weight, and its calories
-       against its share — not a count and a word, as the card did. */
+       against its share in its flame pill — not a count and a word, as the
+       card did. */
     const named = await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray.filled')]
-      .map((c) => ({ k: (c.querySelector('.mtray-k') || {}).textContent || '',
+      .map((c) => ({ k: ((c.querySelector('.mtray-caps .mcap .mcap-t') || {}).textContent || '').replace(/^\D+/, '').replace('/', ' / '),
         lines: [...c.querySelectorAll('.mtray-f')].map((f) => ({ n: (f.querySelector('.mtray-fn') || {}).textContent || '',
           amt: (f.querySelector('em') || {}).textContent || '' })) })));
     t.ok('a tray says each food by name with its amount, and its calories against its share',
@@ -682,13 +683,14 @@ module.exports = nourish({
       bar: await box('.mday-acts button:not(#macroFill)'), seam: await box('#macroSlots .mtray .mtray-b') };
     await reachPage.click('#macroSlots .mtray .mtray-b');
     await reachPage.waitForTimeout(400);
+    await openTray(reachPage);
     Object.assign(reach, { key: await hit('#modalRoot .msheet .mrow [data-mstep$=":up"]'),
       add: await box('#modalRoot .msheet .mp-find') });
     await reachPage.click('#modalRoot .msheet [data-mmenu]');
     await reachPage.waitForTimeout(250);
     Object.assign(reach, {
       retry: await box('#modalRoot .msheet .msh-menu .mslot-try'),
-      icon: await box('#modalRoot .msheet .msh-h [data-mmenu]'), back: await box('#modalRoot .msheet .sheet-x') });
+      icon: await box('#modalRoot .msheet .msh-h [data-mmenu]'), back: await box('#modalRoot .msheet .msh-done') });
     /* Against the BAR, not against a number — and then against a PLATE KEY
        (Blake, 2026-09-27: "Just use icons and the box size that is in the
        meal/food card uses"), and his rule for the sheet (2026-10-04): "Rows
@@ -701,8 +703,8 @@ module.exports = nourish({
         reach.key.h >= 44 && reach.key.w >= 44 && reach.bar.h >= 44,
       JSON.stringify(reach));
     /* The tray is the handle and stays a thumb's worth; the way back out of
-       the sheet is a thumb square too. */
-    t.ok('and the tray is a thumb tall as well, being the handle, and × a thumb square',
+       the sheet, Done since 2026-10-05, is a thumb square at least. */
+    t.ok('and the tray is a thumb tall as well, being the handle, and Done a thumb square at least',
       !!reach.seam && reach.seam.h >= 44 && !!reach.back && reach.back.h >= 44 && reach.back.w >= 44,
       JSON.stringify({ seam: reach.seam, back: reach.back }));
     await closeSheet(reachPage);

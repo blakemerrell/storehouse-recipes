@@ -5,31 +5,39 @@
  *
  * Split by topic: later sections are in tests/macros-*.test.js, and the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openWeigh, openPlan, pickerList } = require('./fixtures/nourish.js');
+const { nourish, openWeigh, openPlan, pickerList, openTray } = require('./fixtures/nourish.js');
 
 /* The day is trays and a meal opens as its sheet (trays and the meal sheet,
    Blake 2026-10-04). The sheet stands over the day's header, the weigh card
    and the bar, so anything that reaches for them comes back to the day
-   first — by the sheet's ×, the way a thumb would. */
+   first — by the sheet's Done, the way a thumb would (the × left the
+   sheet's head for Done in its tray on 2026-10-05; a skipped or bygone meal,
+   with no tray, keeps its ×). */
 async function toDay(pg) {
-  if (!(await pg.$('#modalRoot .msheet .sheet-x'))) return;
-  await pg.click('#modalRoot .msheet .sheet-x');
-  await pg.waitForTimeout(250);
+  for (const sel of ['#modalRoot .msheet .msh-done', '#modalRoot .msheet .sheet-x']) {
+    if (await pg.$(sel)) {
+      await pg.click(sel);
+      await pg.waitForTimeout(250);
+      return;
+    }
+  }
 }
 /* Opens one meal's sheet: out of any other meal's first, then that meal's
-   tray. A meal already open is left as it is. */
+   tray. A meal already open is left as it is. Either way the plates' tray
+   along the sheet's bottom is opened, where they live since 2026-10-05. */
 async function openMeal(pg, sk) {
   const open = await pg.evaluate(() => {
     const h = document.querySelector('#modalRoot .msheet [data-mmenu], #modalRoot .msheet [data-mdot]');
     return h ? (h.dataset.mmenu || h.dataset.mdot) : '';
   });
-  if (open === sk) return;
+  if (open === sk) { await openTray(pg); return; }
   if (open) await toDay(pg);
   await pg.evaluate((k) => {
     const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
     if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
   }, sk);
   await pg.waitForTimeout(300);
+  await openTray(pg);
 }
 
 module.exports = nourish({
@@ -554,6 +562,7 @@ module.exports = nourish({
 
        What is asserted here is the half that was always the point: the unit
        is named ON THE AMOUNT. "21 g" or "1 cup", not "×1". */
+    await openTray(p);
     t.ok('with its unit named on the amount, and no recipe pretending to be behind it',
       await p.evaluate(() => {
         const el = document.querySelector('.mitem-food');
@@ -658,11 +667,12 @@ module.exports = nourish({
         document.querySelectorAll('.mpick-wrap.in').length >= 1));
     const sWas = await sOf();
     await toDay(p);
-    t.ok('and × leaves what was picked on the meal, back on the day',
+    t.ok('and Done leaves what was picked on the meal, back on the day',
       JSON.stringify(await sOf()) === JSON.stringify(sWas) && await p.evaluate(() => !document.querySelector('#modalRoot .msheet')),
       JSON.stringify(sWas));
     /* The day is trays (2026-10-04): a meal shows its foods as lines on its
-       tray, and its tray opens it again. */
+       tray, and its tray opens it again — on the sheet's own tray along the
+       bottom, shut to a chip a food (2026-10-05). */
     t.ok('the tray shows what is on the meal, and opens it again',
       await p.evaluate(async () => {
         const b = document.querySelector('#macroSlots [data-mopen="s"]');
@@ -670,7 +680,7 @@ module.exports = nourish({
         if (!tray || tray.querySelectorAll('.mtray-f').length !== 2) return false;
         b.click();
         await new Promise((r) => setTimeout(r, 300));
-        return document.querySelectorAll('#modalRoot .msheet .mrows .mrow').length === 2;
+        return document.querySelectorAll('#modalRoot .msheet .msh-tray .msh-chip').length === 2;
       }), await p.evaluate(() => {
         const b = document.querySelector('#macroSlots [data-mopen="s"]');
         const tr = b && b.closest('.mtray');

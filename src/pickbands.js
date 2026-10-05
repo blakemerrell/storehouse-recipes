@@ -32,6 +32,8 @@
   var mGapFresh = app.mGapFresh;
   var mIsFav = app.mIsFav;
   var mMacLine = app.mMacLine;
+  var mMealAsk = app.mMealAsk;
+  var mMealHolds = app.mMealHolds;
   var mMealPool = app.mMealPool;
   var mNever = app.mNever;
   var mRank = app.mRank;
@@ -40,7 +42,6 @@
   var mViewKey = app.mViewKey;
   var mWideOpen = app.mWideOpen;
   var matchRank = app.matchRank;
-  var mpFitX = app.mpFitX;
   var mpRowHTML = app.mpRowHTML;
   var searchScore = app.searchScore;
   var todayKey = app.todayKey;
@@ -290,7 +291,7 @@
     if (!rows.length) return '';
     rows.forEach(function (r) { shown[r.id] = 1; });
     return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
-      return mpRowHTML(r, mDefaultX(r), undefined, mpFitX(r));
+      return mpRowHTML(r, mDefaultX(r));
     }).join('');
   }
 
@@ -359,6 +360,25 @@
         (r.food ? ' ' + esc(r.unit) : '') + ' &middot; ' + mMacLine(r, xx, true),
         e.score !== null && e.score !== undefined ? e.x : null);
     }).join('');
+  }
+
+  /* Which pills are still empty, named on the band that is ranked to fill
+     them: "Fits best for carbs" once the egg whites and the cheese are on.
+     Short is the pills' own line (under 92% of the share, mcap's "on").
+     Only once something is on the meal and only for one or two of the
+     three — an empty meal is short of everything, and saying so says
+     nothing. */
+  function mpForWhat() {
+    var k = mViewKey(), sk = S.macroPick && S.macroPick.slot;
+    if (!sk) return '';
+    var ask = mMealAsk(sk, mDayTargets(k), mReadSlots()), want = ask && (ask.now || ask.plan);
+    var got = mMealHolds(k, sk);
+    if (!want || !(got.p + got.f + got.c > 0)) return '';
+    var short = [['p', 'protein'], ['f', 'fat'], ['c', 'carbs']].filter(function (m) {
+      return (want[m[0]] || 0) > 0 && (got[m[0]] || 0) < want[m[0]] * 0.92;
+    }).map(function (m) { return m[1]; });
+    if (!short.length || short.length === 3) return '';
+    return ' <span class="mt-div-for">for ' + short.join(' and ') + '</span>';
   }
 
   function mpFitsHTML(skip) {
@@ -532,16 +552,12 @@
        a header has to earn every pixel and these are asked for rarely, but
        they are asked for — "show me the Sunday Feasts" is a real thing to
        want and no macro chip can say it. */
-    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' + mpForWhat() : 'On the shelf') +
       mpLensHTML() + '</div>' +
       ranked.map(function (e) {
-      /* Ranked by how well it fits, offered at what you have — the fit
-         itself is the chip beside it. */
-      /* A row a tap already put on the meal is fitted without its own
-         plate (mpFitX); the ranking's figure counts it twice. */
-      return mpRowHTML(e.r, mDefaultX(e.r), undefined,
-        S.mpBasket[e.r.id] !== undefined ? mpFitX(e.r)
-          : e.score !== null && e.score !== undefined ? e.x : null);
+      /* Ranked by how well it fits the day, offered at what a tap puts
+         down: what you have, or what fits this meal (mDefaultX). */
+      return mpRowHTML(e.r, mDefaultX(e.r));
     }).join('');
   }
 
@@ -579,7 +595,7 @@
     });
     if (!out.length) return '';
     return '<div class="mt-div">Recent</div>' + out.map(function (e) {
-      return mpRowHTML(e.r, LIVE.MP_LASTX[e.r.id] || e.x, undefined, mpFitX(e.r));
+      return mpRowHTML(e.r, LIVE.MP_LASTX[e.r.id] || e.x);
     }).join('');
   }
 

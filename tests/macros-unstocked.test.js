@@ -111,9 +111,9 @@ module.exports = nourish({
            it is read off the flame label now rather than .msub-k. */
         /* The calorie figure moved off the seam and onto its own gauge, so
            it is read off the flame label now rather than .msub-k. */
-        /* ...on a tray (2026-10-04), its calories against its share. */
+        /* ...on a tray, its calories against its share: its flame pill (2026-10-05). */
         kcalAlways: cards.length > 0 && cards.every((c) =>
-          /^[\d,]+ \/ [\d,]+$/.test(((c.querySelector('.mtray-k') || {}).textContent || '').trim())),
+          /[\d,]+\/[\d,]+$/.test(((c.querySelector('.mtray-caps .mcap .mcap-t') || {}).textContent || '').replace(/\s/g, ''))),
       };
     });
     t.ok('a folded day shows no bars at all',
@@ -217,7 +217,7 @@ module.exports = nourish({
       const name = ((document.querySelector('#modalRoot .msh-t .mslot-name') || {}).textContent || '').trim();
       const tray = [...document.querySelectorAll('#macroSlots .mtray')].find((c) =>
         ((c.querySelector('.mtray-n') || {}).textContent || '').trim() === name);
-      const tk = tray ? num(tray.querySelector('.mtray-k').textContent) : [];
+      const tk = tray ? num(tray.querySelector('.mtray-caps .mcap .mcap-t').textContent.replace(/^\uD83D\uDD25/, '')) : [];
       return { shown: shown[0], shownWant: shown[1], meal: name, got: tray ? tk[0] : null, want: tray ? tk[1] : null };
     });
     t.ok('the flame in the sheet is the same figure the meal\'s tray is showing, against the same share',
@@ -239,9 +239,9 @@ module.exports = nourish({
        part you plan against: 0 of 44 protein says what to go looking for. */
     t.ok('an empty meal still says what it is meant to hold',
       await pillPg.evaluate(() => {
-        // on its tray, "0 / 642": nothing yet, against its share
-        const k = document.querySelector('#macroSlots .mtray .mtray-k');
-        const m = k && k.textContent.replace(/,/g, '').match(/^(\d+) \/ (\d+)$/);
+        // on its tray's flame pill, "0/642": nothing yet, against its share
+        const k = document.querySelector('#macroSlots .mtray .mtray-caps .mcap .mcap-t');
+        const m = k && k.textContent.replace(/,/g, '').replace(/\s/g, '').match(/(\d+)\/(\d+)$/);
         return !!m && Number(m[1]) === 0 && Number(m[2]) > 0;
       }));
     await pillPg.click('#macroFill');
@@ -269,7 +269,8 @@ module.exports = nourish({
       chips: document.querySelectorAll('.msub-c').length,
       oldBars: document.querySelectorAll('.msub-bars').length,
       shut: document.querySelectorAll('#macroSlots .mtray').length,
-      shutK: [...document.querySelectorAll('#macroSlots .mtray .mtray-k')].map((e) => e.textContent.trim()),
+      shutK: [...document.querySelectorAll('#macroSlots .mtray')].map((c) => ((c.querySelector('.mtray-caps .mcap .mcap-t') || {}).textContent || '').replace(/^\D+/, '').trim()),
+      shutCaps: [...document.querySelectorAll('#macroSlots .mtray')].map((c) => c.querySelectorAll('.mtray-caps .mcap').length),
       shutLines: [...document.querySelectorAll('#macroSlots .mtray')].filter((c) => c.querySelectorAll('.mtray-f').length > 0).length,
       shutPlates: document.querySelectorAll('#macroSlots .mitem').length,
     }));
@@ -300,15 +301,21 @@ module.exports = nourish({
        day "way to fat and tall": a meal on the day is a small tray, its
        calories against its share and its foods as lines, with the macros in
        the meal's sheet. What must not come back is the old apparatus. */
-    t.ok('a tray shows its calories against its share and its foods, and no macro apparatus',
+    /* And a fifth time on 2026-10-05: "adding back the subtle pills that show
+       me that meal's calories and macros." The tray carries the meal's four
+       pills small, the sheet's own pills (capsHTML), not a second definition
+       of its share; still none of the old apparatus. */
+    t.ok('a tray shows its four pills, calories against its share among them, and its foods, and none of the old apparatus',
       quietFolded.shut > 0 && quietFolded.shutLines === quietFolded.shut && quietFolded.shutPlates === 0 &&
-      quietFolded.shutK.every((w) => /^[\d,]+ \/ [\d,]+$/.test(w)) &&
+      quietFolded.shutK.every((w) => /^[\d,]+\/[\d,]+$/.test(w.replace(/\s/g, ''))) && quietFolded.shutCaps.every((n) => n === 4) &&
       quietFolded.chips === 0 && quietFolded.oldBars === 0,
       JSON.stringify(quietFolded));
     /* And opening one does not bring them back — the open card is plates and
        steppers, which is what it is for. */
     await pillPg.click('#macroSlots .mtray-b');
     await pillPg.waitForTimeout(350);
+    // the plates are in the sheet's tray, which opens shut
+    if (await pillPg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) { await pillPg.click('#modalRoot .msh-trn'); await pillPg.waitForTimeout(250); }
     const quietOpen = await pillPg.evaluate(() => {
       const card = document.querySelector('#modalRoot .msheet');
       if (!card) return null;
@@ -400,8 +407,8 @@ module.exports = nourish({
        (a read of 0 cannot show a share moving). */
     const shareRead = () => skipPg.evaluate(() => {
       const b = document.querySelector('#macroSlots [data-mopen="b"]');
-      const k = b && b.closest('.mtray') && b.closest('.mtray').querySelector('.mtray-k');
-      return k ? Number(k.textContent.split('/')[1].replace(/[^\d]/g, '')) : 0;
+      const k = b && b.closest('.mtray') && b.closest('.mtray').querySelector('.mtray-caps .mcap');
+      return k ? Number(k.dataset.want) : 0;
     });
     const bShareBefore = await shareRead();
     await skipPg.evaluate(() => document.querySelector('#modalRoot [data-mskip="l"]').click());

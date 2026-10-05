@@ -332,13 +332,18 @@ module.exports = nourish({
 
     /* Grams are the case where the number on screen is NOT x: mPortion shows
        r.grams * x, so typing 185 and storing 185 would store a hundred and
-       eighty-five portions of it. */
+       eighty-five portions of it.
+     *
+       The rice is read off its dial rather than assumed to be the 100 g it
+       went on at: since 2026-10-05 a typed amount is kept and the rest of the
+       meal re-fits around it, so thirty corn nuts have already moved it. */
+    const riceWas = (await plate(1)).portion;
     await typeOn(1);
     await typ.waitForTimeout(200);
+    const riceBox = await typ.getAttribute('#modalRoot .mstep-in', 'placeholder');
     t.ok('a food measured in grams opens on its grams, not on its multiplier',
-      (await typ.inputValue('#modalRoot .mstep-in')) === '' &&
-      (await typ.getAttribute('#modalRoot .mstep-in', 'placeholder')) === '100',
-      await typ.getAttribute('#modalRoot .mstep-in', 'placeholder'));
+      (await typ.inputValue('#modalRoot .mstep-in')) === '' && /^\d+$/.test(riceBox) &&
+      riceWas === riceBox + ' g' && Number(riceBox) >= 5, JSON.stringify({ riceWas, riceBox }));
     await typ.fill('#modalRoot .mstep-in', '185');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);

@@ -1763,7 +1763,7 @@ select { max-width: 280px; }
 }
 /* The lens rides the band divider. `mt-div` is uppercase small caps for a
    heading; these are controls, so they undo that rather than inherit it. */
-.mt-div-x { display: flex; align-items: center; gap: 8px; }
+.mt-div-x { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mp-lens { margin-left: auto; display: flex; gap: 5px; text-transform: none; letter-spacing: 0; }
 .mp-lens select {
   font-family: var(--sans); font-size: 0.8125rem; padding: 3px 4px; max-width: 116px;
@@ -1977,23 +1977,6 @@ select { max-width: 280px; }
 .mpb-x .mpb-out { border-color: transparent; color: var(--muted); }
 .mp-side { display: flex; align-items: center; gap: 2px; padding-right: 2px; flex: none;
   border-bottom: 1px solid var(--line-soft); }
-/* The amount that fits the meal, beside the one a tap on the row adds (what
-   you had last time). A pill rather than a key, so it reads as an offer —
-   drawn on the span, so the button around it can take a thumb's reach on a
-   touch screen without the pill growing to match. */
-.mp-fitx {
-  flex: none; white-space: nowrap; font-size: 0.8125rem; line-height: 1;
-  font-variant-numeric: tabular-nums; color: var(--green);
-  background: none; border: 0; padding: 0; display: inline-flex; align-items: center;
-}
-.mp-side .mp-fitx { width: auto; height: auto; border: 0; background: none; margin-right: 2px; }
-.mp-fitx > span {
-  display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 999px;
-  font-size: 0.8125rem; line-height: 1; font-variant-numeric: tabular-nums;
-  background: var(--card); border: 1px solid color-mix(in oklab, var(--green) 45%, var(--line));
-  color: var(--green);
-}
-.mp-fitx[aria-pressed="true"] > span { background: var(--green); border-color: var(--green); color: var(--paper); }
 .mpb-fit { display: flex; margin-top: 5px; }
 .mpb-fit > span { height: 24px; }
 .mp-star { background: none; border: 0; padding: 4px 6px; font-size: 0.9375rem; color: var(--line-firm); }
@@ -4428,8 +4411,6 @@ p.sync-diner { font-size: 0.8125rem; line-height: 1.6; color: var(--muted); }
     min-width: 44px; min-height: 44px; padding: 0; margin: -10px -6px;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  /* the fitting-amount chip: the reach grows, the pill does not */
-  .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
   .mpick-new { min-height: 44px; }
   /* no hover to reveal with, and a target you can actually hit */
   /* a row a thumb tall, so its × can be given a thumb's reach without that
@@ -6378,7 +6359,6 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
   width: 44px; height: 44px; padding: 0; margin: -8px -4px -8px 0; border: 0; background: none;
   display: inline-flex; align-items: center; justify-content: center; font-size: 1.1875rem;
 }
-#modalRoot.m-sheets .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
 #modalRoot.m-sheets .mpick-new, #modalRoot.m-sheets .mp-done, #modalRoot.m-sheets .mp-foot-t { min-height: 44px; }
 #modalRoot.m-sheets .mpb-x button { width: 44px; height: 44px; font-size: 1.125rem; }
 #modalRoot.m-sheets .mp-meals button { min-height: 44px; font-size: 0.875rem; }
@@ -7632,8 +7612,27 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   .mcard-line { min-height: 0; }
 }
 
-/* the meal's four pills and its one line, in the meal sheet */
-.mcaps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 6px; }
+/* The meal's four pills in its sheet: four to a row, the calories a little
+   wider, each its share of the row, so they hold still while the numbers
+   change under them as you add. But never narrower than what they say. Four
+   equal pills cut the target short at 320 px ("581/89" for 581 of 898, a
+   number that is not there), and on a big meal on any phone (2,116 of 1,396
+   wanted 91 px at 375 and had 85), so a pill takes the room its numbers
+   need and the row breaks, two and two, before a digit is lost.
+ *
+   How the widths stay exact: the pairs share the row 2.3 to 2, each starting
+   one gap wide so the gap inside it is the pair's to give and not its pills';
+   inside, a grid splits what is left, padding and all. Protein, fat and carbs
+   come out exactly as wide as each other (macros-meal measures it to the
+   tenth of a pixel) and the calories 1.3 of them, as the one grid they
+   replaced had it, until a pill's numbers need more. */
+.mcaps { --cap-gap: 6px; display: flex; flex-wrap: wrap; gap: var(--cap-gap); }
+.mcaps-two {
+  display: grid; grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1fr); gap: var(--cap-gap);
+  flex: 2 1 var(--cap-gap); min-width: min-content;
+}
+.mcaps-two:first-child { flex-grow: 2.3; grid-template-columns: minmax(min-content, 1.3fr) minmax(min-content, 1fr); }
+.mtray-caps .mcaps-two { display: contents; }
 .mcap { position: relative; border-radius: 999px; overflow: hidden; border: 1px solid var(--line-firm); background: var(--card); padding: 7px 6px; text-align: center; white-space: nowrap; }
 .mcap-fl { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ochre-soft); }
 .mcap.on .mcap-fl { background: var(--tint-green, var(--paper-soft)); } .mcap.over .mcap-fl { background: var(--danger-wash, var(--ochre-soft)); }
@@ -7641,10 +7640,6 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mcap-t i { font-style: normal; font-weight: 700; margin-right: 2px; }
 .mcap-t em { font-style: normal; font-weight: 400; color: var(--note); }
 .mcap.over .mcap-t { color: var(--warn); }
-.mscreen-say { text-align: center; font-size: 0.875rem; color: var(--note); }
-.mscreen-say.is-on, .mscreen-say.is-eaten { color: var(--green); font-weight: 600; }
-.mscreen-say.is-over { color: var(--warn); font-weight: 600; }
-.mscreen-say .mcard-undo { min-height: 36px; margin-left: 8px; }
 .mscreen-empty { text-align: center; color: var(--note); padding: 24px 8px; }
 
 /* ---- Trays and the meal sheet (Blake, 2026-10-04) ---------------------------
@@ -7681,9 +7676,26 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-k.over b { color: var(--warn); }
 .mtray-k.on b { color: var(--green); }
 .mtray-fs { display: flex; flex-direction: column; }
-.mtray-f { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84375rem; line-height: 1.45; }
-.mtray-fn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mtray-f em { flex: none; font-style: normal; font-size: 0.78125rem; color: var(--note); }
+.mtray-f { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.4em; align-items: baseline; gap: 8px; font-size: 0.84375rem; line-height: 1.45; }
+.mtray-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtray-fm { white-space: nowrap; font-size: 0.8125rem; }
+.mtray-fm b { font-weight: 600; }
+.mtray-fm small { font-size: 0.8125rem; color: var(--note); }
+.mtray-f em { grid-column: 3; font-style: normal; font-size: 0.78125rem; color: var(--note); text-align: right; white-space: nowrap; }
+/* the meal's pills, small, under its name */
+.mtray-caps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; margin: 4px 0 6px; }
+.mtray-caps .mcap { padding: 2px 3px; }
+.mtray-caps .mcap-t { font-size: 0.8125rem; }
+.mtray-fm small i { font-style: normal; }
+/* On the narrowest phones four pills in a row cut their own numbers short
+   ("1,504/5" for 1,504 of 513), and the cups and the mL beside them leave the
+   food's name four letters. So the pills go two to a row and the mL goes
+   under its cups, the dot between them gone. */
+@media (max-width: 360px) {
+  .mtray-caps { grid-template-columns: 1fr 1fr; }
+  .mtray-fm small { display: block; text-align: right; }
+  .mtray-fm small i { display: none; }
+}
 .mtray.done .mtray-fn { color: var(--label); }
 .mtray-none { color: var(--note); }
 .mtray-skip {
@@ -7701,8 +7713,10 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 
 /* the meal sheet */
 .sheet.msheet { padding-top: 0; --msh-top: 120px; }
+/* A step over the pinned search under it: with the meal's rows gone to the
+   tray the search sits straight below, and the ⋯ menu hangs down over it. */
 .msh-top {
-  position: sticky; top: 0; z-index: var(--z-dock-over); background: var(--card);
+  position: sticky; top: 0; z-index: var(--z-sticky); background: var(--card);
   margin: 0 -2px; padding: 4px 2px 6px; border-bottom: 1px solid var(--line-soft);
 }
 .msh-h { display: flex; align-items: center; gap: 2px; position: relative; min-height: 48px; }
@@ -7729,8 +7743,12 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msh-i:hover, .msh-i[aria-expanded="true"] { background: var(--hint); }
 .msh-i:disabled { opacity: 0.35; cursor: default; }
 .msheet .mcaps { padding: 2px 4px 0; }
+/* A 320 phone's ordinary meal (581 of 898) wants 275 px of a 276 px row, so
+   the gaps give back the few pixels that keep it one row rather than two. */
+@media (max-width: 360px) {
+  .msheet .mcaps { padding: 2px 2px 0; --cap-gap: 4px; }
+}
 .msheet .mcap { padding: 5px 4px; }
-.msheet .mscreen-say { padding: 4px 0 0; min-height: 22px; font-size: 0.8125rem; }
 
 /* a ⋯ opens a small list, over what is under it */
 .msheet .mfood-menu {
@@ -7797,7 +7815,57 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mrow-more svg { width: 19px; height: 19px; }
 .msheet .mrow-more[aria-expanded="true"], .msheet .mrow-more:hover { background: var(--hint); }
 .msheet .mrow .mwhy-strip { grid-column: 1 / -1; margin: 4px 0 2px; }
+.mt-div-for { white-space: nowrap; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ochre-text); margin-left: 4px; }
 .msh-skipped { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 12px; text-align: center; color: var(--note); }
+
+/* The tray: what is on the meal, pinned along the bottom of the sheet with
+   Balance and Done under it, where a thumb already is. `margin-top: auto`
+   holds it down on a short list (sticky only pulls up); the side margins
+   take it to the sheet's edges, desktop here and phone in the mobile block. */
+.msh-tray {
+  position: sticky; bottom: 0; z-index: var(--z-dock-over); margin: auto -34px -34px;
+  background: var(--card); border-top: 1px solid var(--line-firm); border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 22px rgba(43, 34, 26, 0.10); padding: 6px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.msh-trc { display: grid; grid-template-columns: auto minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 0 4px 0 12px; }
+.msh-trn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; min-width: 44px;
+  border: 0; background: none; padding: 0 2px; margin: 0; line-height: 1; cursor: pointer; color: var(--ink);
+}
+.msh-trn b { font-family: var(--serif); font-size: 1.375rem; font-weight: 700; }
+.msh-trn small { font-size: 0.8125rem; color: var(--note); margin-top: 2px; white-space: nowrap; }
+.msh-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; min-width: 0; }
+.msh-chips::-webkit-scrollbar { display: none; }
+.msh-chip {
+  flex: none; max-width: 170px; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: 4px 10px;
+  text-align: left; line-height: 1.15; cursor: pointer; color: var(--ink);
+}
+.msh-chip.fresh { background: var(--hint); border-color: var(--ochre); }
+.msh-chn { font-size: 0.8125rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msh-chg { font-size: 0.8125rem; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+.msh-chg em { font-style: normal; font-weight: 700; color: var(--ochre-text); }
+.msh-chg .mcard-lk { width: 11px; height: 11px; }
+.msh-none { font-size: 0.8125rem; color: var(--note); }
+.msh-trh { display: flex; align-items: center; gap: 8px; padding: 0 4px 4px 14px; }
+.msh-trt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.msh-trt b { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
+.msh-trt small { font-size: 0.8125rem; color: var(--note); }
+.msh-trh .msh-i[aria-expanded="true"] { background: none; }
+.msh-trrows { max-height: 45vh; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line-soft); padding: 0 8px 0 12px; }
+.msh-tray .mrow-menu { top: auto; bottom: 46px; }
+.msh-tray.menuing .msh-trrows { max-height: none; overflow: visible; }
+.msh-acts { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; padding: 10px 12px 0; }
+.msh-bal {
+  min-height: 50px; margin: 0; border-radius: 11px; border: 1px solid var(--line-firm); background: var(--card); color: var(--ink);
+  font-weight: 600; font-size: 0.96875rem; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+}
+.msh-bal svg { width: 21px; height: 21px; }
+.msh-bal:disabled { opacity: 0.4; cursor: default; }
+.msh-done { min-height: 50px; margin: 0; border-radius: 11px; font-size: 1rem; }
+/* After the rule above, not in the phone block earlier in the file, or
+   the desktop margin wins: a phone's sheet is padded 18px, not 34px. */
+@media (max-width: 860px) { .msh-tray { margin: auto -18px 0; } }
 
 /* the search and the shelves pin under the meal's header once the foods
    have scrolled away */
@@ -7839,7 +7907,7 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mrow .mrow-g { width: 56px; }
 /* No type under 13 px (Blake, 2026-09-27), in the trays and the sheet too. */
 .mtray-n, .mtray-k, .mtray-f em, .mtray-sw, .msh-t small, .mrow-mk, .mrow-g small,
-.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i, .msheet .mcap.spent em, .msheet .mscreen-say { font-size: 0.8125rem; }
+.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i, .msheet .mcap.spent em { font-size: 0.8125rem; }
 .mrow-mk { letter-spacing: 0.03em; }
 .mrow-g small { line-height: 1.1; }
 .msheet .mcap.mcap-max { border-color: var(--dial-over); }

@@ -223,5 +223,5 @@
     renderMacros();
   }
 
-  return { mMealWants: mMealWants, mBalanceDay: mBalanceDay, mRebalance: mRebalance, MX_ALL: MX_ALL, MNA_CAP: MNA_CAP };
+  return { mMealWants: mMealWants, mBalanceDay: mBalanceDay, mRebalance: mRebalance, MX_ALL: MX_ALL, MNA_CAP: MNA_CAP, MNA_W: MNA_W };
 };

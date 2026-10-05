@@ -9,10 +9,11 @@ const { nourish } = require('./fixtures/nourish.js');
 /* Back to the day from a meal's sheet. While a meal's sheet is up (the
    trays and the meal sheet, 2026-10-04) the day's header — the day picker,
    the arrows — and the bar sit under it, so anything that reaches for them
-   comes home first, the way the × takes a thumb there. */
+   comes home first, the way Done takes a thumb there. */
 const homeDay = async (pg) => {
   const was = await pg.evaluate(() => {
-    const b = document.querySelector('#modalRoot .msheet .sheet-x');
+    // by Done in the tray since 2026-10-05; a skipped or bygone meal keeps its ×
+    const b = document.querySelector('#modalRoot .msheet .msh-done') || document.querySelector('#modalRoot .msheet .sheet-x');
     if (b) b.click();
     return !!b;
   });
@@ -68,7 +69,9 @@ module.exports = nourish({
         await pg.clock.setSystemTime(new Date(y, mo, d, h, mi || 0, 0));
       };
       const stored = (k) => pg.evaluate((k) => (JSON.parse(localStorage.getItem('bsc.macroDays') || '{}')[k]) || {}, k);
-      /* The meal's sheet, by its tray — the one way in to adding food. */
+      /* The meal's sheet, by its tray — the one way in to adding food — with
+         the sheet's own tray of plates along its bottom opened (2026-10-05),
+         where a plate's − and + are. */
       const openMeal = async (sk) => {
         await homeDay(pg);
         await pg.evaluate((sk) => {
@@ -77,6 +80,10 @@ module.exports = nourish({
           a.click();
         }, sk);
         await pg.waitForTimeout(400);
+        if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+          await pg.click('#modalRoot .msh-tray .msh-trn');
+          await pg.waitForTimeout(250);
+        }
       };
       const search = async (q) => {
         await pg.fill('#mpFind', q);
@@ -96,7 +103,7 @@ module.exports = nourish({
       const addFood = async (sk, q, id) => {
         await openMeal(sk);
         await search(q);
-        /* a tap puts it on the meal; × takes the sheet away */
+        /* a tap puts it on the meal; Done takes the sheet away */
         await pg.click('#mpList .mpick-row[data-mpick="' + id + '"]');
         await pg.waitForTimeout(300);
         await homeDay(pg);
@@ -387,55 +394,51 @@ module.exports = nourish({
       await pg.click('#modalRoot [data-mstep="d:' + ei + ':down"]');
       await pg.waitForTimeout(200);
       const x2 = await eggX();
+      /* The egg goes on at what fits dinner (2026-10-05), not at one, so
+         the dial is read from wherever it went on. */
       t.ok('+ and − change a single food’s amount on the meal, an egg at a time, in grams',
-        ei >= 0 && x0 === 1 && x1 === 2 && x2 === 1 && g0 === '50 g' && g1 === '100 g', JSON.stringify({ ei, x0, x1, x2, g0, g1 }));
+        ei >= 0 && x0 >= 1 && x1 === x0 + 1 && x2 === x0 - 1 && g0 === (x0 * 50) + ' g' && g1 === (x1 * 50) + ' g',
+        JSON.stringify({ ei, x0, x1, x2, g0, g1 }));
       await homeDay(pg);
 
       /* ---- portions start at last time ------------------------------------
        * Blake: "Default to what you had last time (else 1 serving); 'fits the
-       * meal' becomes a one-tap chip beside it." */
+       * meal' becomes a one-tap chip beside it." Then, 2026-10-05, the meal
+       * began re-fitting itself as you add, and the chip went: "Last time,
+       * else what fits". A food you have had arrives at that and stays
+       * there; one you never have arrives at what fits this meal. */
       await seed({ favs: ['f:egg'], days: { [TUE]: { b: [{ id: 'f:egg', x: 6, eaten: 1 }] } } });
       await openMeal('d');
       await search('egg');
       const eggRow = (await rows()).find((r) => r.id === 'f:egg');
-      const chip = await pg.evaluate(() => {
-        const c = document.querySelector('#mpList [data-mpfit="f:egg"]');
-        return c ? { x: Number(c.dataset.mpx), text: c.textContent } : null;
-      });
+      const chips = await pg.evaluate(() => document.querySelectorAll('#mpList [data-mpfit], #mpList .mp-fitx').length);
       t.ok('a food you had yesterday is offered at what you had: six eggs', eggRow && eggRow.x === 6, JSON.stringify(eggRow));
-      t.ok('with what fits the meal on a chip beside it', !!chip && chip.x > 0 && chip.x !== 6 && /^Fits: /.test(chip.text),
-        JSON.stringify(chip));
+      t.ok('with no chip beside it: what fits is what a tap does now', chips === 0, String(chips));
       await search('banana');
       const ban = (await rows()).find((r) => r.id === 'f:banana');
-      t.ok('and one never logged is offered at one', ban && ban.x === 1, JSON.stringify(ban));
+      const banFit = await pg.evaluate(() => window.__macroLab.mealFit('d', 'f:banana'));
+      t.ok('and one never logged is offered at what fits this meal', ban && banFit > 0 && Math.abs(ban.x - banFit) < 1e-6,
+        JSON.stringify({ ban, banFit }));
       await search('egg');
-      await pg.click('#mpList [data-mpfit="f:egg"]');
+      await pg.click('#mpList .mpick-row[data-mpick="f:egg"]');
       await pg.waitForTimeout(300);
       await homeDay(pg);
-      const fitted = ((await stored(WED)).d || []).find((it) => it.id === 'f:egg');
-      t.ok('one tap on the chip adds the amount that fits', fitted && Math.abs(fitted.x - chip.x) < 1e-6,
-        JSON.stringify({ fitted, chip }));
-      /* On the meal already, the chip moves what you put down to what fits
-         (the basket's chip did this before the basket went, 2026-10-04). A
-         lean food, because the three eggs on dinner spent the day's fat and
-         no amount of egg fits Snacks: there would be no chip to press. */
+      const eggsOn = ((await stored(WED)).d || []).filter((it) => it.id === 'f:egg');
+      t.ok('one tap puts the six eggs down, and they stay at six', eggsOn.length === 1 && eggsOn[0].x === 6,
+        JSON.stringify(eggsOn));
+      /* A lean food never logged, on a meal of its own: the row offers what
+         fits Snacks, and the tap puts down exactly that. (A lean one, because
+         the six eggs on dinner spent the day's fat.) */
       await openMeal('s');
       await search('chicken breast');
+      const cRow = (await rows()).find((r) => r.id === 'f:chicken_breast');
+      const cFit = await pg.evaluate(() => window.__macroLab.mealFit('s', 'f:chicken_breast'));
       await pg.click('#mpList .mpick-row[data-mpick="f:chicken_breast"]');
       await pg.waitForTimeout(300);
-      const bChip = await pg.evaluate(() => {
-        const c = document.querySelector('#mpList [data-mpfit="f:chicken_breast"]');
-        return c ? Number(c.dataset.mpx) : null;
-      });
-      if (bChip) {
-        await pg.click('#mpList [data-mpfit="f:chicken_breast"]');
-        await pg.waitForTimeout(300);
-      }
       await homeDay(pg);
       const snacks = ((await stored(WED)).s || []).filter((it) => it.id === 'f:chicken_breast');
-      const snack = snacks[0];
-      t.ok('and on a food already put down, the chip moves it to what fits', bChip > 0 && snacks.length === 1 && Math.abs(snack.x - bChip) < 1e-6,
-        JSON.stringify({ bChip, snacks }));
+      t.ok('and a food never logged goes on at what fits the meal it went on', cFit > 0 && cRow && Math.abs(cRow.x - cFit) < 1e-6 &&
+        snacks.length === 1 && Math.abs(snacks[0].x - cFit) < 1e-6, JSON.stringify({ cRow, cFit, snacks }));
 
       /* ---- to go, until the day is over ----------------------------------
        * Blake: "No verdict on today until it's closed or dinner time has
@@ -957,6 +960,11 @@ module.exports = nourish({
         await homeDay(pg);
         await pg.evaluate((sk) => { const a = document.querySelector('#macroSlots [data-mopen="' + sk + '"]'); a.scrollIntoView({ block: 'center' }); a.click(); }, sk);
         await pg.waitForTimeout(400);
+        // the plates in the tray along the sheet's bottom, opened (2026-10-05)
+        if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+          await pg.click('#modalRoot .msh-tray .msh-trn');
+          await pg.waitForTimeout(250);
+        }
       };
       await openAdd('d');
       const dinnerRecent = await recent();
