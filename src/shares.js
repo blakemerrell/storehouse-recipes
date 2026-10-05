@@ -4,8 +4,7 @@
  * (mMealAsk), with protein the last to give ground; which meal a plate is
  * on (mSlotOf); the line under the meal that moved the rest, saying what
  * happened and where the slack went (mLastFinished, mCascadeLineHTML,
- * MCASCADE_MIN); and whether anything on the day is folded shut
- * (mAnyShut). The longer account is with the code.
+ * MCASCADE_MIN). The longer account is with the code.
  *
  * A part of app.js (Nourish) in a file of its own. app.js calls
  * HiveParts.shares(app) once, as it starts, and keeps what it gives back
@@ -517,24 +516,5 @@
      the plate to draw, and four empty tracks per meal is most of what you see
      first thing in the morning. */
 
-  /* Whether anything on the day is folded shut — which is what the open-all
-     button offers to change, so it says what it will do next rather than
-     what it did last. */
-  function mAnyShut() {
-    var day = mDay(mViewKey()), shut = false;
-    /* An empty meal counts as shut until it is opened: since the meal became
-       its own screen (2026-10-04) every meal arrives as a card, and Open all
-       has to be able to open a day of empty ones. A skipped meal is a line,
-       with nothing to open. */
-    mReadSlots().list.forEach(function (s2) {
-      var has = (day[s2.k] || []).length;
-      if (has ? S.mFold[s2.k] : (S.mFold[s2.k] !== false && !mSkipped(mViewKey(), s2.k))) shut = true;
-    });
-    Object.keys(day).forEach(function (sk2) {
-      if ((day[sk2] || []).length && S.mFold[sk2]) shut = true;
-    });
-    return shut;
-  }
-
-  return { mMealDone: mMealDone, mMealAsk: mMealAsk, mSlotOf: mSlotOf, mLastFinished: mLastFinished, mCascadeLineHTML: mCascadeLineHTML, mAnyShut: mAnyShut, MCASCADE_MIN: MCASCADE_MIN };
+  return { mMealDone: mMealDone, mMealAsk: mMealAsk, mSlotOf: mSlotOf, mLastFinished: mLastFinished, mCascadeLineHTML: mCascadeLineHTML, MCASCADE_MIN: MCASCADE_MIN };
 };

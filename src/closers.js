@@ -77,8 +77,8 @@
        along. This is the argument the panel and the footer already had, in a
        new place — one question, one source.
      *
-       mMealHolds counts the basket along with the plate, so there is nothing
-       further to subtract here. */
+       A food picked in the sheet is on the meal already, so mMealHolds
+       counts it and there is nothing further to subtract here. */
     var sk2 = S.macroPick && S.macroPick.slot;
     if (!sk2) return null;
     var ask2 = mMealAsk(sk2, targets, mReadSlots());

@@ -122,7 +122,6 @@ var CORE = [
   './src/dayfoot.js?v=0',
   './src/pickrow.js?v=0',
   './src/pickbands.js?v=0',
-  './src/basket.js?v=0',
   './src/picksheet.js?v=0',
   './src/pickgap.js?v=0',
   './src/closers.js?v=0',

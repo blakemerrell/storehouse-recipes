@@ -22,19 +22,19 @@
   var fmtNum = app.fmtNum;
   var keyDate = app.keyDate;
   var leaf = app.leaf;
-  var mByGram = app.mByGram;
   var mCanFav = app.mCanFav;
   var mClosesIt = app.mClosesIt;
   var mDay = app.mDay;
+  var mDialG = app.mDialG;
+  var mDialMeasure = app.mDialMeasure;
+  var mDialText = app.mDialText;
   var mDayTargets = app.mDayTargets;
   var mIsFav = app.mIsFav;
   var mMacLine = app.mMacLine;
-  var mPortion = app.mPortion;
   var mPortionText = app.mPortionText;
   var mRank = app.mRank;
   var mReadSlots = app.mReadSlots;
   var mSaltNote = app.mSaltNote;
-  var mUnitWord = app.mUnitWord;
   var mViewKey = app.mViewKey;
   var todayKey = app.todayKey;
   var LIVE = app.LIVE;
@@ -107,8 +107,13 @@
        was the label's serving with a count in front of it — the two numbers
        side by side that mLabelServing exists to stop — while the plate it
        made read "2 cups · 452 g". */
+    /* Grams first, as the meal sheet dials it (Blake: "I dial in grams"),
+       with the kitchen's word for it after; a thing with no weight keeps its
+       own unit. */
+    var meas = mDialG(r) ? mDialMeasure(r, x) : '';
     var fit = fitText !== undefined && fitText !== null ? fitText
-      : (r.food ? esc(mPortionText(r, x)) : '&times;' + fmtNum(x)) + ' &middot; ' +
+      : (mDialG(r) ? esc(mDialText(r, x)) + (meas ? ' &middot; ' + esc(meas) : '')
+        : r.food ? esc(mPortionText(r, x)) : '&times;' + fmtNum(x)) + ' &middot; ' +
         mMacLine(r, x, true) + mSaltNote(r, x);
     return '<div class="mpick-wrap' + (inB ? ' in' : '') + '">' +
       '<button class="mpick-row" data-mpick="' + esc(String(r.id)) + '" data-mpx="' + x + '"' +
@@ -149,16 +154,16 @@
     var said = mFitWords(r, fitX);
     return '<button class="mp-fitx" data-mpfit="' + esc(String(r.id)) + '" data-mpx="' + fitX +
       '" aria-pressed="' + (inB ? 'true' : 'false') + '" aria-label="' +
-      (inB ? 'Take out the amount that fits, ' : 'Add the amount that fits this meal, ') +
-      esc(mPortion(r, fitX).head) + '"><span>Fits: ' + esc(said) + '</span></button>';
+      (inB ? 'Take off the amount that fits, ' : 'Add the amount that fits this meal, ') +
+      esc(said) + '"><span>Fits: ' + esc(said) + '</span></button>';
   }
 
-  /* The chip's amount, as short as it can be said: grams for what is
-     weighed, and otherwise the same ×-count the row beside it uses — "Fits:
-     2 ½ servings" pushed the dish's name onto three lines at a phone's
-     width, for a word the row already says. */
+  /* The chip's amount, as short as it can be said: grams for anything with
+     a weight, as the row beside it says it, and otherwise the same ×-count —
+     "Fits: 2 ½ servings" pushed the dish's name onto three lines at a
+     phone's width, for a word the row already says. */
   function mFitWords(r, x) {
-    return mByGram(r) || mUnitWord(r) === 'g' ? mPortion(r, x).head : '\u00d7' + fmtNum(x).replace(' ', '');
+    return mDialG(r) ? mDialText(r, x) : '\u00d7' + fmtNum(x).replace(' ', '');
   }
 
   function mpLastXs() {

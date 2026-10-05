@@ -313,28 +313,16 @@
     </div>
 
     <!-- Everything you do TO the day, against the bottom edge wherever you
-         have scrolled to, and every one of it in sight. Two rows: the four
-         tools, each an icon with its word under it, and under them the two
-         verbs pressed most, full size where the thumb is. The squares used to
-         be bare glyphs, five of them no one could name before pressing, and
-         the plus that opens the food sheet was the smallest thing on the bar;
-         Blake: "Nourish gets a big '+ Add food' and labelled icons", all of
-         them visible rather than behind a menu.
-
-         The tools keep his order — the whole day, the view, then out — with
-         the expander between Rebalance and Sweep, because Sweep is the one
-         control in the app with no undo. One drawn set, a 20px box and a
-         1.5 stroke in currentColor, so they read as a family. -->
+         have scrolled to, in one slim row: three tools, each an icon with its
+         word under it, and the one primary. Adding food is not here: a
+         meal's tray is the one door to that (Blake, 2026-10-04: "ONE way to
+         add and select food"), and Open all went with the meal screens it
+         opened. -->
     <div class="mday-acts no-print">
       <button class="ghost mday-tool" id="macroRebal"
         title="Re-size the un-eaten, un-locked plates to land the day back on target"><svg
         class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v14M6.5 17h7M4 5.5h12M4 5.5 1.8 11a2.2 2.2 0 0 0 4.4 0zM16 5.5 13.8 11a2.2 2.2 0 0 0 4.4 0z"/></svg><span
         class="mday-w">Rebalance</span></button>
-      <!-- Open the whole day, or shut it: whichever the day is not already.
-           Its word says which, and the drawing turns with it. -->
-      <button class="ghost mday-tool" id="macroOpenAll" title="Open every meal"><svg
-        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4"/></svg><span
-        class="mday-w">Open all</span></button>
       <!-- Sweep the day back to what you actually ate: every plate ticked,
            locked or pinned stays. A broom, upright with its bristles lighter
            than its outline, so at this size it reads as bristles and not as a
@@ -352,10 +340,6 @@
            then Fill, then Mark all complete, then Complete the day, then
            Reopen. It used to go dead once every meal had food on it. -->
       <button class="btn-primary" id="macroFill">Fill</button>
-      <!-- The door to the food sheet, the thing pressed most, in the far
-           corner where the thumb already is. -->
-      <button class="btn-primary mday-add" id="macroAdd" title="Add food to a meal"><svg
-        class="mday-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>Add food</button>
     </div>
   </div>
 </section>
@@ -514,7 +498,6 @@
 <script src="src/dayfoot.js?v=0"></script>
 <script src="src/pickrow.js?v=0"></script>
 <script src="src/pickbands.js?v=0"></script>
-<script src="src/basket.js?v=0"></script>
 <script src="src/picksheet.js?v=0"></script>
 <script src="src/pickgap.js?v=0"></script>
 <script src="src/closers.js?v=0"></script>

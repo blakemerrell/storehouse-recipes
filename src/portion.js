@@ -17,6 +17,7 @@
   var fixUnit = app.fixUnit;
   var fmtNum = app.fmtNum;
   var mFixNoun = app.mFixNoun;
+  var mServeG = app.mServeG;
   var LIVE = app.LIVE;
 
   /* What one portion of this is CALLED, in the recipe's own words. A recipe's
@@ -220,6 +221,77 @@
     return Math.round(v * 10000) / 10000;
   }
 
+  /* The meal sheet's dial: grams, for everything that has a weight.
+   *
+     Blake, 2026-10-04: "I dial in grams of food not kitchen measurements" —
+     and recipes too, from their serving weight. So the number between − and
+     + is a weight wherever one is known: a food by its own grams, a counted
+     food (an egg, a scoop) by the weight of one, a recipe by what one
+     serving weighs (mServeG, an estimate until the batch is weighed). The
+     kitchen measure is the small print under the name. x is still what is
+     stored; this is only how it is dialled and shown.
+   *
+     The step is five grams, except where nobody eats a fraction: a counted
+     food steps one of it (an egg is 50 g, so 100 g → 150 g) and a scoop a
+     quarter of one (8 g of whey) — the count rule mStepX already keeps,
+     said in grams. A food with no weight at all, typed in by hand, keeps its
+     own unit. */
+  function mDialG(r) {
+    if (!r) return 0;
+    if (r.food) {
+      if (String(mUnitWord(r)).toLowerCase() === 'g') return mGramBase(r);
+      if (r.grams) return r.grams;
+      var ls = mLabelServing(r);
+      return ls && ls.g ? ls.g / ls.q : 0;
+    }
+    var sg = mServeG ? mServeG(r) : null;
+    return sg && sg.g > 0 ? sg.g : 0;
+  }
+  function mDialEst(r) {
+    if (!r || r.food || !mServeG) return false;
+    var sg = mServeG(r);
+    return !!(sg && sg.est);
+  }
+  // the dial's own words: "~212 g", or the unit when there is no weight
+  function mDialText(r, x) {
+    var g = mDialG(r);
+    if (!g) return mPortion(r, x).head;
+    return (mDialEst(r) ? '~' : '') + Math.round(x * g).toLocaleString('en-US') + ' g';
+  }
+  // the kitchen's word for the same amount, for the small print
+  function mDialMeasure(r, x) {
+    var p = mPortion(r, x);
+    if (!mDialG(r)) return p.detail;
+    /* A recipe dialled by the gram lands between servings — 215 g of a
+       212 g serving is 1.01 of it — so the word is said to the nearest
+       quarter and counted by what is shown: "1 serving", not "1 servings". */
+    if (!r.food) {
+      var q = Math.round(x * 4) / 4;
+      return q > 0 ? fmtNum(q) + ' ' + mFixNoun(mUnitWord(r), q) : 'less than ¼ ' + mFixNoun(mUnitWord(r), 1);
+    }
+    return /\d g$/.test(p.head) ? p.detail : p.head;
+  }
+  function mDialStep(r, x, dir) {
+    var G = mDialG(r);
+    var unit = String(mUnitWord(r) || '').toLowerCase();
+    if (!G || (r.food && MSTEP_COUNT[unit])) return mStepX(r, x, dir);
+    var g = Math.round((Number(x) || 0) * G), st = MGRAM_STEP;
+    g = dir > 0 ? Math.floor(g / st) * st + st : Math.ceil(g / st) * st - st;
+    g = Math.max(st, g);
+    return Math.round(g / G * 10000) / 10000;
+  }
+  function mDialFromX(r, x) {
+    var G = mDialG(r);
+    return G ? Math.round((Number(x) || 0) * G) : mTypedFromX(r, x);
+  }
+  function mXFromDial(r, n) {
+    var G = mDialG(r);
+    if (!G) return mXFromTyped(r, n);
+    var v = (Number(n) || 0) / G;
+    if (!isFinite(v) || v <= 0) return null;
+    return Math.round(v * 10000) / 10000;
+  }
+
   /* A label's noun, counted. fixUnit knows the kitchen's words ("2 cups")
      and not the yield nouns a packet uses, so "1 bar (40 g)" at two read
      "2 bar"; mFixNoun knows those. Only the first word is counted —
@@ -281,5 +353,6 @@
      cooking rather than while eating. Deleted rather than left standing: a
      function nothing calls is a claim that something does. */
 
-  return { mUnitWord: mUnitWord, mByGram: mByGram, mDialUnit: mDialUnit, mLadder: mLadder, mStepX: mStepX, mTypedFromX: mTypedFromX, mXFromTyped: mXFromTyped, mPortion: mPortion, mPortionText: mPortionText };
+  return { mUnitWord: mUnitWord, mByGram: mByGram, mDialUnit: mDialUnit, mLadder: mLadder, mStepX: mStepX, mTypedFromX: mTypedFromX, mXFromTyped: mXFromTyped, mPortion: mPortion, mPortionText: mPortionText,
+    mDialG: mDialG, mDialEst: mDialEst, mDialText: mDialText, mDialMeasure: mDialMeasure, mDialStep: mDialStep, mDialFromX: mDialFromX, mXFromDial: mXFromDial };
 };

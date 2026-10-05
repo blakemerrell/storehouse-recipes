@@ -91,26 +91,16 @@ async function revealPlanFields(pg) {
      scroll position, so this is the harness catching up with the layout, not
      a control a reader cannot reach. */
   async function addOn(pg) {
-    /* The add button lives at the foot of the OPEN meal, so a folded one has
-       none to press — which is the point of putting the verbs there, but it
-       means a day that arrives folded gets opened first, the way a thumb
-       would do it. */
+    /* A meal's tray is the one door to adding food since 2026-10-04: a tap
+       opens the meal's sheet, with the picker inside it. The first meal on
+       the day that is not skipped. */
     await pg.evaluate(() => {
-      if (document.querySelector('.mslot-add')) return;
-      const b = document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]');
-      if (b) b.click();
+      const b = document.querySelector('#macroSlots .mtray-b');
+      if (b) b.scrollIntoView({ block: 'center' });
     });
+    await pg.waitForTimeout(150);
+    await pg.click('#macroSlots .mtray-b');
     await pg.waitForTimeout(250);
-    /* Centred, not "if needed". The minimal scroll is to the nearest edge,
-       and on a short screen the nearest edge is the one the pinned bar sits
-       on — so the button arrives in view and under the bar, and the click
-       waits thirty seconds for a hit target that never comes. */
-    await pg.evaluate(() => {
-      const a = document.querySelector('.mslot-add');
-      if (a) a.scrollIntoView({ block: 'center' });
-    });
-    await pg.waitForTimeout(200);
-    await pg.click('.mslot-add');
   }
 
   /* A plate added to a meal whose time has come arrives eaten, and an eaten
@@ -139,13 +129,23 @@ async function revealPlanFields(pg) {
     }
   }
 
-  async function openBasket(pg) {
-    const t2 = await pg.$('[data-mpbasket]');
-    if (!t2) return;
-    if (await pg.evaluate(() => (document.querySelector('[data-mpbasket]') || {})
-      .getAttribute('aria-expanded') === 'true')) return;
-    await pg.click('[data-mpbasket]');
+  /* The basket went on 2026-10-04 (a tap puts food on the meal itself);
+     kept as a no-op so a suite that opened it still reads. */
+  async function openBasket() {}
+
+  /* One meal's sheet, by key: its tray's door. */
+  async function openMeal(pg, sk) {
+    await pg.evaluate((k) => {
+      const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
+      if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
+    }, sk);
     await pg.waitForTimeout(250);
+  }
+
+  /* Out of the meal's sheet, by its ×. */
+  async function closeSheet(pg) {
+    const x = await pg.$('#modalRoot .msheet .sheet-x');
+    if (x) { await x.click(); await pg.waitForTimeout(250); }
   }
 
   async function pickRecipe(pg) {
@@ -165,23 +165,19 @@ async function revealPlanFields(pg) {
     await pg.waitForTimeout(200);
   }
 
-  /* A dish onto the nth meal of the day, the way a thumb adds one: every meal
-     opened so each has its add, that meal's add, the list, the first recipe,
-     done. addOn above only ever reaches the first meal. */
+  /* A dish onto the nth meal of the day, the way a thumb adds one: that
+     meal's tray, the list, the first recipe (a tap puts it on the meal), and
+     out again. */
   async function addTo(pg, nth) {
-    /* Every meal open in place, by Open all: pressing heads in turn only moves
-       the one open meal along since a meal became its own screen (2026-10-04). */
-    await openDay(pg);
     await pg.evaluate((n) => {
-      const a = document.querySelectorAll('.mslot-add')[n];
+      const a = document.querySelectorAll('#macroSlots [data-mopen]')[n];
       a.scrollIntoView({ block: 'center' });
       a.click();
     }, nth);
     await pg.waitForTimeout(250);
     await pickerList(pg);
     await pickRecipe(pg);
-    await pg.click('[data-mpdone]');
-    await pg.waitForTimeout(250);
+    await closeSheet(pg);
   }
 
   /* What storage holds for one day of the log, or null. */
@@ -204,22 +200,11 @@ async function revealPlanFields(pg) {
     });
   }
 
-/* Meals arrive folded now, so anything reaching for a plate's own
-   controls has to open the day first. Each press redraws, so they are
-   opened one at a time. */
-/* One meal opens at a time now, so clicking each shut head in turn only
-   walks the open one along the day. The bar's own control is how you have
-   them all open at once — the deliberate override the accordion leaves
-   standing. */
-const openDay = async (pg) => {
-  for (let i = 0; i < 3; i++) {
-    const shut = await pg.evaluate(() =>
-      !!document.querySelector('#macroSlots [data-mfold][aria-expanded="false"]'));
-    if (!shut) break;
-    await pg.click('#macroOpenAll');
-    await pg.waitForTimeout(200);
-  }
-};
+/* The day is trays now (2026-10-04): every food shows on its tray and a
+   plate's own controls live in its meal's sheet (openMeal). Nothing on the
+   day folds, so there is nothing to open; kept as a no-op for the suites
+   that read the day. */
+const openDay = async () => {};
 
 /* A suite for tests/run.js: nourish({ name, async suite(t, freshBare) { ... } }). */
 function nourish(def) {
@@ -266,4 +251,4 @@ function nourish(def) {
   };
 }
 
-module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };
+module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, openMeal, closeSheet, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };

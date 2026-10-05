@@ -25,13 +25,16 @@
   var kcalOf = app.kcalOf;
   var leaf = app.leaf;
   var mAhead = app.mAhead;
-  var mAnyShut = app.mAnyShut;
   var mBatchStrip = app.mBatchStrip;
   var mCanFav = app.mCanFav;
   var mCascadeLineHTML = app.mCascadeLineHTML;
   var mDay = app.mDay;
   var mDayTargets = app.mDayTargets;
   var mDialUnit = app.mDialUnit;
+  var mDialFromX = app.mDialFromX;
+  var mDialG = app.mDialG;
+  var mDialMeasure = app.mDialMeasure;
+  var mDialText = app.mDialText;
   var mDoneAt = app.mDoneAt;
   var mEarliestKey = app.mEarliestKey;
   var mEditDay = app.mEditDay;
@@ -39,24 +42,17 @@
   var mFoldForget = app.mFoldForget;
   var mIcon = app.mIcon;
   var mIsFav = app.mIsFav;
-  var mLastFinished = app.mLastFinished;
   var mLatestKey = app.mLatestKey;
   var mLongDate = app.mLongDate;
   var mMacLine = app.mMacLine;
   var mMarkAccountUI = app.mMarkAccountUI;
   var mMealAsk = app.mMealAsk;
-  var mMealPillsHTML = app.mMealPillsHTML;
   var mMealPillsSay = app.mMealPillsSay;
-  var mPortion = app.mPortion;
-  var mPortionText = app.mPortionText;
   var mReadSlots = app.mReadSlots;
   var mSaltChip = app.mSaltChip;
-  var mSendOf = app.mSendOf;
   var mServeG = app.mServeG;
   var mSkipped = app.mSkipped;
   var mSnapTargets = app.mSnapTargets;
-  var mStepX = app.mStepX;
-  var mTypedFromX = app.mTypedFromX;
   var mViewKey = app.mViewKey;
   var mWeekHTML = app.mWeekHTML;
   var mWhyChip = app.mWhyChip;
@@ -97,6 +93,208 @@
     inp.value = mViewKey();
     inp.focus();
     try { if (inp.showPicker) inp.showPicker(); } catch (e) { /* the box itself is the way in */ }
+  }
+
+  /* ---- one meal, as the tray and the sheet both read it ---- */
+
+  var LOCK_SM = '<svg class="mcard-lk" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  var ICO = function (d) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + d + '</g></svg>';
+  };
+  var I_LOCK = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>');
+  var I_OPEN = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/>');
+  var I_SWAP = ICO('<path d="M4 8h13"/><path d="M14 4.5 17.5 8 14 11.5"/><path d="M20 16H7"/><path d="M10 12.5 6.5 16l3.5 3.5"/>');
+  var I_PIN = ICO('<path d="M8.5 3.5h7M12 3.5v6.4M9.6 9.9c-.6 2.5-2.2 4-3.9 4.6h12.6c-1.7-.6-3.3-2.1-3.9-4.6Z"/><path d="M12 14.5v6"/>');
+  var I_STAR = ICO('<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8Z"/>');
+  var I_WEIGH = ICO('<path d="M4 20h16l-2-11H6z"/><circle cx="12" cy="6" r="2"/><path d="M10 14h4"/>');
+  var I_BIN = ICO('<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10.5 11v5"/><path d="M13.5 11v5"/>');
+  var I_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg>';
+  var I_MINUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  var I_PLUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
+
+  /* A meal says one sentence about how it sits against its share. */
+  function verdict(sub, aim, eatenAll, n) {
+    if (!n) return { cls: '', say: '' };
+    if (eatenAll) return { cls: 'is-eaten', say: 'Eaten' };
+    if (!aim) return { cls: '', say: '' };
+    var aimK = aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0));
+    if (!(aimK > 0)) return { cls: '', say: '' };
+    var dk = sub.kcal - aimK;
+    var devs = [['protein', 'p'], ['fat', 'f'], ['carbs', 'c']].map(function (m) {
+      var a = aim[m[1]] || 0;
+      return [m[0], a > 0 ? (sub[m[1]] - a) / a : 0];
+    }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+    if (Math.abs(dk) <= aimK * 0.05 && Math.abs(devs[0][1]) <= 0.15) return { cls: 'is-on', say: 'on its aim' };
+    var over = dk > aimK * 0.08;
+    return { cls: over ? 'is-over' : 'is-short',
+      say: (dk >= 0 ? fmtK(dk) + ' over' : fmtK(-dk) + ' short') +
+        (Math.abs(devs[0][1]) > 0.15 ? ' · ' + devs[0][0] + (devs[0][1] > 0 ? ' over' : ' short') : '') };
+  }
+
+  /* What Balance moved and what the picker just put down, on this meal, if
+     the plates are still the plates they were (a sync can reorder them). */
+  function marksFor(k, sk, items) {
+    var m = S.mMarks, out = { was: {}, fresh: {}, snap: null, n: 0 };
+    if (!m || m.k !== k || m.sk !== sk) return out;
+    Object.keys(m.was || {}).forEach(function (i) {
+      var w = m.was[i];
+      if (items[i] && String(items[i].id) === String(w.id) && items[i].x !== w.x) { out.was[i] = w.x; out.n++; }
+    });
+    Object.keys(m.fresh || {}).forEach(function (i) {
+      if (items[i] && String(items[i].id) === String(m.fresh[i])) out.fresh[i] = 1;
+    });
+    if (m.snap) out.snap = m.snap;
+    return out;
+  }
+
+  /* The meal's four, against its share: the figure over the target, filled
+     toward it and coloured by where it stands. */
+  function capsHTML(sub, aim) {
+    if (!aim) return '';
+    return [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
+      var have = sub[x[0]] || 0, a = x[0] === 'kcal' ? (aim.kcal || (4 * aim.p + 9 * aim.f + 4 * aim.c)) : (aim[x[0]] || 0);
+      var pct = a > 0 ? Math.min(100, have * 100 / a) : 0;
+      var cls = x[0] !== 'p' && have > a * 1.08 ? 'over' : have >= a * 0.92 ? 'on' : '';
+      return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
+        '<span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' + fmtK(have) + '<em>/' + fmtK(a) + '</em></span></span>';
+    }).join('');
+  }
+
+  /* Everything the tray and the sheet say about one meal, worked out once. */
+  function mMealModel(k, sk, name, onPlan, day, targets, slots) {
+    var items = day[sk] || [];
+    var srec = null;
+    slots.list.forEach(function (s) { if (s.k === sk) srec = s; });
+    var sub = { kcal: 0, p: 0, f: 0, c: 0 };
+    items.forEach(function (it) {
+      var r = LIVE.BY_ID[it.id];
+      if (!r || !r.macro) return;
+      sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x;
+      sub.f += (r.macro.f || 0) * it.x; sub.c += (r.macro.c || 0) * it.x;
+    });
+    var eatenAll = !!items.length && items.every(function (it) { return it.eaten || !LIVE.BY_ID[it.id]; });
+    var live = items.filter(function (it) { return LIVE.BY_ID[it.id]; }).length;
+    if (!onPlan && !live) return null;        // a bygone meal with nothing left says nothing
+    var ask = mMealAsk(sk, targets, slots);
+    var aim = ask ? (ask.now || ask) : null;
+    /* The tick completes the whole meal, and pressed again it is not. */
+    var dot = '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
+      (items.length && !mAhead(k) ? '' : ' disabled') +
+      ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
+      ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten' : 'Mark all of ' + esc(name) + ' eaten') + '"></button>';
+    return { k: k, sk: sk, name: name, onPlan: onPlan, items: items, pins: (srec && srec.pins) || [],
+      sub: sub, ask: ask, aim: aim, eatenAll: eatenAll, live: live, dot: dot,
+      said: verdict(sub, aim, eatenAll, live), pillsSay: mMealPillsSay(sub, ask, targets) };
+  }
+
+  /* One food in the meal sheet: its name (the door to the recipe or the
+     food), the kitchen measure and what it costs in small print, and the
+     dial — −, the grams, + — with ⋯ for the rest. Eaten is a record, not a
+     dial: the keys go quiet and a tap on the grams hands them back.
+     .mstep, .mstep-x and .mstep-in keep their names — they are what the
+     portion tests reach for. */
+  function foodRowHTML(M, r, it, i, mk) {
+    var sk = M.sk, tag = sk + ':' + i;
+    var pinned = M.pins.some(function (p) { return p.id === it.id; });
+    var was = mk.was[i], fresh = !!mk.fresh[i];
+    var spent = it.eaten && S.mEdit !== tag;
+    var menuOpen = S.mMenu === tag;
+    var sg = !r.food && mServeG(r);
+    var measure = mDialMeasure(r, it.x);
+    var dialU = mDialG(r) ? 'g' : mDialUnit(r);
+    return '<div class="mitem mfood mrow' + (it.eaten ? ' eaten' : '') + (it.l ? ' held' : '') +
+        (was !== undefined ? ' moved' : fresh ? ' fresh' : '') + (S.mpSwap && S.mpSwap.slot === sk && S.mpSwap.i === i ? ' swapping' : '') + '">' +
+      (S.mpSwap && S.mpSwap.slot === sk && S.mpSwap.i === i
+        ? '<div class="mrow-swap">Tap its replacement below<button class="ghost" data-mswapx="1">Cancel</button></div>' : '') +
+      '<div class="mrow-n">' +
+        '<span class="mitem-nm">' + (r.food
+          ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) + '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">'
+          : '<button class="mitem-name" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '">') +
+          (r.score === null || r.score === undefined ? '' : leaf(r.score, 'leaf-sm')) +
+          '<span class="mrow-nm">' + esc(r.name) + '</span></button>' +
+          (fresh ? '<span class="mrow-mk new">New</span>' : '') +
+          (it.l ? '<span class="mrow-mk kept">' + LOCK_SM + 'Kept</span>' : '') +
+          (pinned ? '<span class="mrow-mk kept">Pinned</span>' : '') +
+        '</span>' +
+        '<span class="mrow-m mitem-r2">' + (measure ? '<span class="mitem-uom">' + esc(measure) + '</span> &middot; ' : '') +
+          '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + mWhyChip(it, tag) + '</span>' +
+      '</div>' +
+      '<span class="mstep mrow-dial no-print' + (spent ? ' spent' : '') + '">' +
+        '<button class="mrow-k" data-mstep="' + tag + ':down"' + (spent ? ' disabled' : '') + ' aria-label="Less ' + esc(r.name) + '">' + I_MINUS + '</button>' +
+        '<span class="mrow-g">' +
+          (S.mType === tag
+            ? '<span class="mstep-x mitem-amt mitem-typing"><input class="mstep-in" type="text" inputmode="decimal" autocomplete="off" data-mtypein="' + tag + '" ' +
+                'aria-label="' + esc(r.name) + ', in ' + esc(dialU) + '" value="' + esc(String(mDialFromX(r, it.x))) + '"><i>' + esc(dialU) + '</i></span>'
+            : '<button class="mstep-x mitem-amt ' + (spent ? 'mstep-wake" data-medit="' : 'mstep-type" data-mtype="') + tag + '" aria-label="' +
+                esc(r.name) + ', ' + esc(mDialText(r, it.x)) + '. ' + (spent ? 'Correct it' : 'Type an amount') + '">' + esc(mDialText(r, it.x)) + '</button>') +
+          '<small>' + (was !== undefined ? 'was ' + esc(mDialText(r, was)) : '') + '</small>' +
+        '</span>' +
+        '<button class="mrow-k" data-mstep="' + tag + ':up"' + (spent ? ' disabled' : '') + ' aria-label="More ' + esc(r.name) + '">' + I_PLUS + '</button>' +
+      '</span>' +
+      (M.onPlan ? '<button class="mrow-more mfood-more no-print" data-mfmenu="' + tag + '" aria-haspopup="true" aria-expanded="' + menuOpen + '" aria-label="More for ' + esc(r.name) + '">' + I_DOTS + '</button>' : '<span></span>') +
+      // the why and Weigh the batch open the row's full width, under it
+      mWhyStrip(it, tag) + mBatchStrip(r, it, tag) +
+      (menuOpen ? '<div class="mfood-menu mrow-menu no-print" role="menu">' +
+        '<button class="mfood-mi mlock" role="menuitem" data-mlock="' + tag + '" aria-pressed="' + (it.l ? 'true' : 'false') + '">' +
+          (it.l ? I_OPEN + 'Let it move' : I_LOCK + 'Lock the amount') + '</button>' +
+        '<button class="mfood-mi mswap" role="menuitem" data-mswap="' + tag + '">' + I_SWAP + 'Swap</button>' +
+        '<button class="mfood-mi mpin" role="menuitem" data-mpin="' + tag + '" aria-pressed="' + (pinned ? 'true' : 'false') + '" aria-label="' +
+          (pinned ? 'Unpin from ' + esc(M.name) : 'Pin to ' + esc(M.name) + ' every day') + '">' + I_PIN + (pinned ? 'Unpin' : 'Pin to ' + esc(M.name)) + '</button>' +
+        (mCanFav(r) ? '<button class="mfood-mi mfav" role="menuitem" data-mfav="' + esc(String(r.id)) + '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') + '">' +
+          I_STAR + (mIsFav(r) ? 'Remove from favourites' : 'Favourite') + '</button>' : '') +
+        (sg ? '<button class="mfood-mi" role="menuitem" data-mbatch="' + tag + '">' + I_WEIGH + 'Weigh the batch</button>' : '') +
+        '<button class="mfood-mi mdel" role="menuitem" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' + I_BIN + 'Remove</button>' +
+      '</div>' : '') +
+    '</div>';
+  }
+
+  /* The meal sheet's own half: its header (the tick, the name, Balance, the
+     meal's ⋯ and ×), the pills with their one line, and the foods. The
+     picker underneath is picksheet.js's. */
+  function mMealSheetParts(sk) {
+    var k = mViewKey(), day = mDay(k), targets = mDayTargets(k), slots = mReadSlots();
+    var rec = null;
+    slots.list.forEach(function (s) { if (s.k === sk) rec = s; });
+    var name = rec ? rec.n : (slots.names[sk] || 'Meal');
+    var M = mMealModel(k, sk, name, !!rec, day, targets, slots);
+    if (!M) M = mMealModel(k, sk, name, true, day, targets, slots);
+    var items = M.items, mk = marksFor(k, sk, items);
+    var skipped = !items.length && mSkipped(k, sk);
+    var menuOpen = S.mMenu === 'meal:' + sk;
+    var head = '<div class="msh-h">' +
+        (skipped ? '<span class="msh-gap"></span>' : M.dot) +
+        '<span class="msh-t"><span class="mslot-name">' + esc(name) + '</span><small>' + esc(mLongDate(k)) + '</small></span>' +
+        (skipped || !M.onPlan ? '' :
+          '<button class="msh-i mslot-bal" data-mbal="' + esc(sk) + '"' + (items.length >= 2 ? '' : ' disabled') +
+            ' aria-label="Balance the portions on ' + esc(name) + '" title="Solve these portions against this meal’s share">' + mIcon('scales') + '</button>' +
+          '<button class="msh-i" data-mmenu="' + esc(sk) + '" aria-haspopup="true" aria-expanded="' + menuOpen + '" aria-label="More for ' + esc(name) + '">' + I_DOTS + '</button>') +
+        '<button class="msh-i sheet-x" data-close="1" aria-label="Close">&times;</button>' +
+        (menuOpen ? '<div class="mfood-menu msh-menu no-print" role="menu">' +
+          (items.length
+            ? '<button class="mfood-mi mslot-try" role="menuitem" data-mtry="' + esc(sk) + '">' + mIcon('another') + 'Try another</button>'
+            : '<button class="mfood-mi mslot-skip" role="menuitem" data-mskip="' + esc(sk) + '">' + mIcon('skip') + 'Skip today</button>') +
+          (items.length >= 2 ? '<button class="mfood-mi mslot-keep" role="menuitem" data-mkeep="' + esc(sk) + '" aria-label="Save these plates as one food you can reuse">' + mIcon('keep') + 'Save meal</button>' : '') +
+          '<button class="mfood-mi mslot-from" role="menuitem" data-mfrom="' + esc(sk) + '" aria-label="Repeat ' + esc(name) + ' from another day">' + mIcon('fromday') + 'Repeat a day</button>' +
+        '</div>' : '') +
+      '</div>';
+    if (skipped) {
+      return { name: name, head: head, skipped: true,
+        body: '<div class="msh-skipped">' + esc(name) + ' is skipped today. Its share went to the rest.' +
+          '<button class="ghost mslot-unskip" data-mskip="' + esc(sk) + '">Put ' + esc(name) + ' back</button></div>' };
+    }
+    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim) + '</div>' +
+      (mk.snap
+        ? '<div class="mscreen-say">' + (mk.n ? mk.n + (mk.n === 1 ? ' amount' : ' amounts') + ' changed' : 'Already as close as it gets') +
+          ' <button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button></div>'
+        : '<div class="mscreen-say ' + M.said.cls + '">' + esc(M.said.say) + '</div>');
+    var rows = items.map(function (it, i) {
+      var r = LIVE.BY_ID[it.id];
+      return r ? foodRowHTML(M, r, it, i, mk) : '';
+    }).join('');
+    return { name: name, head: head, stick: stick, skipped: false,
+      rows: '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet.</div>') + '</div>' };
   }
 
   function mRenderDay() {
@@ -172,54 +370,6 @@
       }
     }
     var day = mDay(k);
-
-    /* The fold is decided when you ARRIVE at a day, and not again. Working it
-       out live meant a meal collapsed under the hand that had just finished
-       ticking it — and computing it from "is this eaten" made every tick a
-       potential disappearing act. So: everything with food on it starts
-       folded, the meal you were last working on stays open, and after that
-       nothing folds unless you fold it. */
-    if (S.mFoldFor !== k) {
-      S.mFoldFor = k;
-      var keepWeigh = S.mFold.weigh;
-      S.mFold = {};
-      if (keepWeigh !== undefined) S.mFold.weigh = keepWeigh;
-      /* ...and the meal holding an unanswered question stays open too.
-       *
-         The cascade card lives INSIDE the meal's fold, which is Blake's own
-         call and the right one: "as soon as I select that share or steal
-         I'd expect the macro pills to update, and then when I close the card
-         it's not seen any more." A question about a meal should not outlive
-         shutting that meal.
-       *
-         But arriving at the day is not shutting it. Everything with food on
-         it folds on arrival, the finished meal carrying the card has food on
-         it, and so the card was folded away before it had been read once —
-         every reload, every tab switch, every return to My Day. Blake, on a
-         day whose lunch ran 750 over: no card anywhere. The one screen that
-         would tell him where the overflow went was reachable only in the
-         same session he ticked the meal off in, which is why the whole thing
-         has been redesigned twice by somebody who had never seen it at rest.
-       *
-         Answered is different. Done sets `ack`, the card becomes one line,
-         and this stops holding the meal open — which is the point of having
-         answered it. */
-      var askK = '';
-      var ev0 = mLastFinished(targets, slots);
-      if (ev0 && Math.abs(ev0.miss) >= LIVE.MCASCADE_MIN) {
-        var sn0 = mSendOf(k);
-        if (!(sn0 && sn0.f === ev0.k && sn0.ack)) askK = ev0.k;
-      }
-      /* Since the meal became its own screen (2026-10-04), arriving at a day
-         is a list of meal cards: everything folded, the meal still asking
-         where its overflow goes excepted. */
-      slots.list.forEach(function (s2) {
-        S.mFold[s2.k] = s2.k !== askK || !(day[s2.k] || []).length;
-      });
-      Object.keys(day).forEach(function (sk2) {
-        if (S.mFold[sk2] === undefined) S.mFold[sk2] = true;
-      });
-    }
 
     /* Nothing to draft once every meal has something on it — or before there
        is a plan to draft against. Fill reads mDayTargets and portion-solves
@@ -330,300 +480,55 @@
        exactly when you want to clear it. */
     $('macroSweep').disabled = !loose;
 
-    /* One card per meal on the plan, then a card for anything a bygone meal
-       left on this day — removed from the plan is not removed from history. */
+    /* One tray per meal on the plan, then one for anything a bygone meal
+       left on this day — removed from the plan is not removed from history.
+     *
+       Blake, 2026-10-04, of the RP-style day: "Way to fat and tall... hard
+       to know where to add food... Many ways." So the day is small trays:
+       the meal's tick, its name, its calories against its share, and its
+       foods as small lines. The tick is the only control on a tray; a tap
+       anywhere else opens the meal's sheet (data-mopen), which is the one
+       place food is added or changed. Mockup (Tray A):
+       https://claude.ai/artifact/SseR1TPa4JAFNanYYsGP4k */
     var ahead = mAhead(k);
-    /* The meal, laid out the RP Diet way (Blake, 2026-10-04).
-     *
-       Blake, off the card that hid its controls behind a tap: "Not sure I love
-       this new way. I miss the layout from the [RP] diet app." His own RP
-       screenshots are the model: the day is a list of meal cards, a meal opens
-       as its own screen, and every food is a card whose amount bar — lock,
-       grams, −, + — is always there. Two things are ours on purpose: the
-       macro pills ("our macro pills are better design for showing macros")
-       and no picture box ("I don't have images"). No tick on a food — "Let's
-       dial in the qty. And I'll complete the whole meal" — so the meal's tick
-       is the one that says eaten. No meal times for now.
-     *
-       Mockup: https://claude.ai/artifact/YCPumXnc1bDUA5EDkzwuhY
-     *
-       A meal is OPEN when it is the one in focus (its own screen, S.mFocus),
-       or — with no focus — when the fold says so: Open all, or the meal the
-       picker just filled. Folded, it is the day card. */
-    var LOCK_SM = '<svg class="mcard-lk" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7V5.1a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
-    var ICO = function (d) {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + d + '</g></svg>';
-    };
-    var I_LOCK = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>');
-    var I_OPEN = ICO('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/>');
-    var I_SWAP = ICO('<path d="M4 8h13"/><path d="M14 4.5 17.5 8 14 11.5"/><path d="M20 16H7"/><path d="M10 12.5 6.5 16l3.5 3.5"/>');
-    var I_PIN = ICO('<path d="M8.5 3.5h7M12 3.5v6.4M9.6 9.9c-.6 2.5-2.2 4-3.9 4.6h12.6c-1.7-.6-3.3-2.1-3.9-4.6Z"/><path d="M12 14.5v6"/>');
-    var I_STAR = ICO('<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8Z"/>');
-    var I_BIN = ICO('<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10.5 11v5"/><path d="M13.5 11v5"/>');
-    var I_BACK = ICO('<path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/>');
-    var I_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg>';
-    var I_FIND = ICO('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/>');
-    var I_CAM = ICO('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>');
+    var trayHTML = function (sk, name, onPlan) {
+      var M = mMealModel(k, sk, name, onPlan, day, targets, slots);
+      if (!M) return '';
+      var items = M.items;
 
-    var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
-    /* What a plate weighs and what it is in the kitchen, from mPortion. */
-    var parts = function (r, x) {
-      var p = mPortion(r, x), out = { head: p.head, detail: p.detail || '', grams: '' };
-      if (/\d g$/.test(p.head)) out.grams = p.head;
-      else if (/^\d[\d,]* g$/.test(p.detail || '')) out.grams = p.detail;
-      var sg = !r.food && mServeG(r);
-      if (sg && sg.g > 0) out.grams = (sg.est ? '~' : '') + Math.round(sg.g * x) + ' g';
-      return out;
-    };
-    /* A meal says one sentence about how it sits against its share. */
-    var verdict = function (sub, aim, eatenAll, n) {
-      if (!n) return { cls: '', say: 'Nothing yet', pill: 'Nothing yet' };
-      var nf = n + (n === 1 ? ' food' : ' foods');
-      if (eatenAll) return { cls: 'is-eaten', say: 'Eaten', pill: nf + ' · Eaten' };
-      if (!aim) return { cls: '', say: '', pill: nf };
-      var aimK = aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0));
-      if (!(aimK > 0)) return { cls: '', say: '', pill: nf };
-      var dk = sub.kcal - aimK;
-      var devs = [['protein', 'p'], ['fat', 'f'], ['carbs', 'c']].map(function (m) {
-        var a = aim[m[1]] || 0;
-        return [m[0], a > 0 ? (sub[m[1]] - a) / a : 0];
-      }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
-      if (Math.abs(dk) <= aimK * 0.05 && Math.abs(devs[0][1]) <= 0.15) return { cls: 'is-on', say: 'on its aim', pill: nf + ' · Targets met' };
-      /* The pill goes by the side of the share the meal is on, so the card
-         never says "under" while the meal's own screen says "8 over". */
-      var over = dk > aimK * 0.08;
-      return { cls: over ? 'is-over' : 'is-short', pill: nf + ' · ' + (dk > 0 ? 'Over targets' : 'Under targets'),
-        say: (dk >= 0 ? fmtK(dk) + ' over' : fmtK(-dk) + ' short') +
-          (Math.abs(devs[0][1]) > 0.15 ? ' · ' + devs[0][0] + (devs[0][1] > 0 ? ' over' : ' short') : '') };
-    };
-    /* What Balance moved and what the picker just put down, on this meal, if
-       the plates are still the plates they were (a sync can reorder them). */
-    var marksFor = function (sk, items) {
-      var m = S.mMarks, out = { was: {}, fresh: {}, snap: null, n: 0 };
-      if (!m || m.k !== k || m.sk !== sk) return out;
-      Object.keys(m.was || {}).forEach(function (i) {
-        var w = m.was[i];
-        if (items[i] && String(items[i].id) === String(w.id) && items[i].x !== w.x) { out.was[i] = w.x; out.n++; }
-      });
-      Object.keys(m.fresh || {}).forEach(function (i) {
-        if (items[i] && String(items[i].id) === String(m.fresh[i])) out.fresh[i] = 1;
-      });
-      if (m.snap) out.snap = m.snap;
-      return out;
-    };
-    /* The meal's four, against its share: the figure over the target, filled
-       toward it and coloured by where it stands — the pills, drawn as one
-       row the width of the screen. */
-    var capsHTML = function (sub, aim) {
-      if (!aim) return '';
-      return [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
-        var have = sub[x[0]] || 0, a = x[0] === 'kcal' ? (aim.kcal || (4 * aim.p + 9 * aim.f + 4 * aim.c)) : (aim[x[0]] || 0);
-        var pct = a > 0 ? Math.min(100, have * 100 / a) : 0;
-        var cls = x[0] !== 'p' && have > a * 1.08 ? 'over' : have >= a * 0.92 ? 'on' : '';
-        return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
-          '<span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' + fmtK(have) + '<em>/' + fmtK(a) + '</em></span></span>';
-      }).join('');
-    };
-
-    /* One food: its name, what it is in the kitchen, what it costs, and the
-       amount bar. .mstep and .mstep-x keep their names — they are what the
-       portion tests reach for. */
-    var foodHTML = function (sk, r, it, i, pinned, onPlan, mk) {
-      var tag = sk + ':' + i;
-      var pp = parts(r, it.x), was = mk.was[i], fresh = !!mk.fresh[i];
-      var spent = it.eaten && S.mEdit !== tag;
-      var sg = !r.food && mServeG(r);
-      /* Grams first on a scoop (Blake, of whey: "I need that to be in grams
-         and to show me the amount of scoops"), the scoop on the chip. */
-      var lead = r.food && /scoop/i.test(pp.head) && pp.grams;
-      var chip = lead ? pp.head : (pp.detail && !/^\d[\d,]* g$/.test(pp.detail) ? pp.detail : '');
-      var wasTxt = was !== undefined ? parts(r, was) : null;
-      var menuOpen = S.mMenu === tag;
-      return '<div class="mitem mfood' + (it.eaten ? ' eaten' : '') + (it.l ? ' held' : '') +
-          (was !== undefined ? ' moved' : fresh ? ' fresh' : '') + '">' +
-        '<div class="mfood-top">' +
-          /* The leaf keeps its slot with no score, so every name in a meal
-             starts at one edge (the old plate's rule, still Blake's). */
-          (r.score === null || r.score === undefined ? '<span class="leaf-sm leaf-gap" aria-hidden="true"></span>' : leaf(r.score, 'leaf-sm')) +
-          /* A recipe's name opens the recipe; a food's opens the food. */
-          '<span class="mitem-nm">' + (r.food
-            ? '<button class="mitem-name mitem-food" data-mfood="' + esc(String(r.id)) + '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '">' + esc(r.name) + '</button>'
-            : '<button class="mitem-name" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '">' + esc(r.name) + '</button>') + '</span>' +
-          (mCanFav(r) ? '<button class="mfood-i mfav" data-mfav="' + esc(String(r.id)) + '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') +
-            '" aria-label="' + (mIsFav(r) ? 'Remove from favourites' : 'Keep as a favourite') + '" title="Favourite">' + I_STAR + '</button>' : '') +
-          (onPlan ? '<button class="mfood-i mfood-more" data-mfmenu="' + tag + '" aria-expanded="' + menuOpen + '" aria-label="More for ' + esc(r.name) + '" title="Swap, pin, remove">' + I_DOTS + '</button>' : '') +
-        '</div>' +
-        '<div class="mfood-chips">' +
-          (chip ? '<span class="mfood-chip mitem-uom">' + esc(chip) + '</span>' : '') +
-          (sg ? '<button class="mfood-chip mitem-uom mitem-bw' + (sg.est ? ' est' : '') + '" data-mbatch="' + tag + '" aria-expanded="' + (S.mBatchOpen === tag ? 'true' : 'false') +
-            '" aria-label="' + (sg.est ? 'About ' : '') + Math.round(sg.g * it.x) + ' grams on this plate — weigh the batch">' + (sg.est ? '~' : '') + Math.round(sg.g * it.x) + ' g</button>' : '') +
-          (wasTxt ? '<span class="mfood-chip was">was ' + esc(wasTxt.grams || wasTxt.head) + '</span>' : '') +
-          (fresh ? '<span class="mfood-chip new">New</span>' : '') +
-          (it.l ? '<span class="mfood-chip kept">' + LOCK_SM + 'Kept</span>' : '') +
-          (pinned ? '<span class="mfood-chip kept">Pinned</span>' : '') +
-          mWhyChip(it, tag) +
-        '</div>' +
-        '<div class="mfood-mac mitem-r2"><span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
-        mWhyStrip(it, tag) + mBatchStrip(r, it, tag) +
-        /* The amount bar, always there: the lock beside what it holds, then
-           the amount, then − and +. Eaten is a record, not a dial: the keys
-           go quiet and one tap on the number hands them back. */
-        '<div class="mfood-amt no-print">' +
-          (onPlan ? '<button class="mfood-lock mlock" data-mlock="' + tag + '" aria-pressed="' + (it.l ? 'true' : 'false') +
-            '" aria-label="' + (it.l ? 'Unlock for Rebalance' : 'Lock against Rebalance') + '" title="' +
-            (it.l ? 'Kept through Balance and Rebalance: tap to let it move' : 'Keep this amount through Balance and Rebalance') + '">' + (it.l ? I_LOCK : I_OPEN) + '</button>' : '') +
-          '<span class="mstep' + (spent ? ' spent' : '') + '">' +
-            (S.mType === tag
-              ? '<span class="mstep-x mitem-amt mitem-typing"><input class="mstep-in" type="text" inputmode="decimal" autocomplete="off" data-mtypein="' + tag + '" ' +
-                  'aria-label="Portion, in ' + esc(mDialUnit(r)) + '" value="' + esc(String(mTypedFromX(r, it.x))) + '"><i>' + esc(mDialUnit(r)) + '</i></span>'
-              : '<button class="mstep-x mitem-amt ' + (spent ? 'mstep-wake" data-medit="' : 'mstep-type" data-mtype="') + tag + '" title="' +
-                  (spent ? 'Correct this portion' : 'Type a portion') + '">' + esc(lead ? pp.grams : pp.head) + '</button>') +
-            '<span class="mstep-keys">' +
-              '<button data-mstep="' + tag + ':down"' + (spent ? ' disabled' : '') + ' aria-label="Smaller portion">&minus;</button>' +
-              '<button data-mstep="' + tag + ':up"' + (spent ? ' disabled' : '') + ' aria-label="Bigger portion">+</button>' +
-            '</span>' +
-          '</span>' +
-        '</div>' +
-        '<span class="mfood-amt-p mfood-amt-pp">' + esc(pp.grams || pp.head) + '</span>' +
-        (menuOpen ? '<div class="mfood-menu no-print">' +
-          '<button class="mfood-mi mswap" data-mswap="' + tag + '">' + I_SWAP + 'Swap</button>' +
-          '<button class="mfood-mi mpin" data-mpin="' + tag + '" aria-pressed="' + (pinned ? 'true' : 'false') + '" aria-label="' +
-            (pinned ? 'Unpin from this meal' : 'Pin to this meal every day') + '">' + I_PIN + (pinned ? 'Unpin' : 'Pin') + '</button>' +
-          '<button class="mfood-mi mdel" data-mdel="' + tag + '" aria-label="Remove ' + esc(r.name) + '">' + I_BIN + 'Remove</button>' +
-        '</div>' : '') +
-      '</div>';
-    };
-
-    var slotCard = function (sk, name, onPlan) {
-      var items = day[sk] || [];
-      var srec = null;
-      slots.list.forEach(function (s) { if (s.k === sk) srec = s; });
-      var pins = (srec && srec.pins) || [];
-      var mk = marksFor(sk, items);
-      var focus = S.mFocus === sk;
-      /* Open all (and the meal the picker just filled) opens in place; an
-         empty meal opens only when it has been opened, so a day of empty
-         meals is a list of cards rather than six screens. */
-      var open = focus || (!S.mFocus && (items.length ? !S.mFold[sk] : S.mFold[sk] === false));
-      var sub = { kcal: 0, p: 0, f: 0, c: 0 };
-      items.forEach(function (it) {
-        var r = LIVE.BY_ID[it.id];
-        if (!r || !r.macro) return;
-        sub.kcal += (r.macro.kcal || 0) * it.x; sub.p += (r.macro.p || 0) * it.x;
-        sub.f += (r.macro.f || 0) * it.x; sub.c += (r.macro.c || 0) * it.x;
-      });
-      var eatenAll = items.length && items.every(function (it) { return it.eaten || !LIVE.BY_ID[it.id]; });
-      var live = items.filter(function (it) { return LIVE.BY_ID[it.id]; }).length;
-      if (!onPlan && !live) return '';        // a bygone meal with nothing left says nothing
-      var ask = mMealAsk(sk, targets, slots);
-      var aim = ask ? (ask.now || ask) : null;
-      var said = verdict(sub, aim, eatenAll, live);
-      var pillsSay = mMealPillsSay(sub, ask, targets);
-
-      /* Skipped: one struck line with the way back on it, carrying the
-         chooser for where its share goes (the largest cascade there is). */
+      /* Skipped: one line. Its way back is in its sheet; the chooser for
+         where its share goes (the largest cascade there is) rides under it. */
       if (onPlan && !items.length && mSkipped(k, sk)) {
-        var skSend = mCascadeLineHTML(sk, targets, slots);
-        return '<div class="mslot mslot-skipped' + (skSend ? ' mslot-skipped-c' : '') + '">' +
-          '<div class="mslot-skip-h">' +
-            '<span class="mslot-skip-n">' + esc(name) + '</span>' +
-            '<span class="mslot-skip-w">' + (skSend ? 'skipped' : 'skipped &middot; its share went to the rest') + '</span>' +
-            '<button class="ghost mslot-unskip no-print" data-mskip="' + esc(sk) + '" aria-label="Put ' + esc(name) + ' back">Undo</button>' +
-          '</div>' + skSend +
-        '</div>';
+        return '<button class="mtray-skip" data-mopen="' + esc(sk) + '" aria-label="' + esc(name) + ', skipped. Open it">' +
+            '<span class="mtray-n">' + esc(name) + '</span>' +
+            '<span class="mtray-sw">skipped &middot; its share went to the rest</span>' +
+          '</button>' + mCascadeLineHTML(sk, targets, slots);
       }
 
-      /* The tick completes the whole meal, and pressed again it is not. */
-      var dot = '<button class="mday-dot no-print" data-mdot="' + esc(sk) + '"' +
-        (items.length && !ahead ? '' : ' disabled') +
-        ' aria-pressed="' + (eatenAll ? 'true' : 'false') + '"' +
-        ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten' : 'Mark all of ' + esc(name) + ' eaten') + '"></button>';
-
-      /* ---- the day card ---- */
-      var heldN = items.filter(function (it) { return it.l && LIVE.BY_ID[it.id]; }).length;
-      if (!open) {
-        return '<div class="mslot mday-stop mday-card' + (items.length ? ' filled' : '') + ' ' + said.cls + (eatenAll ? ' done' : '') + '">' +
-          '<div class="mslot-h">' + dot +
-            '<button class="mslot-head mday-cardb" data-mfold="' + esc(sk) + '" aria-expanded="false" aria-label="Open ' +
-              esc(name) + (pillsSay ? ' — ' + esc(pillsSay) : '') + '">' +
-              '<span class="mcard-t"><span class="mslot-name">' + esc(name) + '</span>' +
-                '<span class="mcard-pill ' + said.cls + '">' + esc(said.pill) + '</span>' +
-                /* Held, said where the holding can be seen: lock the dinner you
-                   promised, go back to the day, press Rebalance — and see what
-                   will be spared without opening the meal. */
-                (heldN ? '<span class="mcard-kept">' + LOCK_SM + heldN + ' kept</span>' : '') +
-                '<span class="mfold-cue" aria-hidden="true">&#8250;</span></span>' +
-              '<span class="mcard-p">' + mMealPillsHTML(sub, ask, targets, !eatenAll, !items.length) + '</span>' +
-            '</button>' +
-          '</div>' +
-        '</div>';
-      }
-
-      /* ---- the meal, open: its own screen when in focus ---- */
-      var rows = items.map(function (it, i) {
+      var lines = items.map(function (it) {
         var r = LIVE.BY_ID[it.id];
         if (!r) return '';
-        return foodHTML(sk, r, it, i, pins.some(function (p) { return p.id === it.id; }), onPlan, mk);
+        return '<span class="mtray-f"><span class="mtray-fn">' + esc(r.name) + '</span>' +
+          '<em class="num">' + esc(mDialText(r, it.x)) + '</em></span>';
       }).join('');
-      var lname = name.toLowerCase();
-      var mealMenu = S.mMenu === 'meal:' + sk;
-      return '<div class="mslot mday-stop mscreen' + (focus ? ' mscreen-focus' : '') + (items.length ? ' filled' : '') + (eatenAll ? ' done' : '') + '">' +
-        '<div class="mslot-h mscreen-h">' +
-          '<button class="mslot-head mscreen-back" data-mfold="' + esc(sk) + '" aria-expanded="true" aria-label="Back to the day — ' +
-            esc(name) + (pillsSay ? ' — ' + esc(pillsSay) : '') + '" title="Back to the day">' + I_BACK + '</button>' +
-          dot +
-          '<span class="mscreen-t"><span class="mslot-name">' + esc(name) + '</span><small>' + esc(mLongDate ? mLongDate(k) : '') + '</small></span>' +
-          (onPlan && items.length
-            ? '<button class="mslot-act mslot-bal mscreen-i" data-mbal="' + esc(sk) + '"' + (items.length >= 2 ? '' : ' disabled') +
-              ' aria-label="Balance the portions on ' + esc(name) + '" title="Solve these portions against this meal’s share">' + mIcon('scales') + '</button>' : '') +
-          (onPlan ? '<button class="mscreen-i" data-mmenu="' + esc(sk) + '" aria-expanded="' + mealMenu + '" aria-label="More for ' + esc(name) + '" title="More">' + I_DOTS + '</button>' : '') +
-        '</div>' +
-        (mealMenu ? '<div class="mslot-acts mscreen-menu no-print">' +
-          (items.length
-            ? '<button class="mslot-act mslot-try" data-mtry="' + esc(sk) + '" aria-label="Another suggestion for ' + esc(name) + '">' + mIcon('another') + '<span>Try another</span></button>'
-            : '<button class="mslot-act mslot-skip" data-mskip="' + esc(sk) + '" aria-label="Skip ' + esc(name) + ' today">' + mIcon('skip') + '<span>Skip today</span></button>') +
-          (items.length >= 2 ? '<button class="mslot-act mslot-keep" data-mkeep="' + esc(sk) + '" aria-label="Save these plates as one food you can reuse">' + mIcon('keep') + '<span>Save meal</span></button>' : '') +
-          '<button class="mslot-act mslot-from" data-mfrom="' + esc(sk) + '" aria-label="Repeat ' + esc(name) + ' from another day">' + mIcon('fromday') + '<span>Repeat a day</span></button>' +
-        '</div>' : '') +
-        '<div class="mslot-items">' +
-          '<div class="mcaps">' + capsHTML(sub, aim) + '</div>' +
-          (mk.snap
-            ? '<div class="mscreen-say">' + (mk.n ? mk.n + (mk.n === 1 ? ' amount' : ' amounts') + ' changed' : 'Already as close as it gets') +
-              ' <button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button></div>'
-            : (items.length ? '<div class="mscreen-say ' + said.cls + '">' + esc(said.say) + '</div>' : '')) +
-          (rows || '<div class="mscreen-empty">Nothing on ' + esc(lname) + ' yet.</div>') +
-          (onPlan ? mCascadeLineHTML(sk, targets, slots) : '') +
-        '</div>' +
-        (onPlan ? '<div class="mscreen-foot no-print">' +
-          '<button class="mscreen-add mslot-add" data-mslot="' + esc(sk) + '" aria-label="Add food to ' + esc(name) + '">' + I_FIND + '<span>Add foods</span></button>' +
-          '<button class="mscreen-cam" data-mscan="' + esc(sk) + '" aria-label="Scan a barcode onto ' + esc(lname) + '" title="Scan a barcode">' + I_CAM + '</button>' +
-        '</div>' : '') +
-      '</div>';
+      var aimK = M.aim ? Math.round(M.aim.kcal || (4 * M.aim.p + 9 * M.aim.f + 4 * M.aim.c)) : 0;
+      var st = !aimK ? '' : M.sub.kcal > aimK * 1.08 ? ' over' : M.sub.kcal >= aimK * 0.92 ? ' on' : '';
+      return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
+          M.dot +
+          '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
+            (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
+            '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
+              '<span class="mtray-k num' + st + '"><b>' + fmtK(M.sub.kcal) + '</b>' + (aimK ? ' / ' + fmtK(aimK) : ' kcal') + '</span></span>' +
+            '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
+          '</button>' +
+        '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
     };
-    var html = slots.list.map(function (s) { return slotCard(s.k, s.n, true); }).join('');
+    var html = slots.list.map(function (s) { return trayHTML(s.k, s.n, true); }).join('');
     var onPlanKeys = slots.list.map(function (s) { return s.k; });
     Object.keys(day).forEach(function (sk) {
-      if (onPlanKeys.indexOf(sk) < 0) html += slotCard(sk, slots.names[sk] || 'Meal', false);
+      if (onPlanKeys.indexOf(sk) < 0) html += trayHTML(sk, slots.names[sk] || 'Meal', false);
     });
     $('macroSlots').innerHTML = html;
-    /* One meal in focus is its own screen: the day's header, the other meals
-       and the bar step aside (#view-macros.m-focus). A focus whose meal is no
-       longer drawn open — another day, a sync — lets go. */
-    var focusOn = !!(S.mFocus && $('macroSlots').querySelector('.mscreen-focus'));
-    if (!focusOn) S.mFocus = null;
-    $('view-macros').classList.toggle('m-focus', focusOn);
-
-    var shut = mAnyShut();
-    /* The word says what the next press does, and the chevrons point the
-       way the cards will go: apart to open, together to shut. */
-    var oa = $('macroOpenAll'), oaw = shut ? 'Open all' : 'Close all';
-    if (oa.getAttribute('data-w') !== oaw) {
-      oa.setAttribute('data-w', oaw);
-      oa.title = shut ? 'Open every meal' : 'Close every meal';
-      oa.querySelector('.mday-w').textContent = oaw;
-      oa.querySelector('path').setAttribute('d', shut ? 'M6 7.5 10 3.5l4 4M6 12.5l4 4 4-4'
-        : 'M6 3.5l4 4 4-4M6 16.5l4-4 4 4');
-    }
 
     var readout = macroFootHTML(day, targets, slots);
     $('macroFoot').innerHTML = readout.foot;
@@ -657,5 +562,5 @@
     syncShrunk();
   }
 
-  return { renderMacros: renderMacros, mDayPick: mDayPick };
+  return { renderMacros: renderMacros, mDayPick: mDayPick, mMealSheetParts: mMealSheetParts };
 };
