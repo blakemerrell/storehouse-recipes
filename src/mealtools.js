@@ -112,21 +112,30 @@
      brings this meal closest to its share by the same judge the re-fit uses.
      The picker's own fit (mpFitX) answers a different question — room left
      in the DAY — and at lunch it offered a cup and a half of cheddar,
-     because the day still had the fat for it. Null when no amount helps. */
+     because the day still had the fat for it.
+   *
+     When no amount helps — the meal is full, or the day's salt is spent and
+     this is salsa — it is the smallest step of it, a spoonful, not a
+     serving: a tap is still a tap, and the pills show what it cost. Falling
+     through to "one serving" put a whole cup of salsa on a salty day. */
   function mMealFitX(sk, r) {
     if (!r || !r.macro) return null;
     var k = mViewKey();
     var ask = mMealAsk(sk, mDayTargets(k), mReadSlots());
     if (!ask) return null;
     var sh = ask.now || ask.plan;
-    if (!sh) return null;
+    /* No plan, no fit: a day of 0/0/0 has nothing to fit against, and every
+       amount would "help" least at the smallest — the half-serving the app
+       promised not to invent on an unplanned day. One serving, from the caller. */
+    if (!sh || !((sh.p || 0) + (sh.f || 0) + (sh.c || 0) > 0)) return null;
     var pen = judge(mDay(k), sk, { p: sh.p, f: sh.f, c: sh.c });
     var base = pen(), best = base, bx = null;
-    rungsFor(r, 1).forEach(function (v) {
+    var rungs = rungsFor(r, 1);
+    rungs.forEach(function (v) {
       var e = pen({ r: r, x: v });
       if (e < best - 1e-9) { best = e; bx = v; }
     });
-    return bx;
+    return bx !== null ? bx : (rungs.length ? rungs[0] : null);
   }
 
   function mBalanceMeal(sk, opt) {

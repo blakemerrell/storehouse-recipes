@@ -7704,8 +7704,10 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 
 /* the meal sheet */
 .sheet.msheet { padding-top: 0; --msh-top: 120px; }
+/* A step over the pinned search under it: with the meal's rows gone to the
+   tray the search sits straight below, and the ⋯ menu hangs down over it. */
 .msh-top {
-  position: sticky; top: 0; z-index: var(--z-dock-over); background: var(--card);
+  position: sticky; top: 0; z-index: var(--z-sticky); background: var(--card);
   margin: 0 -2px; padding: 4px 2px 6px; border-bottom: 1px solid var(--line-soft);
 }
 .msh-h { display: flex; align-items: center; gap: 2px; position: relative; min-height: 48px; }
