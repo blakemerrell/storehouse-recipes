@@ -660,10 +660,12 @@ an install that cannot fetch everything leaving the phone as it was, and the wor
 on phones today (build 568, kept in `tests/fixtures/`) handing over cleanly.
 
 Needs Playwright and nothing else — the runner serves the repository itself and drives a
-real Chromium, so what is asserted is what the app renders. 83 checks in the default run,
+real Chromium, so what is asserted is what the app renders. The default run is some three
+thousand checks (2,906 on 5 October 2026; the runner prints the count as it finishes),
 covering browsing and filters, the weeks, the shopping list's names and quantities,
 writing and editing recipes, every page of the printed book, opening the whole thing
-with the network switched off, and Train — `tests/train.test.js` feeds the block logged
+with the network switched off, Nourish's days, meals and food picker, and Strengthen —
+`tests/train.test.js` feeds the block logged
 workouts and checks the sets, weights, records, review and sync that come back. `sync` writes to a throwaway household and deletes it
 afterwards; it never touches a real one. `tests/household.test.js` runs the shared
 household against a stand-in for Firestore in the default run — what each change asks
