@@ -68,6 +68,11 @@ back under the same names. `LIVE` holds getter/setter pairs for values app.js *r
 than mutates (e.g. `RECIPES`/`BY_ID` after `rebuild()`), so a part reads them each time instead of
 holding a stale copy. Each part's header comment says what it reads and what it hands back.
 
+Splitting a part out is done with `tools/split-part.js`, which parses `app.js` (acorn) and works
+out what to hand over, what goes through `LIVE` and what comes back:
+`node tools/split-part.js <name> <VAR> "<first line of range>" "<first line after it>" <header.txt> [--dry]`.
+`tests/scope.test.js` reads every script without a browser and fails on any name a split left dangling.
+
 **Adding a `src/` file** means: a `<script src="src/x.js?v=0">` in `index.html` (before `app.js` if
 it is a part), the same `./src/x.js?v=0` in the `CORE` list in `sw.js`, and a line in the README's
 Layout list. `tests/offline.test.js` fails if a loaded script is missing from the worker's cache list.
