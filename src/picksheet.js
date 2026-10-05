@@ -92,6 +92,7 @@
     S.mpSwap = null;
     S.mMenu = '';
     S.mType = null;
+    S.mTrayOpen = false;           // the tray opens shut: the list gets the screen
     pushSheet({ m: 1 });
     renderModal();
   }
@@ -101,21 +102,22 @@
      Blake, 2026-10-04: "ONE way to add and select food" — there were four
      and more (the day bar's Add food, each meal's Add foods, its camera,
      Fill, the picker's basket). So a meal opens here, from its tray: the
-     meal's own header (its tick, Balance, its ⋯), its pills against its
-     share, and its foods as compact rows dialled in grams (myday.js,
-     mMealSheetParts); then the picker as it always was — the search with
-     the barcode in it, the shelves, Recent, Fits best — where a tap puts a
-     food straight onto the meal. No basket and no "Add N": what you tap is
-     on the meal, and a second tap takes it back off.
+     meal's own header (its tick and its ⋯) and its pills against its
+     share (myday.js, mMealSheetParts); then the picker as it always was —
+     the search with the barcode in it, the shelves, Recent, Fits best —
+     where a tap puts a food straight onto the meal; and along the bottom the
+     tray of what is on it, with Balance and Done. No basket and no "Add N":
+     what you tap is on the meal, and a second tap takes it back off.
    *
-     Pinned: the header and the pills always (Blake: "make the top sticky so
-     the filter icons and search bar and macros stay in view"), and the
-     search box and the shelves under them once the foods have scrolled
-     away — all three this time, because the rows are small enough to leave
-     the list most of the screen. --msh-top is the pinned header's height,
-     measured after each draw (app.js), so the second pin sits under it.
+     Pinned: the header, the pills, the search box and the shelves at the
+     top (Blake: "make the top sticky so the filter icons and search bar and
+     macros stay in view"), and the tray at the bottom, so the foods you are
+     building stay in sight while the list scrolls between them. --msh-top
+     is the pinned header's height, measured after each draw (app.js), so
+     the search pins under it.
    *
-     Mockup: https://claude.ai/artifact/SseR1TPa4JAFNanYYsGP4k */
+     Mockups: https://claude.ai/artifact/SseR1TPa4JAFNanYYsGP4k (the sheet),
+     https://claude.ai/artifact/TQTp3xjDsvsEabnWYfFF7y (the tray). */
   function macroPickerHTML() {
     var sk = S.macroPick.slot;
     var P = mMealSheetParts(sk);
@@ -148,7 +150,7 @@
        mid-session, an old value read back from anywhere — and neither
        should be an error. */
     var body = mpHomeBodyHTML();
-    return wrap(P.rows +
+    return wrap(
       /* The camera sits INSIDE the field rather than beside it. As a flex
          sibling it drops onto its own row on every phone. */
       '<div class="mp-stick msh-find">' +
@@ -164,7 +166,8 @@
       '</div>' +
       '<div id="mpList">' + body + '</div>' +
       '<button class="mpick-row mpick-new" data-mpnew="1">' +
-        '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>');
+        '<span class="mp-body"><span class="mp-name">&#43; Type it in yourself</span></span></button>' +
+      P.tray);
   }
 
   return { mNextMeal: mNextMeal, mOpenPicker: mOpenPicker, macroPickerHTML: macroPickerHTML };

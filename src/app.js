@@ -3168,7 +3168,7 @@
 
   /* src/pickbands.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var PICKBANDS = window.HiveParts.pickbands({ BOOKS: BOOKS, MDAYS: MDAYS, S: S, dayKey: dayKey, fmtNum: fmtNum, idOf: idOf, mAllSections: mAllSections, mDay: mDay, mDayTargets: mDayTargets, mDefaultX: mDefaultX, mFamilyIds: mFamilyIds, mGapFresh: mGapFresh, mIsFav: mIsFav, mMacLine: mMacLine, mMealPool: mMealPool, mNever: mNever, mRank: mRank, mReadSlots: mReadSlots, mShelfKey: mShelfKey, mViewKey: mViewKey, mWideOpen: mWideOpen, matchRank: matchRank, mpRowHTML: mpRowHTML, searchScore: searchScore, todayKey: todayKey, LIVE: LIVE });
+  var PICKBANDS = window.HiveParts.pickbands({ BOOKS: BOOKS, MDAYS: MDAYS, S: S, dayKey: dayKey, fmtNum: fmtNum, idOf: idOf, mAllSections: mAllSections, mDay: mDay, mDayTargets: mDayTargets, mDefaultX: mDefaultX, mFamilyIds: mFamilyIds, mGapFresh: mGapFresh, mIsFav: mIsFav, mMacLine: mMacLine, mMealAsk: mMealAsk, mMealHolds: mMealHolds, mMealPool: mMealPool, mNever: mNever, mRank: mRank, mReadSlots: mReadSlots, mShelfKey: mShelfKey, mViewKey: mViewKey, mWideOpen: mWideOpen, matchRank: matchRank, mpRowHTML: mpRowHTML, searchScore: searchScore, todayKey: todayKey, LIVE: LIVE });
   function mpQ() { return PICKBANDS.mpQ(); }
   function mpShelvesHTML() { return PICKBANDS.mpShelvesHTML(); }
   function mpMatches(r, qs) { return PICKBANDS.mpMatches(r, qs); }
@@ -3722,9 +3722,9 @@
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwpick', 'data-pwsee', 'data-pwback', 'data-pwwant', 'data-pwopen', 'data-dayopen', 'data-dsact', 'data-srctag', 'data-fold',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mopen', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
+    'data-mopen', 'data-mtray', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mbalundo', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
+    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5256,7 +5256,10 @@
         if (!e.target.closest('button, input, select')) { renderModal(); return; }
         renderModal();
       }
-      if (e.target.closest('.msh-top, .mrows, .msh-skipped')) mDayClick(e);
+      /* The tray along the bottom opens and shuts in place. */
+      var trb = e.target.closest('[data-mtray]');
+      if (trb) { S.mTrayOpen = trb.dataset.mtray === '1'; S.mMenu = ''; S.mType = null; renderModal(); return; }
+      if (e.target.closest('.msh-top, .mrows, .msh-tray, .msh-skipped')) mDayClick(e);
     });
 
     function mDayClick(e) {
@@ -5396,20 +5399,6 @@
         var bwas = mRefitMeal(bk, bsk);
         S.mMarks = { k: bk, sk: bsk, was: bwas, fresh: {}, snap: null };
         S.mMenu = '';
-        mRedraw();
-        return;
-      }
-      var bun = e.target.closest('[data-mbalundo]');
-      if (bun) {
-        var uk = mViewKey(), usk = bun.dataset.mbalundo, snap = S.mMarks && S.mMarks.snap;
-        if (snap) {
-          mEditDay(uk, function (day) {
-            (day[usk] || []).forEach(function (it, i) {
-              if (snap[i] && String(snap[i].id) === String(it.id)) it.x = snap[i].x;
-            });
-          });
-        }
-        S.mMarks = null;
         mRedraw();
         return;
       }

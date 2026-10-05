@@ -32,6 +32,8 @@
   var mGapFresh = app.mGapFresh;
   var mIsFav = app.mIsFav;
   var mMacLine = app.mMacLine;
+  var mMealAsk = app.mMealAsk;
+  var mMealHolds = app.mMealHolds;
   var mMealPool = app.mMealPool;
   var mNever = app.mNever;
   var mRank = app.mRank;
@@ -360,6 +362,25 @@
     }).join('');
   }
 
+  /* Which pills are still empty, named on the band that is ranked to fill
+     them: "Fits best for carbs" once the egg whites and the cheese are on.
+     Short is the pills' own line (under 92% of the share, mcap's "on").
+     Only once something is on the meal and only for one or two of the
+     three — an empty meal is short of everything, and saying so says
+     nothing. */
+  function mpForWhat() {
+    var k = mViewKey(), sk = S.macroPick && S.macroPick.slot;
+    if (!sk) return '';
+    var ask = mMealAsk(sk, mDayTargets(k), mReadSlots()), want = ask && (ask.now || ask.plan);
+    var got = mMealHolds(k, sk);
+    if (!want || !(got.p + got.f + got.c > 0)) return '';
+    var short = [['p', 'protein'], ['f', 'fat'], ['c', 'carbs']].filter(function (m) {
+      return (want[m[0]] || 0) > 0 && (got[m[0]] || 0) < want[m[0]] * 0.92;
+    }).map(function (m) { return m[1]; });
+    if (!short.length || short.length === 3) return '';
+    return ' <span class="mt-div-for">for ' + short.join(' and ') + '</span>';
+  }
+
   function mpFitsHTML(skip) {
     mGapFresh();
     if (!S.macroPick) return '';
@@ -531,7 +552,7 @@
        a header has to earn every pixel and these are asked for rarely, but
        they are asked for — "show me the Sunday Feasts" is a real thing to
        want and no macro chip can say it. */
-    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
+    return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' + mpForWhat() : 'On the shelf') +
       mpLensHTML() + '</div>' +
       ranked.map(function (e) {
       /* Ranked by how well it fits the day, offered at what a tap puts

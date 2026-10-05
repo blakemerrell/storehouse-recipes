@@ -111,27 +111,10 @@
   var I_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg>';
   var I_MINUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   var I_PLUS = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  var I_UP = ICO('<path d="M6 15l6-6 6 6"/>');
+  var I_DOWN = ICO('<path d="M6 9l6 6 6-6"/>');
 
   var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
-
-  /* A meal says one sentence about how it sits against its share. */
-  function verdict(sub, aim, eatenAll, n) {
-    if (!n) return { cls: '', say: '' };
-    if (eatenAll) return { cls: 'is-eaten', say: 'Eaten' };
-    if (!aim) return { cls: '', say: '' };
-    var aimK = aim.kcal || (4 * (aim.p || 0) + 9 * (aim.f || 0) + 4 * (aim.c || 0));
-    if (!(aimK > 0)) return { cls: '', say: '' };
-    var dk = sub.kcal - aimK;
-    var devs = [['protein', 'p'], ['fat', 'f'], ['carbs', 'c']].map(function (m) {
-      var a = aim[m[1]] || 0;
-      return [m[0], a > 0 ? (sub[m[1]] - a) / a : 0];
-    }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
-    if (Math.abs(dk) <= aimK * 0.05 && Math.abs(devs[0][1]) <= 0.15) return { cls: 'is-on', say: 'on its aim' };
-    var over = dk > aimK * 0.08;
-    return { cls: over ? 'is-over' : 'is-short',
-      say: (dk >= 0 ? fmtK(dk) + ' over' : fmtK(-dk) + ' short') +
-        (Math.abs(devs[0][1]) > 0.15 ? ' · ' + devs[0][0] + (devs[0][1] > 0 ? ' over' : ' short') : '') };
-  }
 
   /* What Balance moved and what the picker just put down, on this meal, if
      the plates are still the plates they were (a sync can reorder them). */
@@ -200,7 +183,7 @@
       ' aria-label="' + (eatenAll ? 'Mark ' + esc(name) + ' not eaten' : 'Mark all of ' + esc(name) + ' eaten') + '"></button>';
     return { k: k, sk: sk, name: name, onPlan: onPlan, items: items, pins: (srec && srec.pins) || [],
       sub: sub, ask: ask, aim: aim, eatenAll: eatenAll, live: live, dot: dot,
-      said: verdict(sub, aim, eatenAll, live), pillsSay: mMealPillsSay(sub, ask, targets) };
+      pillsSay: mMealPillsSay(sub, ask, targets) };
   }
 
   /* One food in the meal sheet: its name (the door to the recipe or the
@@ -268,9 +251,20 @@
     '</div>';
   }
 
-  /* The meal sheet's own half: its header (the tick, the name, Balance, the
-     meal's ⋯ and ×), the pills with their one line, and the foods. The
-     picker underneath is picksheet.js's. */
+  /* The meal sheet's own half: its header (the tick, the name and the
+     meal's ⋯), the pills, and the tray of its foods along the bottom. The
+     picker between them is picksheet.js's.
+   *
+     Blake, 2026-10-05: the foods "at the bottom. The top needs to be sticky
+     so I can see the scanner... and the search... Obviously the macro pill
+     so I can see that the foods that I'm selecting are auto balancing as I
+     select them." The rows used to sit between the pills and the search and
+     scrolled away the moment you went looking for something; in a tray
+     pinned to the bottom they stay in sight while you pick. Balance and
+     Done ride in it, "so it's not at the very top where my thumb has to
+     stretch to reach it", which is why ⚖ and × left the header. The line
+     under the pills went too: "I can see visually in the pills what I need
+     to do still." Mockup: https://claude.ai/artifact/TQTp3xjDsvsEabnWYfFF7y */
   function mMealSheetParts(sk) {
     var k = mViewKey(), day = mDay(k), targets = mDayTargets(k), slots = mReadSlots();
     var rec = null;
@@ -284,11 +278,8 @@
     var head = '<div class="msh-h">' +
         (skipped ? '<span class="msh-gap"></span>' : M.dot) +
         '<span class="msh-t"><span class="mslot-name">' + esc(name) + '</span><small>' + esc(mLongDate(k)) + '</small></span>' +
-        (skipped || !M.onPlan ? '' :
-          '<button class="msh-i mslot-bal" data-mbal="' + esc(sk) + '"' + (items.length >= 2 ? '' : ' disabled') +
-            ' aria-label="Balance the portions on ' + esc(name) + '" title="Solve these portions against this meal’s share">' + mIcon('scales') + '</button>' +
+        (skipped || !M.onPlan ? '<button class="msh-i sheet-x" data-close="1" aria-label="Close">&times;</button>' :
           '<button class="msh-i" data-mmenu="' + esc(sk) + '" aria-haspopup="true" aria-expanded="' + menuOpen + '" aria-label="More for ' + esc(name) + '">' + I_DOTS + '</button>') +
-        '<button class="msh-i sheet-x" data-close="1" aria-label="Close">&times;</button>' +
         (menuOpen ? '<div class="mfood-menu msh-menu no-print" role="menu">' +
           (items.length
             ? '<button class="mfood-mi mslot-try" role="menuitem" data-mtry="' + esc(sk) + '">' + mIcon('another') + 'Try another</button>'
@@ -302,17 +293,52 @@
         body: '<div class="msh-skipped">' + esc(name) + ' is skipped today. Its share went to the rest.' +
           '<button class="ghost mslot-unskip" data-mskip="' + esc(sk) + '">Put ' + esc(name) + ' back</button></div>' };
     }
-    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>' +
-      (mk.snap
-        ? '<div class="mscreen-say">' + (mk.n ? mk.n + (mk.n === 1 ? ' amount' : ' amounts') + ' changed' : 'Already as close as it gets') +
-          ' <button class="ghost mcard-undo" data-mbalundo="' + esc(sk) + '">Undo</button></div>'
-        : '<div class="mscreen-say ' + M.said.cls + '">' + esc(M.said.say) + '</div>');
+    var stick = '<div class="mcaps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>';
     var rows = items.map(function (it, i) {
       var r = LIVE.BY_ID[it.id];
       return r ? foodRowHTML(M, r, it, i, mk) : '';
     }).join('');
-    return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan,
-      rows: '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet.</div>') + '</div>' };
+    rows = '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet. Tap a food above.</div>') + '</div>';
+    return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan, rows: rows,
+      tray: trayHTML(M, mk, rows) };
+  }
+
+  /* The tray: shut, the foods as a strip of chips, newest first, each with
+     its amount, ↑ or ↓ when the last re-fit moved it and a lock when you set
+     it; open, the rows themselves with their dials. Either way Balance and
+     Done under them. Shut until asked, so the list keeps the screen. */
+  function trayHTML(M, mk, rows) {
+    var sk = M.sk, open = !!S.mTrayOpen;
+    var live = [];
+    M.items.forEach(function (it, i) { if (LIVE.BY_ID[it.id]) live.push(i); });
+    var n = live.length;
+    var said = n + (n === 1 ? ' food' : ' foods') + ' &middot; ' + fmtK(M.sub.kcal) + ' kcal';
+    var body;
+    if (open) {
+      body = '<div class="msh-trh"><span class="msh-trt"><b>On ' + esc(M.name) + '</b><small class="num">' + said + '</small></span>' +
+          '<button class="msh-i" data-mtray="0" aria-expanded="true" aria-label="Hide the foods on ' + esc(M.name) + '">' + I_DOWN + '</button></div>' +
+        '<div class="msh-trrows">' + rows + '</div>';
+    } else {
+      var chips = live.slice().reverse().map(function (i) {
+        var it = M.items[i], r = LIVE.BY_ID[it.id], was = mk.was[i];
+        var arrow = was === undefined ? '' : it.x > was ? '&uarr;' : '&darr;';
+        return '<button class="msh-chip' + (mk.fresh[i] ? ' fresh' : '') + '" data-mtray="1" aria-label="' + esc(r.name) + ', ' +
+            esc(mDialText(r, it.x)) + '. Show the foods on ' + esc(M.name) + '">' +
+          '<span class="msh-chn">' + esc(r.name) + '</span>' +
+          '<span class="msh-chg num">' + (it.l ? LOCK_SM : '') + esc(mDialText(r, it.x)) + (arrow ? '<em>' + arrow + '</em>' : '') + '</span></button>';
+      }).join('');
+      body = '<div class="msh-trc">' +
+          '<button class="msh-trn" data-mtray="1" aria-expanded="false" aria-label="' + said.replace('&middot;', 'and') + ' on ' + esc(M.name) + '. Show them">' +
+            '<b class="num">' + n + '</b><small>on ' + esc(M.name.toLowerCase()) + '</small></button>' +
+          '<span class="msh-chips">' + (chips || '<span class="msh-none">Tap a food above to put it here.</span>') + '</span>' +
+          '<button class="msh-i" data-mtray="1" aria-expanded="false" aria-label="Show the foods on ' + esc(M.name) + '">' + I_UP + '</button></div>';
+    }
+    return '<div class="msh-tray no-print' + (open ? ' open' : '') + '">' + body +
+      '<div class="msh-acts">' +
+        '<button class="msh-bal" data-mbal="' + esc(sk) + '"' + (n ? '' : ' disabled') +
+          ' aria-label="Balance every food on ' + esc(M.name) + ', the amounts you set included">' + mIcon('scales') + 'Balance</button>' +
+        '<button class="btn-primary msh-done sheet-done">Done</button>' +
+      '</div></div>';
   }
 
   function mRenderDay() {
