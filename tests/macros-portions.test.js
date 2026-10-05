@@ -317,9 +317,10 @@ module.exports = nourish({
     const typeOn = (i) => typ.locator('#modalRoot .mrows .mitem').nth(i).locator('[data-mtype]').click();
     await typeOn(0);
     await typ.waitForTimeout(200);
-    t.ok('tapping a portion opens a box holding the number that was there',
-      (await typ.inputValue('#modalRoot .mstep-in')) === '1',
-      await typ.inputValue('#modalRoot .mstep-in'));
+    t.ok('tapping a portion opens an empty box, the number that was there shown faint in it',
+      (await typ.inputValue('#modalRoot .mstep-in')) === '' &&
+      (await typ.getAttribute('#modalRoot .mstep-in', 'placeholder')) === '1',
+      await typ.getAttribute('#modalRoot .mstep-in', 'placeholder'));
     await typ.fill('#modalRoot .mstep-in', '30');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);
@@ -335,8 +336,9 @@ module.exports = nourish({
     await typeOn(1);
     await typ.waitForTimeout(200);
     t.ok('a food measured in grams opens on its grams, not on its multiplier',
-      (await typ.inputValue('#modalRoot .mstep-in')) === '100',
-      await typ.inputValue('#modalRoot .mstep-in'));
+      (await typ.inputValue('#modalRoot .mstep-in')) === '' &&
+      (await typ.getAttribute('#modalRoot .mstep-in', 'placeholder')) === '100',
+      await typ.getAttribute('#modalRoot .mstep-in', 'placeholder'));
     await typ.fill('#modalRoot .mstep-in', '185');
     await typ.keyboard.press('Enter');
     await typ.waitForTimeout(300);

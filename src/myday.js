@@ -235,12 +235,16 @@
         '<span class="mrow-m mitem-r2">' + (measure ? '<span class="mitem-uom">' + esc(measure) + '</span> &middot; ' : '') +
           '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + mWhyChip(it, tag) + '</span>' +
       '</div>' +
+      /* Typing opens an EMPTY box with the amount shown faint behind it, so
+         what you type is the amount. Opened holding the number, it relied on
+         the phone selecting it, and an iPhone often does not: Blake had to
+         type "005" to get 5 g of oil. Left empty, it changes nothing. */
       '<span class="mstep mrow-dial no-print' + (spent ? ' spent' : '') + '">' +
         '<button class="mrow-k" data-mstep="' + tag + ':down"' + (spent ? ' disabled' : '') + ' aria-label="Less ' + esc(r.name) + '">' + I_MINUS + '</button>' +
         '<span class="mrow-g">' +
           (S.mType === tag
             ? '<span class="mstep-x mitem-amt mitem-typing"><input class="mstep-in" type="text" inputmode="decimal" autocomplete="off" data-mtypein="' + tag + '" ' +
-                'aria-label="' + esc(r.name) + ', in ' + esc(dialU) + '" value="' + esc(String(mDialFromX(r, it.x))) + '"><i>' + esc(dialU) + '</i></span>'
+                'aria-label="' + esc(r.name) + ', in ' + esc(dialU) + '" value="" placeholder="' + esc(String(mDialFromX(r, it.x))) + '"><i>' + esc(dialU) + '</i></span>'
             : '<button class="mstep-x mitem-amt ' + (spent ? 'mstep-wake" data-medit="' : 'mstep-type" data-mtype="') + tag + '" aria-label="' +
                 esc(r.name) + ', ' + esc(mDialText(r, it.x)) + '. ' + (spent ? 'Correct it' : 'Type an amount') + '">' + esc(mDialText(r, it.x)) + '</button>') +
           '<small>' + (was !== undefined ? 'was ' + esc(mDialText(r, was)) : '') + '</small>' +
