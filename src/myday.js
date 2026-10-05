@@ -341,11 +341,14 @@
       }).join('');
       body = '<div class="msh-trc">' +
           '<button class="msh-trn" data-mtray="1" aria-expanded="false" aria-label="' + said.replace('&middot;', 'and') + ' on ' + esc(M.name) + '. Show them">' +
-            '<b class="num">' + n + '</b><small>on ' + esc(M.name.toLowerCase()) + '</small></button>' +
+            '<b class="num">' + n + '</b><small>' + (n === 1 ? 'food' : 'foods') + '</small></button>' +
           '<span class="msh-chips">' + (chips || '<span class="msh-none">Tap a food above to put it here.</span>') + '</span>' +
           '<button class="msh-i" data-mtray="1" aria-expanded="false" aria-label="Show the foods on ' + esc(M.name) + '">' + I_UP + '</button></div>';
     }
-    return '<div class="msh-tray no-print' + (open ? ' open' : '') + '">' + body +
+    /* A food's ⋯ opens upward, over the list; while it is open the rows stop
+       scrolling inside the tray, or the menu is cut off at the tray's edge. */
+    var menuing = open && String(S.mMenu || '').indexOf(sk + ':') === 0;
+    return '<div class="msh-tray no-print' + (open ? ' open' : '') + (menuing ? ' menuing' : '') + '">' + body +
       '<div class="msh-acts">' +
         '<button class="msh-bal" data-mbal="' + esc(sk) + '"' + (n ? '' : ' disabled') +
           ' aria-label="Balance every food on ' + esc(M.name) + ', the amounts you set included">' + mIcon('scales') + 'Balance</button>' +
@@ -577,7 +580,7 @@
         if (kitchen === weight) kitchen = '';
         var ml = mlOf(kitchen);
         return '<span class="mtray-f"><span class="mtray-fn">' + esc(r.name) + '</span>' +
-          (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small> &middot; ' + ml + '</small>' : '') + '</span>' : '') +
+          (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small><i> &middot; </i>' + ml + '</small>' : '') + '</span>' : '') +
           '<em class="num">' + esc(weight) + '</em></span>';
       }).join('');
       return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
@@ -588,8 +591,9 @@
               (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') + '</span>' +
             /* The meal's pills, small: what it holds against its share, the
                way its sheet says it (Blake: "adding back the subtle pills
-               that show me that meal's calories and macros"). */
-            (M.aim && items.length ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
+               that show me that meal's calories and macros"). An empty meal
+               shows them too: 0 of its share is what it is for. */
+            (M.aim ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
             '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
           '</button>' +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');

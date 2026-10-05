@@ -1977,23 +1977,6 @@ select { max-width: 280px; }
 .mpb-x .mpb-out { border-color: transparent; color: var(--muted); }
 .mp-side { display: flex; align-items: center; gap: 2px; padding-right: 2px; flex: none;
   border-bottom: 1px solid var(--line-soft); }
-/* The amount that fits the meal, beside the one a tap on the row adds (what
-   you had last time). A pill rather than a key, so it reads as an offer —
-   drawn on the span, so the button around it can take a thumb's reach on a
-   touch screen without the pill growing to match. */
-.mp-fitx {
-  flex: none; white-space: nowrap; font-size: 0.8125rem; line-height: 1;
-  font-variant-numeric: tabular-nums; color: var(--green);
-  background: none; border: 0; padding: 0; display: inline-flex; align-items: center;
-}
-.mp-side .mp-fitx { width: auto; height: auto; border: 0; background: none; margin-right: 2px; }
-.mp-fitx > span {
-  display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 999px;
-  font-size: 0.8125rem; line-height: 1; font-variant-numeric: tabular-nums;
-  background: var(--card); border: 1px solid color-mix(in oklab, var(--green) 45%, var(--line));
-  color: var(--green);
-}
-.mp-fitx[aria-pressed="true"] > span { background: var(--green); border-color: var(--green); color: var(--paper); }
 .mpb-fit { display: flex; margin-top: 5px; }
 .mpb-fit > span { height: 24px; }
 .mp-star { background: none; border: 0; padding: 4px 6px; font-size: 0.9375rem; color: var(--line-firm); }
@@ -4428,8 +4411,6 @@ p.sync-diner { font-size: 0.8125rem; line-height: 1.6; color: var(--muted); }
     min-width: 44px; min-height: 44px; padding: 0; margin: -10px -6px;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  /* the fitting-amount chip: the reach grows, the pill does not */
-  .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
   .mpick-new { min-height: 44px; }
   /* no hover to reveal with, and a target you can actually hit */
   /* a row a thumb tall, so its × can be given a thumb's reach without that
@@ -6378,7 +6359,6 @@ button.mitem-uom.mitem-bw::after, .mt-swap::after, .mt-ld-go::after {
   width: 44px; height: 44px; padding: 0; margin: -8px -4px -8px 0; border: 0; background: none;
   display: inline-flex; align-items: center; justify-content: center; font-size: 1.1875rem;
 }
-#modalRoot.m-sheets .mp-fitx { min-height: 44px; min-width: 44px; margin-top: -8px; margin-bottom: -8px; }
 #modalRoot.m-sheets .mpick-new, #modalRoot.m-sheets .mp-done, #modalRoot.m-sheets .mp-foot-t { min-height: 44px; }
 #modalRoot.m-sheets .mpb-x button { width: 44px; height: 44px; font-size: 1.125rem; }
 #modalRoot.m-sheets .mp-meals button { min-height: 44px; font-size: 0.875rem; }
@@ -7681,12 +7661,22 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mtray-fm { white-space: nowrap; font-size: 0.8125rem; }
 .mtray-fm b { font-weight: 600; }
-.mtray-fm small { font-size: 0.75rem; color: var(--note); }
+.mtray-fm small { font-size: 0.8125rem; color: var(--note); }
 .mtray-f em { grid-column: 3; font-style: normal; font-size: 0.78125rem; color: var(--note); text-align: right; white-space: nowrap; }
 /* the meal's pills, small, under its name */
 .mtray-caps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; margin: 4px 0 6px; }
 .mtray-caps .mcap { padding: 2px 3px; }
-.mtray-caps .mcap-t { font-size: 0.75rem; }
+.mtray-caps .mcap-t { font-size: 0.8125rem; }
+.mtray-fm small i { font-style: normal; }
+/* On the narrowest phones four pills in a row cut their own numbers short
+   ("1,504/5" for 1,504 of 513), and the cups and the mL beside them leave the
+   food's name four letters. So the pills go two to a row and the mL goes
+   under its cups, the dot between them gone. */
+@media (max-width: 360px) {
+  .mtray-caps { grid-template-columns: 1fr 1fr; }
+  .mtray-fm small { display: block; text-align: right; }
+  .mtray-fm small i { display: none; }
+}
 .mtray.done .mtray-fn { color: var(--label); }
 .mtray-none { color: var(--note); }
 .mtray-skip {
@@ -7815,11 +7805,11 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 }
 .msh-trc { display: grid; grid-template-columns: auto minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 0 4px 0 12px; }
 .msh-trn {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; min-width: 44px;
   border: 0; background: none; padding: 0 2px; margin: 0; line-height: 1; cursor: pointer; color: var(--ink);
 }
 .msh-trn b { font-family: var(--serif); font-size: 1.375rem; font-weight: 700; }
-.msh-trn small { font-size: 0.65625rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--note); margin-top: 2px; white-space: nowrap; }
+.msh-trn small { font-size: 0.8125rem; color: var(--note); margin-top: 2px; white-space: nowrap; }
 .msh-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; min-width: 0; }
 .msh-chips::-webkit-scrollbar { display: none; }
 .msh-chip {
@@ -7840,6 +7830,7 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msh-trh .msh-i[aria-expanded="true"] { background: none; }
 .msh-trrows { max-height: 45vh; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line-soft); padding: 0 8px 0 12px; }
 .msh-tray .mrow-menu { top: auto; bottom: 46px; }
+.msh-tray.menuing .msh-trrows { max-height: none; overflow: visible; }
 .msh-acts { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; padding: 10px 12px 0; }
 .msh-bal {
   min-height: 50px; margin: 0; border-radius: 11px; border: 1px solid var(--line-firm); background: var(--card); color: var(--ink);
