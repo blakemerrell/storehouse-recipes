@@ -116,6 +116,18 @@
 
   var fmtK = function (n) { return Math.round(n).toLocaleString('en-US'); };
 
+  /* Millilitres beside a cup or a spoon, for eyeballing with a measuring
+     jug: "1 ½ cups · 355 mL". Read off the measure as it is printed
+     (fmtNum's eighths), so the two can never disagree. US cup and spoons. */
+  var ML_PER = { cup: 236.6, cups: 236.6, tbsp: 14.8, tsp: 4.9 };
+  var EIGHTHS = { '⅛': 0.125, '¼': 0.25, '⅜': 0.375, '½': 0.5, '⅝': 0.625, '¾': 0.75, '⅞': 0.875 };
+  function mlOf(measure) {
+    var m = /^(\d+)?\s?([⅛¼⅜½⅝¾⅞])?\s+(cups?|tbsp|tsp)$/.exec(String(measure || ''));
+    if (!m || (!m[1] && !m[2])) return '';
+    var ml = ((m[1] ? Number(m[1]) : 0) + (m[2] ? EIGHTHS[m[2]] : 0)) * ML_PER[m[3]];
+    return (ml >= 50 ? Math.round(ml / 5) * 5 : Math.max(1, Math.round(ml))) + ' mL';
+  }
+
   /* What Balance moved and what the picker just put down, on this meal, if
      the plates are still the plates they were (a sync can reorder them). */
   function marksFor(k, sk, items) {
@@ -300,14 +312,14 @@
     }).join('');
     rows = '<div class="mrows mslot-items">' + (rows || '<div class="mscreen-empty">Nothing on ' + esc(name.toLowerCase()) + ' yet. Tap a food above.</div>') + '</div>';
     return { name: name, head: head, stick: stick, skipped: false, onPlan: M.onPlan, rows: rows,
-      tray: trayHTML(M, mk, rows) };
+      tray: sheetTrayHTML(M, mk, rows) };
   }
 
   /* The tray: shut, the foods as a strip of chips, newest first, each with
      its amount, ↑ or ↓ when the last re-fit moved it and a lock when you set
      it; open, the rows themselves with their dials. Either way Balance and
      Done under them. Shut until asked, so the list keeps the screen. */
-  function trayHTML(M, mk, rows) {
+  function sheetTrayHTML(M, mk, rows) {
     var sk = M.sk, open = !!S.mTrayOpen;
     var live = [];
     M.items.forEach(function (it, i) { if (LIVE.BY_ID[it.id]) live.push(i); });
@@ -552,20 +564,32 @@
           '</button>' + skSend;
       }
 
+      /* Each food in the kitchen's words first and its weight after (Blake,
+         2026-10-05: "If I just want to eyeball it I can... The grams is there
+         for sure if I want to weigh it"): a cup or a spoon with its mL, a
+         count, ounces; a food with no measure but its weight shows that. */
       var lines = items.map(function (it) {
         var r = LIVE.BY_ID[it.id];
         if (!r) return '';
+        var byG = mDialG(r);
+        var kitchen = byG ? mDialMeasure(r, it.x) : mDialText(r, it.x);
+        var weight = byG ? mDialText(r, it.x) : mDialMeasure(r, it.x);
+        if (kitchen === weight) kitchen = '';
+        var ml = mlOf(kitchen);
         return '<span class="mtray-f"><span class="mtray-fn">' + esc(r.name) + '</span>' +
-          '<em class="num">' + esc(mDialText(r, it.x)) + '</em></span>';
+          (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small> &middot; ' + ml + '</small>' : '') + '</span>' : '') +
+          '<em class="num">' + esc(weight) + '</em></span>';
       }).join('');
-      var aimK = M.aim ? Math.round(M.aim.kcal || (4 * M.aim.p + 9 * M.aim.f + 4 * M.aim.c)) : 0;
-      var st = !aimK ? '' : M.sub.kcal > aimK * 1.08 ? ' over' : M.sub.kcal >= aimK * 0.92 ? ' on' : '';
       return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
           M.dot +
           '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
             (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
             '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
-              '<span class="mtray-k num' + st + '"><b>' + fmtK(M.sub.kcal) + '</b>' + (aimK ? ' / ' + fmtK(aimK) : ' kcal') + '</span></span>' +
+              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') + '</span>' +
+            /* The meal's pills, small: what it holds against its share, the
+               way its sheet says it (Blake: "adding back the subtle pills
+               that show me that meal's calories and macros"). */
+            (M.aim && items.length ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
             '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
           '</button>' +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');

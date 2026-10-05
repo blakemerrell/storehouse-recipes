@@ -7677,9 +7677,16 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-k.over b { color: var(--warn); }
 .mtray-k.on b { color: var(--green); }
 .mtray-fs { display: flex; flex-direction: column; }
-.mtray-f { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84375rem; line-height: 1.45; }
-.mtray-fn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mtray-f em { flex: none; font-style: normal; font-size: 0.78125rem; color: var(--note); }
+.mtray-f { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.4em; align-items: baseline; gap: 8px; font-size: 0.84375rem; line-height: 1.45; }
+.mtray-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtray-fm { white-space: nowrap; font-size: 0.8125rem; }
+.mtray-fm b { font-weight: 600; }
+.mtray-fm small { font-size: 0.75rem; color: var(--note); }
+.mtray-f em { grid-column: 3; font-style: normal; font-size: 0.78125rem; color: var(--note); text-align: right; white-space: nowrap; }
+/* the meal's pills, small, under its name */
+.mtray-caps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; margin: 4px 0 6px; }
+.mtray-caps .mcap { padding: 2px 3px; }
+.mtray-caps .mcap-t { font-size: 0.75rem; }
 .mtray.done .mtray-fn { color: var(--label); }
 .mtray-none { color: var(--note); }
 .mtray-skip {
