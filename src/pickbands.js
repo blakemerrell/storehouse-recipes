@@ -40,7 +40,6 @@
   var mViewKey = app.mViewKey;
   var mWideOpen = app.mWideOpen;
   var matchRank = app.matchRank;
-  var mpFitX = app.mpFitX;
   var mpRowHTML = app.mpRowHTML;
   var searchScore = app.searchScore;
   var todayKey = app.todayKey;
@@ -290,7 +289,7 @@
     if (!rows.length) return '';
     rows.forEach(function (r) { shown[r.id] = 1; });
     return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
-      return mpRowHTML(r, mDefaultX(r), undefined, mpFitX(r));
+      return mpRowHTML(r, mDefaultX(r));
     }).join('');
   }
 
@@ -535,13 +534,9 @@
     return '<div class="mt-div mt-div-x">' + (planned ? 'Fits best' : 'On the shelf') +
       mpLensHTML() + '</div>' +
       ranked.map(function (e) {
-      /* Ranked by how well it fits, offered at what you have — the fit
-         itself is the chip beside it. */
-      /* A row a tap already put on the meal is fitted without its own
-         plate (mpFitX); the ranking's figure counts it twice. */
-      return mpRowHTML(e.r, mDefaultX(e.r), undefined,
-        S.mpBasket[e.r.id] !== undefined ? mpFitX(e.r)
-          : e.score !== null && e.score !== undefined ? e.x : null);
+      /* Ranked by how well it fits the day, offered at what a tap puts
+         down: what you have, or what fits this meal (mDefaultX). */
+      return mpRowHTML(e.r, mDefaultX(e.r));
     }).join('');
   }
 
@@ -579,7 +574,7 @@
     });
     if (!out.length) return '';
     return '<div class="mt-div">Recent</div>' + out.map(function (e) {
-      return mpRowHTML(e.r, LIVE.MP_LASTX[e.r.id] || e.x, undefined, mpFitX(e.r));
+      return mpRowHTML(e.r, LIVE.MP_LASTX[e.r.id] || e.x);
     }).join('');
   }
 

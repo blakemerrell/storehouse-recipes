@@ -3153,7 +3153,7 @@
 
   /* src/pickrow.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var PICKROW = window.HiveParts.pickrow({ MDAYS: MDAYS, S: S, fmtNum: fmtNum, keyDate: keyDate, leaf: leaf, mCanFav: mCanFav, mClosesIt: mClosesIt, mDay: mDay, mDialG: mDialG, mDialMeasure: mDialMeasure, mDialText: mDialText, mDayTargets: mDayTargets, mIsFav: mIsFav, mMacLine: mMacLine, mPortionText: mPortionText, mRank: mRank, mReadSlots: mReadSlots, mSaltNote: mSaltNote, mViewKey: mViewKey, todayKey: todayKey, LIVE: LIVE });
+  var PICKROW = window.HiveParts.pickrow({ MDAYS: MDAYS, S: S, fmtNum: fmtNum, keyDate: keyDate, leaf: leaf, mCanFav: mCanFav, mClosesIt: mClosesIt, mDay: mDay, mDialG: mDialG, mDialMeasure: mDialMeasure, mDialText: mDialText, mDayTargets: mDayTargets, mIsFav: mIsFav, mMacLine: mMacLine, mMealFitX: mMealFitX, mPortionText: mPortionText, mRank: mRank, mReadSlots: mReadSlots, mSaltNote: mSaltNote, mViewKey: mViewKey, todayKey: todayKey, LIVE: LIVE });
   function mFamilyIds(k) { return PICKROW.mFamilyIds(k); }
   function mpIcon(k) { return PICKROW.mpIcon(k); }
   function mpRowHTML(r, x, fitText, fitX) { return PICKROW.mpRowHTML(r, x, fitText, fitX); }
@@ -3168,7 +3168,7 @@
 
   /* src/pickbands.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var PICKBANDS = window.HiveParts.pickbands({ BOOKS: BOOKS, MDAYS: MDAYS, S: S, dayKey: dayKey, fmtNum: fmtNum, idOf: idOf, mAllSections: mAllSections, mDay: mDay, mDayTargets: mDayTargets, mDefaultX: mDefaultX, mFamilyIds: mFamilyIds, mGapFresh: mGapFresh, mIsFav: mIsFav, mMacLine: mMacLine, mMealPool: mMealPool, mNever: mNever, mRank: mRank, mReadSlots: mReadSlots, mShelfKey: mShelfKey, mViewKey: mViewKey, mWideOpen: mWideOpen, matchRank: matchRank, mpFitX: mpFitX, mpRowHTML: mpRowHTML, searchScore: searchScore, todayKey: todayKey, LIVE: LIVE });
+  var PICKBANDS = window.HiveParts.pickbands({ BOOKS: BOOKS, MDAYS: MDAYS, S: S, dayKey: dayKey, fmtNum: fmtNum, idOf: idOf, mAllSections: mAllSections, mDay: mDay, mDayTargets: mDayTargets, mDefaultX: mDefaultX, mFamilyIds: mFamilyIds, mGapFresh: mGapFresh, mIsFav: mIsFav, mMacLine: mMacLine, mMealPool: mMealPool, mNever: mNever, mRank: mRank, mReadSlots: mReadSlots, mShelfKey: mShelfKey, mViewKey: mViewKey, mWideOpen: mWideOpen, matchRank: matchRank, mpRowHTML: mpRowHTML, searchScore: searchScore, todayKey: todayKey, LIVE: LIVE });
   function mpQ() { return PICKBANDS.mpQ(); }
   function mpShelvesHTML() { return PICKBANDS.mpShelvesHTML(); }
   function mpMatches(r, qs) { return PICKBANDS.mpMatches(r, qs); }
@@ -3351,6 +3351,7 @@
   function mRebalance() { return BALANCE.mRebalance(); }
   var MX_ALL = BALANCE.MX_ALL;
   var MNA_CAP = BALANCE.MNA_CAP;
+  var MNA_W = BALANCE.MNA_W;
 
   /* src/daycopy.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -3359,8 +3360,9 @@
 
   /* src/mealtools.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var MEALTOOLS = window.HiveParts.mealtools({ MW: MW, fmtNum: fmtNum, kcalOf: kcalOf, keepingFocus: keepingFocus, mBuildFoods: mBuildFoods, mDay: mDay, mDayTargets: mDayTargets, mEditDay: mEditDay, mLadder: mLadder, mMealAsk: mMealAsk, mNewFoodKey: mNewFoodKey, mReadMyFoods: mReadMyFoods, mReadSlots: mReadSlots, mViewKey: mViewKey, mWriteMyFoods: mWriteMyFoods, renderMacros: renderMacros, LIVE: LIVE });
-  function mBalanceMeal(sk) { return MEALTOOLS.mBalanceMeal(sk); }
+  var MEALTOOLS = window.HiveParts.mealtools({ MFOOD_G_MAX: MFOOD_G_MAX, MNA_CAP: MNA_CAP, MNA_W: MNA_W, MW: MW, fmtNum: fmtNum, kcalOf: kcalOf, keepingFocus: keepingFocus, mBuildFoods: mBuildFoods, mDay: mDay, mDayTargets: mDayTargets, mEditDay: mEditDay, mLadder: mLadder, mMealAsk: mMealAsk, mNewFoodKey: mNewFoodKey, mReadMyFoods: mReadMyFoods, mReadSlots: mReadSlots, mViewKey: mViewKey, mWriteMyFoods: mWriteMyFoods, renderMacros: renderMacros, LIVE: LIVE });
+  function mBalanceMeal(sk, opt) { return MEALTOOLS.mBalanceMeal(sk, opt); }
+  function mMealFitX(sk, r) { return MEALTOOLS.mMealFitX(sk, r); }
   function mSaveMeal(sk, name, share) { return MEALTOOLS.mSaveMeal(sk, name, share); }
 
   /* How many "not that one"s it takes before a meal is allowed to look
@@ -5219,6 +5221,26 @@
     }
     function mpFresh(i, id) { var f = {}; f[i] = id; return f; }
 
+    /* The rest of the open meal re-fits around a change (mBalanceMeal), and
+       what moved is remembered so its row can say "was". `hold` is the plate
+       just put down or just set by hand: it stays where it went.
+     *
+       Blake, 2026-10-05, of filling a meal: "This needs to feel like magic"
+       — tap what the pills say is missing and watch them fill, with the
+       amounts dialled for you. Only on the sheet, and only for the meal it
+       is open on: the day's trays have no dials. */
+    function mRefitMeal(k, sk, hold) {
+      if (!S.macroPick || S.macroPick.slot !== sk) return {};
+      var before = (mDay(k)[sk] || []).map(function (it) { return { id: it.id, x: it.x }; });
+      mBalanceMeal(sk, { hold: hold, quiet: true });
+      var after = mDay(k)[sk] || [], was = {};
+      before.forEach(function (b, i) {
+        if (i === hold || !after[i] || String(after[i].id) !== String(b.id)) return;
+        if (Math.abs(after[i].x - b.x) > 1e-9) was[i] = b;
+      });
+      return was;
+    }
+
     $('macroSlots').addEventListener('click', mDayClick);
     /* The meal sheet carries the meal's own controls — its tick, Balance,
        the ⋯ menus and every food's dial — and they mean exactly what they
@@ -5362,17 +5384,17 @@
       var tr = e.target.closest('[data-mtry]');
       if (tr) { S.mMenu = ''; mTryAgain(tr.dataset.mtry); if (S.macroPick) renderModal(); return; }
 
-      /* The scales, remembered: what each plate was, so the card can say
-         what moved and Undo can put it back. */
+      /* Balance: the meal re-fits as a whole, the amounts you set by hand
+         included — they give up their Kept and move with the rest. Each row
+         that moved says what it was; there is no Undo (Blake: "No need for
+         undo. I can simply remove that from my tray"). */
       var bal = e.target.closest('[data-mbal]');
       if (bal) {
         var bk = mViewKey(), bsk = bal.dataset.mbal;
-        var before = (mDay(bk)[bsk] || []).map(function (it) { return { id: it.id, x: it.x }; });
         if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
-        mBalanceMeal(bsk);
-        var was = {};
-        before.forEach(function (b, i) { was[i] = b; });
-        S.mMarks = { k: bk, sk: bsk, was: was, fresh: {}, snap: before };
+        mEditDay(bk, function (day) { (day[bsk] || []).forEach(function (it) { if (!it.eaten) it.l = 0; }); });
+        var bwas = mRefitMeal(bk, bsk);
+        S.mMarks = { k: bk, sk: bsk, was: bwas, fresh: {}, snap: null };
         S.mMenu = '';
         mRedraw();
         return;
@@ -5467,7 +5489,10 @@
           /* Quarter-serving steps land on eighths, so fmtNum always has a
              glyph and never falls back to a decimal. */
           it.x = mDialStep(BY_ID[it.id], it.x, sp[2] === 'up' ? 1 : -1);
+          if (S.macroPick && S.macroPick.slot === sp[0]) it.l = 1;
         });
+        var swas = mRefitMeal(mViewKey(), sp[0], Number(sp[1]));
+        if (S.macroPick && S.macroPick.slot === sp[0]) S.mMarks = { k: mViewKey(), sk: sp[0], was: swas, fresh: {}, snap: null };
         mRedraw();
         return;
       }
@@ -5530,6 +5555,8 @@
           (day[dp[0]] || []).splice(Number(dp[1]), 1);
         });
         mpForget(dp[0], Number(dp[1]));
+        var dwas = mRefitMeal(mViewKey(), dp[0]);
+        if (S.macroPick && S.macroPick.slot === dp[0]) S.mMarks = { k: mViewKey(), sk: dp[0], was: dwas, fresh: {}, snap: null };
         mRedraw();
         return;
       }
@@ -5567,10 +5594,15 @@
       var lk = e.target.closest('[data-mlock]');
       if (lk) {
         var lp = lk.dataset.mlock.split(':');
+        var freed = false;
         mEditDay(mViewKey(), function (day) {
           var it = (day[lp[0]] || [])[Number(lp[1])];
-          if (it) it.l = it.l ? 0 : 1;
+          if (it) { it.l = it.l ? 0 : 1; freed = !it.l; }
         });
+        if (freed) {
+          var lwas = mRefitMeal(mViewKey(), lp[0]);
+          if (S.macroPick && S.macroPick.slot === lp[0]) S.mMarks = { k: mViewKey(), sk: lp[0], was: lwas, fresh: {}, snap: null };
+        }
         S.mMenu = '';
         mRedraw();
       }
@@ -5586,6 +5618,7 @@
       if (!box || !box.dataset.mtypein) return;
       var sp = box.dataset.mtypein.split(':');
       var typed = parseFloat(String(box.value).replace(/[^0-9.]/g, ''));
+      var typedOk = false;
       S.mType = null;
       mEditDay(mViewKey(), function (day) {
         var it = (day[sp[0]] || [])[Number(sp[1])];
@@ -5594,8 +5627,12 @@
         /* Nonsense is not a portion. An empty box, a stray letter or a nought
            leaves the plate exactly as it was rather than writing a zero and
            quietly taking the food off the day's arithmetic. */
-        if (nx !== null) it.x = nx;
+        if (nx !== null) { it.x = nx; if (S.macroPick && S.macroPick.slot === sp[0]) it.l = 1; typedOk = true; }
       });
+      if (typedOk) {
+        var twas = mRefitMeal(mViewKey(), sp[0], Number(sp[1]));
+        if (S.macroPick && S.macroPick.slot === sp[0]) S.mMarks = { k: mViewKey(), sk: sp[0], was: twas, fresh: {}, snap: null };
+      }
       S.mEdit = null;
       mRedraw();
     }
@@ -6694,7 +6731,7 @@
           });
           S.mpBasket[nid] = 1;
           S.mpAt[nid] = nat;
-          S.mMarks = { k: nk, sk: nsk, was: {}, fresh: mpFresh(nat, nid), snap: null };
+          S.mMarks = { k: nk, sk: nsk, was: mRefitMeal(nk, nsk, nat), fresh: mpFresh(nat, nid), snap: null };
           S.newFood = null;
           S.mpMode = 'home';
           renderMacros();
@@ -6713,26 +6750,23 @@
       }
 
       /* Onto the meal, in one tap (Blake, 2026-10-04: no basket, no "Add N").
-         The row adds what you had last time, the Fits chip the amount that
-         fits; either one pressed again takes the plate it put down back off,
-         so a mis-tap costs a tap. With a plate marked for Swap, what you tap
-         takes its place instead. */
-      var mpfx = e.target.closest('[data-mpfit]');
-      var mp = !mpfx && e.target.closest('[data-mpick]');
-      if ((mpfx || mp) && S.macroPick) {
-        var pel = mpfx || mp;
-        var pid = idOf(pel.dataset.mpfit || pel.dataset.mpick), px = Number(pel.dataset.mpx) || 1;
+         The row adds your usual amount, or what fits when you have never had
+         it (mDefaultX); pressed again it takes the plate back off, so a
+         mis-tap costs a tap. With a plate marked for Swap, what you tap takes
+         its place instead. Either way the rest of the meal re-fits around it
+         (mRefitMeal), the plate just put down held where it went — the Fits
+         chip that used to sit beside the row is what every tap does now. */
+      var mp = e.target.closest('[data-mpick]');
+      if (mp && S.macroPick) {
+        var pel = mp;
+        var pid = idOf(pel.dataset.mpick), px = Number(pel.dataset.mpx) || 1;
         var pk = mViewKey(), psk = S.macroPick.slot, held = S.mpBasket[pid];
         var pat = mpPlateAt(pk, psk, pid);
-        if (held !== undefined && pat >= 0 && (mp || Math.abs(held - px) < 1e-6)) {
+        if (held !== undefined && pat >= 0) {
           mEditDay(pk, function (day) { (day[psk] || []).splice(pat, 1); });
           mpForget(psk, pat);
           delete S.mpBasket[pid];
-        } else if (held !== undefined && pat >= 0) {
-          // the Fits chip on a food already put down moves it to that amount
-          mEditDay(pk, function (day) { var it2 = (day[psk] || [])[pat]; if (it2) it2.x = px; });
-          S.mpBasket[pid] = px;
-          S.mMarks = { k: pk, sk: psk, was: {}, fresh: mpFresh(pat, pid), snap: null };
+          S.mMarks = { k: pk, sk: psk, was: mRefitMeal(pk, psk), fresh: {}, snap: null };
         } else {
           var pate = mAddsEaten(pk, psk), swap = S.mpSwap && S.mpSwap.slot === psk ? S.mpSwap : null, at2 = -1;
           mEditDay(pk, function (day) {
@@ -6746,7 +6780,7 @@
           S.mpSwap = null;
           S.mpBasket[pid] = px;
           S.mpAt[pid] = at2;
-          S.mMarks = { k: pk, sk: psk, was: {}, fresh: mpFresh(at2, pid), snap: null };
+          S.mMarks = { k: pk, sk: psk, was: mRefitMeal(pk, psk, at2), fresh: mpFresh(at2, pid), snap: null };
         }
         if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
         /* The list stays where you were reading it. The scroll position is

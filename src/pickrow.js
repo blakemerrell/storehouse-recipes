@@ -1,9 +1,9 @@
 /* A row in the food picker, and what a tap on it adds: what the household
  * is cooking today (mFamilyIds); the icons for the three ways to name a
  * food (mpIcon); one row, wherever it is listed (mpRowHTML); the amount
- * that fits, as a chip and in words (mFitWords); what you logged last time
- * and the amount a row starts at (mpLastXs, mDefaultX); and the portion
- * that fits the meal being filled (mpFitX). The longer account is with the
+ * that fits, in words (mFitWords); what you logged last time and the amount
+ * a tap puts down (mpLastXs, mDefaultX); and the portion that fits the meal
+ * being filled (mpFitX). The longer account is with the
  * code.
  *
  * A part of app.js (Nourish) in a file of its own. app.js calls
@@ -31,6 +31,7 @@
   var mDayTargets = app.mDayTargets;
   var mIsFav = app.mIsFav;
   var mMacLine = app.mMacLine;
+  var mMealFitX = app.mMealFitX;
   var mPortionText = app.mPortionText;
   var mRank = app.mRank;
   var mReadSlots = app.mReadSlots;
@@ -88,20 +89,13 @@
      list all offer the same thing — a dish at a portion — so they offer it
      in the same shape, and the shape knows whether it is already in the
      basket. */
-  /* `x` is what a tap on the row adds — what you had last time, or one
-     serving — and `fitX`, when there is one, is what would fit this meal,
-     offered beside it as a chip rather than as the row's own amount.
-   *
-     The row used to carry the fit, which is the solver's answer to "what
-     would land this meal" and not what anybody eats: a tap logged 1⅜ eggs
-     or 140 g of oats because that is where the arithmetic came out, and the
-     portion you actually have every morning had to be dialled back in by
-     hand every morning. Blake: "Default to what you had last time (else 1
-     serving); 'fits the meal' becomes a one-tap chip beside it." */
-  function mpRowHTML(r, x, fitText, fitX) {
+  /* `x` is what a tap on the row adds (mDefaultX: what you had last time,
+     else what fits). There was a Fits chip beside it for the other amount;
+     it went when every tap began re-fitting the meal around what it put
+     down, because that is the job the chip did. */
+  function mpRowHTML(r, x, fitText) {
     var inB = S.mpBasket[r.id] !== undefined;
     var inB2 = mIsFav(r);
-    var own = x;
     if (inB) x = S.mpBasket[r.id];
     /* A food says its amount in the plate's own words. "×4 0.5 cup (113 g)"
        was the label's serving with a count in front of it — the two numbers
@@ -135,27 +129,12 @@
       /* The star is a control here, not a badge. Finding a thing once and
          having to find it again tomorrow is the whole reason to keep one. */
       '<span class="mp-side no-print">' +
-        mpFitChip(r, fitX, own) +
         (!mCanFav(r) ? '' :
           '<button class="mp-star" data-mpfav="' + esc(String(r.id)) + '" aria-pressed="' +
             (inB2 ? 'true' : 'false') + '" aria-label="' +
             (inB2 ? 'Remove from favorites' : 'Keep as a favorite') + '">&#9733;</button>') +
       '</span>' +
     '</div>';
-  }
-
-  /* The fitting amount as a chip. Nothing when it would say the same as the
-     row, or when there is no plan to fit against. Pressed while the basket
-     holds exactly that amount, and pressing it then takes it back out — the
-     same bargain the row's own tap makes. */
-  function mpFitChip(r, fitX, own) {
-    if (!(fitX > 0) || Math.abs(fitX - (Number(own) || 0)) < 1e-6) return '';
-    var inB = S.mpBasket[r.id] !== undefined && Math.abs(S.mpBasket[r.id] - fitX) < 1e-6;
-    var said = mFitWords(r, fitX);
-    return '<button class="mp-fitx" data-mpfit="' + esc(String(r.id)) + '" data-mpx="' + fitX +
-      '" aria-pressed="' + (inB ? 'true' : 'false') + '" aria-label="' +
-      (inB ? 'Take off the amount that fits, ' : 'Add the amount that fits this meal, ') +
-      esc(said) + '"><span>Fits: ' + esc(said) + '</span></button>';
   }
 
   /* The chip's amount, as short as it can be said: grams for anything with
@@ -179,9 +158,23 @@
     });
     return out;
   }
+  /* What a tap puts down: what you had last time, and for a food you have
+     never logged, the amount that fits this meal (else one serving).
+   *
+     Blake asked for last time's amount first — the fit gave 1⅜ eggs and
+     140 g of oats, and the usual portion had to be dialled back in every
+     morning — and then, on 2026-10-05, for a tap that adds what fits. Both
+     hold: a food you have an amount for keeps it, a new one comes in sized
+     to the gap, and either way the rest of the meal re-fits around it
+     (mRefitMeal), which is what the Fits chip beside the row used to ask
+     you to do by hand. "Sized to the gap" is the meal's own judge
+     (mMealFitX), not the picker's ranking fit, which measures room in the
+     whole day. */
   function mDefaultX(r) {
     var v = r ? LIVE.MP_LASTX[r.id] : 0;
-    return v > 0 ? v : 1;
+    if (v > 0) return v;
+    var f = S.macroPick ? mMealFitX(S.macroPick.slot, r) : mpFitX(r);
+    return f > 0 ? f : 1;
   }
 
   /* The portion that would fit the meal the sheet is filling, by the same

@@ -12,6 +12,9 @@
   'use strict';
 
   // what it reads of the app's, and (LIVE) what the app replaces as it goes: BY_ID
+  var MFOOD_G_MAX = app.MFOOD_G_MAX;
+  var MNA_CAP = app.MNA_CAP;
+  var MNA_W = app.MNA_W;
   var MW = app.MW;
   var fmtNum = app.fmtNum;
   var kcalOf = app.kcalOf;
@@ -37,15 +40,105 @@
      after putting chicken, rice and broccoli on a plate: how much of each.
      Same weights the picker fits with, same eighth-of-a-portion steps, and
      the same two exemptions — what you have eaten and what you have locked
-     are not the machine's to move. */
-  function mBalanceMeal(sk) {
+     are not the machine's to move.
+   *
+     It is not only the button any more. Blake, 2026-10-05: "This needs to
+     feel like magic... I see my protein is full with my egg whites. But I
+     need some fat so I'm going to add some cheese... and eventually I'm going
+     to have this perfect planned meal." So the sheet runs this after every
+     change (mRefitMeal in app.js), with one food on the plate as well as
+     several, and hands it the plate it just put down or set as `hold`: that
+     one stays exactly where it went, and the rest re-fit around it.
+   *
+     Three ceilings came with that, and none of them is new to the app:
+     a single food stops at a plateful (MFOOD_G_MAX, what the picker and the
+     day's Rebalance already stop at; with no top, salsa was walked to four
+     and a half cups to find carbohydrate); the meal does not run more than
+     MKCAL_OVER past its calories to chase a macro ("calories win" when the
+     plate cannot hit both); and salt is priced against the day's ceiling the
+     way mBalanceDay prices it, MNA_W, so it stops a pile of salsa and never
+     starves a meal of its protein (Blake: "Bend is fine"). */
+  var MKCAL_OVER = 1.03;
+
+  /* How far one meal's plates sit from its share T, as one number: the
+     picker's weights on protein, fat and carbohydrate (MW), the calorie
+     guard, and the day's salt. `extra` is a plate not on the day yet, so a
+     food can be sized before it is put down (mMealFitX). */
+  function judge(day, sk, T) {
+    var K = kcalOf(T);
+    // the salt the rest of the day already carries, which this meal adds to
+    var naElse = 0;
+    Object.keys(day).forEach(function (s2) {
+      if (s2 === sk) return;
+      (day[s2] || []).forEach(function (it) {
+        var r = LIVE.BY_ID[it.id];
+        if (r && r.macro) naElse += (r.macro.na || 0) * it.x;
+      });
+    });
+    return function (extra) {
+      var got = { p: 0, f: 0, c: 0, kcal: 0, na: 0 };
+      var add = function (r, x) {
+        if (!r || !r.macro) return;
+        got.p += (r.macro.p || 0) * x; got.f += (r.macro.f || 0) * x; got.c += (r.macro.c || 0) * x;
+        got.kcal += (r.macro.kcal || 0) * x; got.na += (r.macro.na || 0) * x;
+      };
+      (day[sk] || []).forEach(function (it) { add(LIVE.BY_ID[it.id], it.x); });
+      if (extra) add(extra.r, extra.x);
+      var sum = 0;
+      ['p', 'f', 'c'].forEach(function (m) {
+        var D = Math.max(1, T[m]);
+        sum += MW[m][0] * Math.max(0, T[m] - got[m]) / D;
+        sum += MW[m][1] * Math.max(0, got[m] - T[m]) / D;
+      });
+      if (K > 0) sum += 2 * Math.max(0, got.kcal - K * MKCAL_OVER) / K;
+      sum += MNA_W * Math.max(0, naElse + got.na - MNA_CAP) / MNA_CAP;
+      return sum;
+    };
+  }
+
+  /* The same per-plate ladder mBalanceDay uses — see mLadder — up to a
+     plateful for a food; `keep`, where it already sits, stays allowed, so a
+     portion typed past the plateful is never forced down for being one. */
+  function rungsFor(rf, x, keep) {
+    var rungs = mLadder(rf, x);
+    if (rf && rf.food && rf.grams) {
+      var gX = MFOOD_G_MAX / rf.grams;
+      rungs = rungs.filter(function (v) { return v <= gX + 1e-9 || v === keep; });
+    }
+    return rungs;
+  }
+
+  /* What a food you have never logged goes on at: the amount of it that
+     brings this meal closest to its share by the same judge the re-fit uses.
+     The picker's own fit (mpFitX) answers a different question — room left
+     in the DAY — and at lunch it offered a cup and a half of cheddar,
+     because the day still had the fat for it. Null when no amount helps. */
+  function mMealFitX(sk, r) {
+    if (!r || !r.macro) return null;
+    var k = mViewKey();
+    var ask = mMealAsk(sk, mDayTargets(k), mReadSlots());
+    if (!ask) return null;
+    var sh = ask.now || ask.plan;
+    if (!sh) return null;
+    var pen = judge(mDay(k), sk, { p: sh.p, f: sh.f, c: sh.c });
+    var base = pen(), best = base, bx = null;
+    rungsFor(r, 1).forEach(function (v) {
+      var e = pen({ r: r, x: v });
+      if (e < best - 1e-9) { best = e; bx = v; }
+    });
+    return bx;
+  }
+
+  function mBalanceMeal(sk, opt) {
+    opt = opt || {};
     var k = mViewKey();
     var targets = mDayTargets(k);
     var slots = mReadSlots();
     mEditDay(k, function (day) {
+      var held = opt.hold !== undefined ? (day[sk] || [])[opt.hold] : null;
       var free = (day[sk] || []).filter(function (it) {
         var r = LIVE.BY_ID[it.id];
-        return !it.eaten && !it.l && r && r.macro && r.macro.kcal > 0;
+        return it !== held && !it.eaten && !it.l && r && r.macro && r.macro.kcal > 0;
       });
       if (!free.length) return;
       /* The meal's FULL share of the day, not what is left of the day after
@@ -79,30 +172,12 @@
       var ask = mMealAsk(sk, targets, slots);
       if (!ask) return;
       var sh = ask.now;
-      var T = { p: sh.p, f: sh.f, c: sh.c };
-      var pen = function () {
-        var got = { p: 0, f: 0, c: 0 };
-        (day[sk] || []).forEach(function (it) {
-          var r = LIVE.BY_ID[it.id];
-          if (!r || !r.macro) return;
-          got.p += (r.macro.p || 0) * it.x;
-          got.f += (r.macro.f || 0) * it.x;
-          got.c += (r.macro.c || 0) * it.x;
-        });
-        var sum = 0;
-        ['p', 'f', 'c'].forEach(function (m) {
-          var D = Math.max(1, T[m]);
-          sum += MW[m][0] * Math.max(0, T[m] - got[m]) / D;
-          sum += MW[m][1] * Math.max(0, got[m] - T[m]) / D;
-        });
-        return sum;
-      };
-      for (var pass = 0; pass < 4; pass++) {
+      var pen = judge(day, sk, { p: sh.p, f: sh.f, c: sh.c });
+      for (var pass = 0; pass < 8; pass++) {
         var moved = false;
         free.forEach(function (it) {
           var was = it.x, best = it.x, bestPen = pen();
-          /* The same per-plate ladder mBalanceDay uses — see mLadder. */
-          var rungs = mLadder(LIVE.BY_ID[it.id], it.x);
+          var rungs = rungsFor(LIVE.BY_ID[it.id], it.x, was);
           for (var i = 0; i < rungs.length; i++) {
             it.x = rungs[i];
             var pv = pen();
@@ -114,7 +189,7 @@
         if (!moved) break;
       }
     });
-    keepingFocus(renderMacros);
+    if (!opt.quiet) keepingFocus(renderMacros);
   }
 
   /* Everything on one meal, kept as one thing.
@@ -178,5 +253,5 @@
     return 'f:my:' + key;
   }
 
-  return { mBalanceMeal: mBalanceMeal, mSaveMeal: mSaveMeal };
+  return { mBalanceMeal: mBalanceMeal, mMealFitX: mMealFitX, mSaveMeal: mSaveMeal };
 };
