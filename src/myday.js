@@ -149,7 +149,7 @@
   function capsHTML(sub, aim, spent, capped) {
     if (!aim) return '';
     spent = spent || {};
-    return [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
+    var c = [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
       /* A macro the day can no longer pay for says so: a dashed pill and the
          figure on the plate (or a dash), never "N/0" — the old day pills'
          rule (mMealPillsHTML), kept for the sheet. */
@@ -168,7 +168,12 @@
       return '<span class="mcap ' + cls + '" data-want="' + Math.round(a) + '"' +
         (capped && x[0] === 'kcal' ? ' title="The most this meal can be asked for"' : '') + '><span class="mcap-fl" style="width:' + pct.toFixed(1) + '%"></span>' +
         '<span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' + fmtK(have) + '<em>/' + fmtK(a) + '</em></span></span>';
-    }).join('');
+    });
+    /* In twos, so that when the sheet's row has to break (a big meal, a
+       narrow phone) it breaks into two and two rather than leaving carbs
+       alone on a line of its own; the day's trays lay the four out on their
+       own grid and never see the pairs. */
+    return '<span class="mcaps-two">' + c[0] + c[1] + '</span><span class="mcaps-two">' + c[2] + c[3] + '</span>';
   }
 
   /* Everything the tray and the sheet say about one meal, worked out once. */

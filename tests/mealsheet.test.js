@@ -238,6 +238,43 @@ module.exports = {
     }
     t.ok('a scoop steps a quarter at a time and says it in grams, the scoop in the small print', !!whey && whey.val === '24 g' && whey.m === '¾ scoop', JSON.stringify(whey));
 
+    /* ---- the pills hold their numbers on the narrowest phone ----
+       Four equal pills cut the target short at 320 px — "581/89" for 581 of
+       898, a number that is not there — and on a big meal on any phone. A
+       pill takes the room its numbers need; an ordinary meal stays one row,
+       and a big one breaks two and two rather than lose a digit. */
+    const pillsAt320 = async (targets, foods) => {
+      const q = await t.fresh({ viewport: { width: 320, height: 640 }, hasTouch: true, isMobile: true });
+      await q.evaluate(([tg, fs]) => {
+        localStorage.setItem('bsc.macroTargets', JSON.stringify(tg));
+        const d = new Date(), p2 = (n) => (n < 10 ? '0' : '') + n;
+        const k = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+        localStorage.setItem('bsc.macroDays', JSON.stringify({ [k]: { d: fs.map(([id, x]) => ({ id: 'f:' + id, x: x, eaten: 0 })) } }));
+      }, [targets, foods]);
+      await q.reload();
+      await q.waitForTimeout(500);
+      await q.click('.tab[data-view="macros"]');
+      await q.waitForTimeout(400);
+      await q.click('[data-mopen="d"]');
+      await q.waitForTimeout(400);
+      const out = await q.evaluate(() => {
+        const caps = [...document.querySelectorAll('#modalRoot .msh-top .mcap')];
+        const R = (e) => e.getBoundingClientRect();
+        return { n: caps.length, rows: new Set(caps.map((c) => Math.round(R(c).top))).size,
+          cut: caps.filter((c) => { const tx = R(c.querySelector('.mcap-t')); return tx.left < R(c).left || tx.right > R(c).right; })
+            .map((c) => c.textContent),
+          said: caps.map((c) => c.textContent), wide: document.documentElement.scrollWidth > innerWidth };
+      });
+      await q.context().close();
+      return out;
+    };
+    const usual = await pillsAt320({ p: 190, f: 70, c: 230 }, [['egg_white', 3], ['cheddar', 0.25], ['banana', 1]]);
+    t.ok('at 320 an ordinary meal’s four pills say every digit, on one row', usual.n === 4 && usual.cut.length === 0 && usual.rows === 1 && !usual.wide,
+      JSON.stringify(usual));
+    const big = await pillsAt320({ p: 250, f: 110, c: 400 }, [['egg_white', 6], ['cheddar', 1], ['banana', 3], ['oats', 2]]);
+    t.ok('and a big meal’s break two and two rather than lose one', big.n === 4 && big.cut.length === 0 && big.rows === 2 && !big.wide,
+      JSON.stringify(big));
+
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
   },
 };

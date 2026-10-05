@@ -7612,8 +7612,27 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   .mcard-line { min-height: 0; }
 }
 
-/* the meal's four pills and its one line, in the meal sheet */
-.mcaps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 6px; }
+/* The meal's four pills in its sheet: four to a row, the calories a little
+   wider, each its share of the row, so they hold still while the numbers
+   change under them as you add. But never narrower than what they say. Four
+   equal pills cut the target short at 320 px ("581/89" for 581 of 898, a
+   number that is not there), and on a big meal on any phone (2,116 of 1,396
+   wanted 91 px at 375 and had 85), so a pill takes the room its numbers
+   need and the row breaks, two and two, before a digit is lost.
+ *
+   How the widths stay exact: the pairs share the row 2.3 to 2, each starting
+   one gap wide so the gap inside it is the pair's to give and not its pills';
+   inside, a grid splits what is left, padding and all. Protein, fat and carbs
+   come out exactly as wide as each other (macros-meal measures it to the
+   tenth of a pixel) and the calories 1.3 of them, as the one grid they
+   replaced had it, until a pill's numbers need more. */
+.mcaps { --cap-gap: 6px; display: flex; flex-wrap: wrap; gap: var(--cap-gap); }
+.mcaps-two {
+  display: grid; grid-template-columns: minmax(min-content, 1fr) minmax(min-content, 1fr); gap: var(--cap-gap);
+  flex: 2 1 var(--cap-gap); min-width: min-content;
+}
+.mcaps-two:first-child { flex-grow: 2.3; grid-template-columns: minmax(min-content, 1.3fr) minmax(min-content, 1fr); }
+.mtray-caps .mcaps-two { display: contents; }
 .mcap { position: relative; border-radius: 999px; overflow: hidden; border: 1px solid var(--line-firm); background: var(--card); padding: 7px 6px; text-align: center; white-space: nowrap; }
 .mcap-fl { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ochre-soft); }
 .mcap.on .mcap-fl { background: var(--tint-green, var(--paper-soft)); } .mcap.over .mcap-fl { background: var(--danger-wash, var(--ochre-soft)); }
@@ -7724,6 +7743,11 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msh-i:hover, .msh-i[aria-expanded="true"] { background: var(--hint); }
 .msh-i:disabled { opacity: 0.35; cursor: default; }
 .msheet .mcaps { padding: 2px 4px 0; }
+/* A 320 phone's ordinary meal (581 of 898) wants 275 px of a 276 px row, so
+   the gaps give back the few pixels that keep it one row rather than two. */
+@media (max-width: 360px) {
+  .msheet .mcaps { padding: 2px 2px 0; --cap-gap: 4px; }
+}
 .msheet .mcap { padding: 5px 4px; }
 
 /* a ⋯ opens a small list, over what is under it */
