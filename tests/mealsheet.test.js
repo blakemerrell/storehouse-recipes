@@ -275,6 +275,41 @@ module.exports = {
     t.ok('and a big meal’s break two and two rather than lose one', big.n === 4 && big.cut.length === 0 && big.rows === 2 && !big.wide,
       JSON.stringify(big));
 
+    /* ---- a meal the day has nothing left for ----
+       Blake, 2026-10-06, of an evening snack after a day over its calories:
+       "Remove the text 'none left' from in the pills." A narrow pill cut it
+       to "none l". The dash and a dashed edge say it now, on the day's tray
+       as in the sheet, and only a screen reader hears the words. */
+    const sp = await t.fresh({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await sp.clock.setFixedTime(new Date(2026, 9, 6, 19, 30, 0));
+    await sp.reload();
+    await sp.waitForTimeout(600);
+    await sp.evaluate(() => {
+      localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 70, c: 230 }));
+      localStorage.setItem('bsc.macroSlots', JSON.stringify({ list: [{ k: 'b', n: 'Breakfast', t: 'b' }, { k: 'l', n: 'Lunch', t: 'l' },
+        { k: 'd', n: 'Dinner', t: 'd' }, { k: 'e', n: 'Evening Snack', t: 's' }], names: { b: 'Breakfast', l: 'Lunch', d: 'Dinner', e: 'Evening Snack' } }));
+      const f = (k, x) => ({ id: 'f:' + k, x: x, eaten: 1 });
+      localStorage.setItem('bsc.macroDays', JSON.stringify({ '2026-10-06': { b: [f('greek_yogurt', 3), f('oats', 3)],
+        l: [f('chicken_breast', 4), f('rice_cooked', 3)], d: [f('ground_beef', 4), f('potato', 4), f('peanut_butter', 4)], e: [] } }));
+    });
+    await sp.reload();
+    await sp.waitForTimeout(800);
+    await sp.click('.tab[data-view="macros"]');
+    await sp.waitForTimeout(500);
+    const spentPills = (scope) => sp.evaluate((sel) => [...document.querySelectorAll(sel + ' .mcap.spent')].map((c) => {
+      const t2 = c.querySelector('.mcap-t'), hid = c.querySelector('.vis-hidden');
+      const shown = [...t2.childNodes].filter((n) => !(n.classList && n.classList.contains('vis-hidden'))).map((n) => n.textContent).join('');
+      return { shown: shown, heard: hid ? hid.textContent.trim() : '', dashed: getComputedStyle(c).borderTopStyle === 'dashed' };
+    }), scope);
+    const onTray = await spentPills('.mtray:has([data-mopen="e"]) .mtray-caps');
+    await sp.click('[data-mopen="e"]');
+    await sp.waitForTimeout(400);
+    const onSheet = await spentPills('#modalRoot .msh-top');
+    const quiet = (a) => a.length === 4 && a.every((x) => !/none|left/i.test(x.shown) && /—$/.test(x.shown) && x.heard === 'none left' && x.dashed);
+    t.ok('a meal with nothing left shows a dash in a dashed pill on its tray, no words', quiet(onTray), JSON.stringify(onTray));
+    t.ok('and the same in its sheet, the words kept for a screen reader', quiet(onSheet), JSON.stringify(onSheet));
+    await sp.context().close();
+
     t.ok('no page errors', errs.length === 0, errs.join(' | '));
   },
 };
