@@ -16,10 +16,11 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { fixDates, keep } = require('./pdf-file.js');
+const { fixDates, keep, hash, pageTextHash } = require('./pdf-file.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'print', 'Storehouse-Handout.pdf');
+const STAMP = path.join(ROOT, 'print', 'Storehouse-Handout.json');
 
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -72,6 +73,17 @@ function serve() {
   /* Dated and written like the books: the same sheet is the same file, and
      an unchanged one is not written again. tools/pdf-file.js says why. */
   const wrote = keep(OUT, fixDates(await page.pdf({ width: '8.5in', height: '11in', printBackground: true })));
+
+  /* What the sheet said when it was photographed, and which file that made.
+     tests/share.test.js used to hold the PDF's commit time against the
+     recipes', and that cannot be met by a recipe change the sheet does not
+     show: the meatloaf losing its vinegar re-rendered the handout byte for
+     byte, git had nothing new to commit, and the check failed with nothing
+     left to do. The question was always whether the sheet a reader would
+     print today is the one in the file, so the test now asks that: it reads
+     the page again and compares against this. */
+  const stamp = JSON.stringify({ sheet: await pageTextHash(page, '.sheet'), pdf: hash(fs.readFileSync(OUT)) }, null, 2) + '\n';
+  if (!fs.existsSync(STAMP) || fs.readFileSync(STAMP, 'utf8') !== stamp) fs.writeFileSync(STAMP, stamp);
   await browser.close();
   srv.close();
 

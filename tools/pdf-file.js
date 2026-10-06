@@ -80,4 +80,18 @@ function keep(file, buf) {
   return true;
 }
 
-module.exports = { DATE, pdfDate, fixDates, fixDocDates, keep };
+/* What a rendered page says, as a short hash, for a stamp kept beside the
+   PDF made of it. The text of the elements `sel` finds, read in the page so it
+   is what a reader meets (counts filled in at render time included), with its
+   whitespace collapsed so the minified copy of a page in _site/ hashes the
+   same as the repository's. tools/print-handout.js writes it and
+   tests/share.test.js reads the page again and compares. */
+function hash(buf) {
+  return require('crypto').createHash('sha1').update(buf).digest('hex').slice(0, 12);
+}
+async function pageTextHash(page, sel) {
+  return hash(await page.evaluate((s) => [...document.querySelectorAll(s)]
+    .map((e) => e.textContent).join(' ').replace(/\s+/g, ' ').trim(), sel));
+}
+
+module.exports = { DATE, pdfDate, fixDates, fixDocDates, keep, hash, pageTextHash };
