@@ -186,27 +186,25 @@ module.exports = {
           said.length >= 2 && said.every((x) => x === real),
           said.join(', ') + ' printed, ' + real + ' recipes');
 
-        /* When each last changed: the commit time of a file committed as it
-           stands, the file's own time when it has local edits. File times
-           alone failed after every fresh checkout or pull, which writes the
-           recipes after the handout that was rendered from them. */
-        const changedAt = (abs) => {
-          try {
-            const rel = path.relative(root, abs);
-            const git = (a) => require('child_process').execFileSync('git', a, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-            if (!git(['status', '--porcelain', '--', rel])) {
-              const at = git(['log', '-1', '--format=%ct', '--', rel]);
-              if (at) return Number(at) * 1000;
-            }
-          } catch (e) { /* not a git checkout: the file's own time */ }
-          return fs.statSync(abs).mtimeMs;
-        };
-        const built = changedAt(pdf);
-        const data = changedAt(path.join(root, 'data', 'recipes.js'));
-        t.ok('and it was rendered no earlier than the recipes it draws from',
-          built >= data - 1000,
-          'handout built ' + new Date(built).toISOString() + ', recipes ' +
-          new Date(data).toISOString() + ' — run npm run handout');
+        /* Whether the sheet in the file is the sheet the page sets today.
+           This was the commit time of the PDF held against the recipes',
+           which a fresh checkout could not spoil but a recipe change the sheet
+           does not show could: the meatloaf's glaze changed, the handout came
+           out of `npm run handout` byte for byte the same, git had nothing to
+           commit, and this failed with nothing left to do. So it asks the
+           question directly. tools/print-handout.js stamps the text it
+           photographed and the file that made; here the page is read again,
+           and both have to agree — a recipe on the sheet changing, the count
+           moving, or the PDF swapped without the stamp. */
+        const { hash, pageTextHash } = require(path.join(root, 'tools', 'pdf-file.js'));
+        const stampFile = path.join(root, 'print', 'Storehouse-Handout.json');
+        let stamp = {};
+        try { stamp = JSON.parse(fs.readFileSync(stampFile, 'utf8')); } catch (e) { /* reported below */ }
+        const now = await pageTextHash(p, '.sheet');
+        const file = hash(fs.readFileSync(pdf));
+        t.ok('and it is the sheet the page sets today, from the recipes as they stand',
+          stamp.sheet === now && stamp.pdf === file,
+          'stamp ' + JSON.stringify(stamp) + ', page ' + now + ', file ' + file + ' — run npm run handout');
       }
     }
 

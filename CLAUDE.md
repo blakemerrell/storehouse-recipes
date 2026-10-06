@@ -101,10 +101,10 @@ Nutrition comes from `tools/food-db.js`, parsed by `tools/parse-lib.js`, scored 
 `tools/score-lib.js`. `npm run build` regenerates `data/recipes.js`, `data/nutrition.js` and
 `AUDIT.md`: **never edit those three by hand**. A recipe change also needs `npm run print`, or
 `tests/pdfs.test.js` fails because `print/*.pdf` is behind, and `npm run handout`, or
-`tests/share.test.js` fails because the handout is older than the recipes it was drawn from,
+`tests/share.test.js` fails because the sheet the page sets no longer matches the stamped PDF,
 and `node tools/build-demo.js`, or `tests/welcome.test.js` fails because the landing page's demo
 frames were taken of an older build. Run them in that order (the demo photographs the PDFs).
-The PDFs are judged by commit time, so commit them with (or after) the data.
+Commit the PDFs and their stamps (`print/Storehouse-Handout.json`, `welcome/demo/stamp.json`) with the data.
 
 ### Storage and sync
 

@@ -171,28 +171,50 @@ module.exports = nourish({
     /* The door is the tray: the name, its calories against its share, and
        the foods it holds. It does not reach the tray's left edge and should
        not: the dot lives out there, and pressing the dot marks the meal
-       eaten. */
+       eaten.
+     *
+       Since 2026-10-06 it holds the name and the pills, and reaches over the
+       foods rather than containing them: a recipe's line became a door to
+       the recipe (tests/doors.test.js), and a button cannot sit inside
+       another. So a food's line is asked where a press on it lands. */
     t.ok('and the door is the tray, carrying the meal’s name, its calories and its foods',
       await fold.evaluate(() => {
         const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
         if (!b) return false;
-        const row = b.closest('.mtray').getBoundingClientRect();
+        const tray = b.closest('.mtray');
+        const row = tray.getBoundingClientRect();
         const r = b.getBoundingClientRect();
+        const foods = [...tray.querySelectorAll('.mtray-f:not(.mtray-go)')];
         return r.width >= row.width * 0.7 && !!b.querySelector('.mtray-n') &&
-          !!b.querySelector('.mtray-caps') && b.querySelectorAll('.mtray-f').length > 0;
+          !!b.querySelector('.mtray-caps') && tray.querySelectorAll('.mtray-f').length > 0 &&
+          foods.every((f) => {
+            const g = f.getBoundingClientRect();
+            const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+            return !!hit && hit.closest('[data-mopen]') === b;
+          });
       }),
       await fold.evaluate(() => {
         const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
-        const row = b.closest('.mtray').getBoundingClientRect();
+        const tray = b.closest('.mtray');
+        const row = tray.getBoundingClientRect();
         return 'door ' + Math.round(b.getBoundingClientRect().width) + 'px of tray ' +
-          Math.round(row.width) + 'px, lines ' + b.querySelectorAll('.mtray-f').length;
+          Math.round(row.width) + 'px, lines ' + tray.querySelectorAll('.mtray-f').length +
+          ', foods under the door ' + [...tray.querySelectorAll('.mtray-f:not(.mtray-go)')].map((f) => {
+            const g = f.getBoundingClientRect();
+            const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+            return hit ? hit.className : 'none';
+          }).join(',');
       }));
-    /* And the tray carries nothing else to press. The dot is the one
-       exception, and it is the meal's own tick. */
-    t.ok('and the tray carries nothing to press but the door and the dot',
+    /* And the tray carries nothing else to press. The dot is one exception,
+       and it is the meal's own tick; a recipe's line is the other, since
+       2026-10-06, and it opens the recipe it names (Blake: "I need easy links
+       to the recipes when I click on the recipe names"). Nothing on the day
+       changes a plate. */
+    t.ok('and the tray carries nothing to press but the door, the dot and a recipe’s line',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
         .every((h) => [...h.querySelectorAll('button')].every((b) =>
-          b.classList.contains('mtray-b') || b.classList.contains('mday-dot')))),
+          b.classList.contains('mtray-b') || b.classList.contains('mday-dot') ||
+          (b.classList.contains('mtray-go') && !!b.dataset.open)))),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
         .map((h) => [...h.querySelectorAll('button')].map((b) => b.className.split(' ')[0]).join('+'))
         .join(' | ')));

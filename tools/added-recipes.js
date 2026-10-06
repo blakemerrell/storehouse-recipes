@@ -116,28 +116,44 @@ module.exports = [
    * breadcrumbs. Bread soaked in milk rather than dry crumbs, because the
    * storehouse carries bread and not crumbs, and because a panade is what
    * keeps 90/10 beef — the beef the food table prices — from baking dry.
-   * The glaze is the diner one, ketchup, brown sugar and vinegar, which is
-   * why vinegar joined the food table the same day. Garlic, Worcestershire,
-   * thyme and the vinegar are off the order sheet and say so. */
+   * The glaze is the diner one, ketchup and brown sugar with a sour edge.
+   *
+   * The first version carried garlic, Worcestershire, thyme and cider vinegar
+   * as extras, and Blake asked the same day for what the storehouse does not
+   * carry to come out. Two of the four had a stand-in on the order and went:
+   * the sour comes from mustard, which is mostly vinegar, and a little ketchup
+   * and mustard in the meat do the Worcestershire's job. Garlic and thyme have
+   * no stand-in, and Blake on seeing them gone: "You can show garlic and thyme
+   * in the recipe, just make sure it's in the list of ingredients that aren't
+   * provided." So they stay on the list as extras, marked the way the pantry
+   * marks anything you would have to go out for, and Worcestershire and
+   * vinegar are the lift. */
   {
     id: 351, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
     name: 'Traditional Meatloaf with Brown Sugar Glaze',
     servings: '8 Servings (1 Slice)', servN: 8,
     ing: ['2 lbs ground beef', '3 slices bread', '½ cup milk', '2 eggs', '1 onion, finely chopped',
-      '2 cloves garlic, minced', '2 tbsp Worcestershire sauce', '1 tsp dried thyme', '1 tsp salt',
-      '½ tsp black pepper', '¾ cup ketchup', '3 tbsp brown sugar', '1 tbsp cider vinegar'],
+      '2 cloves garlic, minced', '1 tsp dried thyme', '¾ tsp salt', '½ tsp black pepper', '1 cup ketchup',
+      '2 tbsp mustard', '3 tbsp brown sugar'],
     steps: [
       'Heat the oven to 350°F and line a rimmed baking sheet with foil.',
       'Tear the bread into small pieces in a large bowl, pour the milk over and leave it 5 minutes. Mash it to a paste with a fork. This is what keeps the loaf moist.',
-      'Beat in the eggs, then the onion, garlic, Worcestershire, thyme, salt and pepper.',
+      'Beat in the eggs, then the onion, garlic, thyme, salt and pepper, ¼ cup of the ketchup and 1 tablespoon of the mustard. The ketchup and mustard in the meat are the savoury, sour note a bottle of Worcestershire would bring.',
       'Add the ground beef and work it in with your hands just until nothing is streaky. Squeezing it longer makes the loaf tough.',
       'Shape it into a loaf about 9 by 5 inches on the baking sheet. Free-standing rather than in a pan, so the sides brown and the fat runs away from it.',
-      'Stir the ketchup, brown sugar and vinegar together, and spread half of it over the top.',
+      'Stir the rest of the ketchup, the brown sugar and the rest of the mustard together, and spread half of it over the top. The mustard is the vinegar here; without it the glaze tastes only sweet.',
       'Bake 45 minutes. Spread on the rest of the glaze and bake 15 to 25 minutes more, until the middle reads 160°F.',
       'Let it rest 10 minutes before slicing into 8. Cut straight from the oven, it crumbles.',
     ],
+    lift: {
+      with: 'Worcestershire and vinegar',
+      steps: [
+        'In the meat, 2 tablespoons of Worcestershire in place of the mustard, and the salt cut to ½ teaspoon; Worcestershire is salty.',
+        'In the glaze, a tablespoon of cider vinegar in place of the mustard. Sharper, and the way a diner makes it.',
+      ]
+    },
     macro: null, tagline: 'Glazed Twice, Sliced Thick', score: null, sc: null,
-    diff: 'Easy', time: '1 hr 30 mins', extras: 'Garlic, Worcestershire Sauce, Thyme, Vinegar',
+    diff: 'Easy', time: '1 hr 30 mins', extras: 'Garlic, Thyme',
   },
   /* ---- the rest of the comfort table, 2026-10-06 ---------------------------
    *
@@ -147,9 +163,10 @@ module.exports = [
    * pie, pot roast, Salisbury steak, stroganoff, sloppy joes, mac and cheese,
    * pot pie, stew, chili and meatballs were already here), then every
    * ingredient of what was missing run through the parser and the pantry. The
-   * twelve below need nothing the standard order does not carry, apart from the
-   * tots, which have their own recipe in Made, Not Bought. Stuffed cabbage was
-   * offered and turned down.
+   * twelve below need nothing the standard order does not carry. The tater
+   * tot casserole first called for a bag of frozen tots; it now makes its own
+   * from fresh potatoes, after Blake asked for the new recipes to keep to the
+   * order. Stuffed cabbage was offered and turned down.
    *
    * The two noodle dishes needed the food table first: egg noodles were read
    * as eggs and chicken broth as a kilo of canned chicken. The chicken soup
@@ -264,17 +281,21 @@ module.exports = [
     id: 358, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
     name: 'Tater Tot Casserole',
     servings: '8 Servings', servN: 8,
-    ing: ['1.5 lbs ground beef', '1 onion, chopped', '1 can cream of mushroom soup', '1 can green beans',
-      '½ cup milk', '½ tsp black pepper', '1 cup cheddar cheese', '2 lbs tater tots'],
+    ing: ['3 lbs potatoes', '3 tbsp flour', '¾ tsp salt', '½ tsp black pepper', '3 tbsp vegetable oil',
+      '1.5 lbs ground beef', '1 onion, chopped', '1 can cream of mushroom soup', '1 can green beans',
+      '½ cup milk', '1 cup cheddar cheese'],
     steps: [
-      'Heat the oven to 375°F.',
-      'Brown the ground beef and onion in a large skillet over medium-high, 8 to 10 minutes, until no pink remains. Drain off the fat.',
-      'Stir in the cream of mushroom soup, the drained green beans, the milk and pepper, and spread it in a 9x13 dish. No salt: the soup and the tots carry plenty.',
-      'Scatter the cheddar over, then set the tater tots on top in close rows, one layer. A 9x13 takes a 2-pound bag, about 80, or two batches of the homemade ones.',
-      'Bake 30 to 40 minutes, until the tots are deep gold and crisp and the sauce bubbles at the edges. Frozen tots take the longer time; homemade ones, already baked, the shorter.',
+      'Peel the potatoes and boil them whole 8 to 10 minutes, until a knife goes in a quarter inch and the middle is still hard. Drain them and let them cool completely, at least 30 minutes. Grated warm, they turn to paste; boiled the day before and kept in the fridge is better still.',
+      'Heat the oven to 425°F. Grate the potatoes on the large holes of a box grater and toss with the flour, the salt and ¼ teaspoon of the pepper.',
+      'Brush a baking sheet with half the oil. Squeeze tablespoons of the potato into little logs, about 60 tater tots, set them on the sheet and brush them with the rest of the oil. Bake 20 minutes, turning once, until golden. They finish on the casserole.',
+      'While they bake, brown the ground beef and onion in a large skillet over medium-high, 8 to 10 minutes, until no pink remains. Drain off the fat.',
+      'Stir in the cream of mushroom soup, the drained green beans, the milk and the rest of the pepper, and spread it in a 9x13 dish. No more salt: the soup and the cheese carry plenty.',
+      'Scatter the cheddar over, then stand the tots on top in close rows, one layer. Turn the oven down to 375°F.',
+      'Bake 25 to 30 minutes, until the tots are deep gold and crisp and the sauce bubbles at the edges.',
+      'Tots made ahead and frozen ({r:365}) save the first hour: bake them from frozen at 425°F for 25 minutes, then carry on from the beef.',
     ],
     macro: null, tagline: 'Rows of Tots on Top', score: null, sc: null,
-    diff: 'Easy', time: '55 mins', extras: 'Tater Tots',
+    diff: 'Medium', time: '1 hr 45 mins', extras: null,
   },
   {
     id: 359, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
@@ -2772,10 +2793,10 @@ module.exports = [
     macro: null, tagline: 'From the Spice Shelf, Not a Can', score: null, sc: null,
     diff: 'Easy', time: '20 mins', extras: 'Chili powder, Cumin, Garlic powder, Oregano',
   },
-  /* Tater tots, 2026-10-06, for the Tater Tot Casserole. The storehouse
-     carries potatoes fresh and instant and nothing frozen, so the bag of tots
-     is the one thing standing between that casserole and the standard order.
-     These are made from the fresh ones and freeze like the bag. */
+  /* Tater tots, 2026-10-06. The storehouse carries potatoes fresh and instant
+     and nothing frozen. Written first for the Tater Tot Casserole, which now
+     makes its own the same way; this is the side dish, and the freezer batch
+     that saves the casserole its first hour. */
   {
     id: 365, book: 2, secNum: 9, secName: MADE,
     name: 'Homemade Tater Tots',
