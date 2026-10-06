@@ -427,8 +427,8 @@ const FOODS = {
      so the table never had it, and "apple cider vinegar" fell through to the
      longest name it did know: apple. USDA cider vinegar; white is the same to
      within a calorie. Its energy is its acid, which no macro counts. The same
-     day the glaze went back to the order (mustard) and vinegar moved to the
-     meatloaf's lift; kept here so a line that names it still reads as
+     day the glaze went to mustard, which the order carries, and vinegar moved
+     to the meatloaf's lift; kept here so a line that names it still reads as
      vinegar, not apple. */
   vinegar:      { kcal: 21, p: 0, c: 0.9, f: 0, na: 5, fib: 0, g: { tsp: 5, tbsp: 15, cup: 239 }, label: 'Vinegar', note: 'cider or white' },
   /* ---- the comfort dinners, 2026-10-06. Broth was not here, so "8 cups

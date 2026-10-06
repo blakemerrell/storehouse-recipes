@@ -119,21 +119,26 @@ module.exports = [
    * The glaze is the diner one, ketchup and brown sugar with a sour edge.
    *
    * The first version carried garlic, Worcestershire, thyme and cider vinegar
-   * as extras, and Blake asked the same day for everything off the order to
-   * come out of the new recipes. So the sour comes from mustard, which is
-   * mostly vinegar, and a little ketchup and mustard in the meat stand in for
-   * the Worcestershire. The four are still there as the lift, because he has
-   * vinegar and a cook with a full spice shelf should not lose them. */
+   * as extras, and Blake asked the same day for what the storehouse does not
+   * carry to come out. Two of the four had a stand-in on the order and went:
+   * the sour comes from mustard, which is mostly vinegar, and a little ketchup
+   * and mustard in the meat do the Worcestershire's job. Garlic and thyme have
+   * no stand-in, and Blake on seeing them gone: "You can show garlic and thyme
+   * in the recipe, just make sure it's in the list of ingredients that aren't
+   * provided." So they stay on the list as extras, marked the way the pantry
+   * marks anything you would have to go out for, and Worcestershire and
+   * vinegar are the lift. */
   {
     id: 351, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
     name: 'Traditional Meatloaf with Brown Sugar Glaze',
     servings: '8 Servings (1 Slice)', servN: 8,
     ing: ['2 lbs ground beef', '3 slices bread', '½ cup milk', '2 eggs', '1 onion, finely chopped',
-      '¾ tsp salt', '½ tsp black pepper', '1 cup ketchup', '2 tbsp mustard', '3 tbsp brown sugar'],
+      '2 cloves garlic, minced', '1 tsp dried thyme', '¾ tsp salt', '½ tsp black pepper', '1 cup ketchup',
+      '2 tbsp mustard', '3 tbsp brown sugar'],
     steps: [
       'Heat the oven to 350°F and line a rimmed baking sheet with foil.',
       'Tear the bread into small pieces in a large bowl, pour the milk over and leave it 5 minutes. Mash it to a paste with a fork. This is what keeps the loaf moist.',
-      'Beat in the eggs, then the onion, the salt and pepper, ¼ cup of the ketchup and 1 tablespoon of the mustard. Those two in the meat are the savoury, sour note a bottle of Worcestershire would bring.',
+      'Beat in the eggs, then the onion, garlic, thyme, salt and pepper, ¼ cup of the ketchup and 1 tablespoon of the mustard. The ketchup and mustard in the meat are the savoury, sour note a bottle of Worcestershire would bring.',
       'Add the ground beef and work it in with your hands just until nothing is streaky. Squeezing it longer makes the loaf tough.',
       'Shape it into a loaf about 9 by 5 inches on the baking sheet. Free-standing rather than in a pan, so the sides brown and the fat runs away from it.',
       'Stir the rest of the ketchup, the brown sugar and the rest of the mustard together, and spread half of it over the top. The mustard is the vinegar here; without it the glaze tastes only sweet.',
@@ -141,14 +146,14 @@ module.exports = [
       'Let it rest 10 minutes before slicing into 8. Cut straight from the oven, it crumbles.',
     ],
     lift: {
-      with: 'Garlic, Worcestershire, thyme and vinegar',
+      with: 'Worcestershire and vinegar',
       steps: [
-        'Into the meat with the onion: 2 cloves of garlic, minced, 2 tablespoons of Worcestershire and a teaspoon of dried thyme. Leave out the mustard there, and cut the salt to ½ teaspoon; Worcestershire is salty.',
+        'In the meat, 2 tablespoons of Worcestershire in place of the mustard, and the salt cut to ½ teaspoon; Worcestershire is salty.',
         'In the glaze, a tablespoon of cider vinegar in place of the mustard. Sharper, and the way a diner makes it.',
       ]
     },
     macro: null, tagline: 'Glazed Twice, Sliced Thick', score: null, sc: null,
-    diff: 'Easy', time: '1 hr 30 mins', extras: null,
+    diff: 'Easy', time: '1 hr 30 mins', extras: 'Garlic, Thyme',
   },
   /* ---- the rest of the comfort table, 2026-10-06 ---------------------------
    *
