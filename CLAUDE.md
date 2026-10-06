@@ -28,6 +28,7 @@ SITE=_site FAST=1 node tests/run.js offline upgrade   # CI's quick gate, after `
 
 npm run build                          # tools/build-data.js: regenerate data/*.js and AUDIT.md
 npm run print                          # re-render the PDFs in print/ (needed after any recipe change)
+npm run handout                        # re-render print/Storehouse-Handout.pdf (also after any recipe change)
 npm run site                           # tools/build-site.js → _site/ (add --no-minify to keep comments)
 npm run check                          # recipes vs. standard kitchen ratios (--all is the default here)
 
@@ -98,7 +99,9 @@ arrived; don't edit it), `tools/added-recipes.js` (written for this edition) and
 Nutrition comes from `tools/food-db.js`, parsed by `tools/parse-lib.js`, scored by
 `tools/score-lib.js`. `npm run build` regenerates `data/recipes.js`, `data/nutrition.js` and
 `AUDIT.md`: **never edit those three by hand**. A recipe change also needs `npm run print`, or
-`tests/pdfs.test.js` fails because `print/*.pdf` is behind.
+`tests/pdfs.test.js` fails because `print/*.pdf` is behind, and `npm run handout`, or
+`tests/share.test.js` fails because the handout is older than the recipes it was drawn from.
+Both are judged by commit time, so commit the PDFs with (or after) the data.
 
 ### Storage and sync
 
