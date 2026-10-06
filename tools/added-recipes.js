@@ -109,6 +109,36 @@ module.exports = [
     macro: null, tagline: 'Frosted Pink', score: null, sc: null,
     diff: 'Medium', time: '45 mins', extras: null,
   },
+  /* ---- Kid-Approved Weeknight Comfort Dinners --------------------------
+   *
+   * Asked for by name, 2026-10-06: "a traditional meatloaf". Neither book had
+   * one; the only meatloaf in the collection was a mention in the
+   * breadcrumbs. Bread soaked in milk rather than dry crumbs, because the
+   * storehouse carries bread and not crumbs, and because a panade is what
+   * keeps 90/10 beef — the beef the food table prices — from baking dry.
+   * The glaze is the diner one, ketchup, brown sugar and vinegar, which is
+   * why vinegar joined the food table the same day. Garlic, Worcestershire,
+   * thyme and the vinegar are off the order sheet and say so. */
+  {
+    id: 351, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Traditional Meatloaf with Brown Sugar Glaze',
+    servings: '8 Servings (1 Slice)', servN: 8,
+    ing: ['2 lbs ground beef', '3 slices bread', '½ cup milk', '2 eggs', '1 onion, finely chopped',
+      '2 cloves garlic, minced', '2 tbsp Worcestershire sauce', '1 tsp dried thyme', '1 tsp salt',
+      '½ tsp black pepper', '¾ cup ketchup', '3 tbsp brown sugar', '1 tbsp cider vinegar'],
+    steps: [
+      'Heat the oven to 350°F and line a rimmed baking sheet with foil.',
+      'Tear the bread into small pieces in a large bowl, pour the milk over and leave it 5 minutes. Mash it to a paste with a fork. This is what keeps the loaf moist.',
+      'Beat in the eggs, then the onion, garlic, Worcestershire, thyme, salt and pepper.',
+      'Add the ground beef and work it in with your hands just until nothing is streaky. Squeezing it longer makes the loaf tough.',
+      'Shape it into a loaf about 9 by 5 inches on the baking sheet. Free-standing rather than in a pan, so the sides brown and the fat runs away from it.',
+      'Stir the ketchup, brown sugar and vinegar together, and spread half of it over the top.',
+      'Bake 45 minutes. Spread on the rest of the glaze and bake 15 to 25 minutes more, until the middle reads 160°F.',
+      'Let it rest 10 minutes before slicing into 8. Cut straight from the oven, it crumbles.',
+    ],
+    macro: null, tagline: 'Glazed Twice, Sliced Thick', score: null, sc: null,
+    diff: 'Easy', time: '1 hr 30 mins', extras: 'Garlic, Worcestershire Sauce, Thyme, Vinegar',
+  },
   {
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',

@@ -714,7 +714,7 @@ numbers are never labelled that way, so the two are never confused.
 ${ADDED.length} recipes across ${[...new Set(ADDED.map((r) => r.secName))].length} sections were written for this edition rather than carried
 over from the original books:
 
-${[...new Set(ADDED.map((r) => r.secName))].map((n) => `- **${n}** — ${ADDED.filter((r) => r.secName === n).length} recipes`).join('\n')}
+${[...new Set(ADDED.map((r) => r.secName))].map((n) => { const k = ADDED.filter((r) => r.secName === n).length; return `- **${n}** — ${k} recipe${k === 1 ? '' : 's'}`; }).join('\n')}
 
 The data made the gaps plain. Across the original 225, no recipe has more than
 four steps, none uses yeast, and none kneads, braises, tempers an egg or thickens

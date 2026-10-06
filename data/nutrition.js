@@ -428,6 +428,11 @@ const FOODS = {
   italian_seasoning: { kcal: 0, p: 0, c: 0, f: 0, na: 0, fib: 0, g: { tsp: 1, tbsp: 3 }, label: 'Italian seasoning', note: 'dried herbs; counted as nothing, like the other dried herbs' },
   worcestershire: { kcal: 78, p: 0, c: 19.5, f: 0, na: 980, fib: 0, g: { tsp: 5.7, tbsp: 17, cup: 275 }, label: 'Worcestershire sauce' },
   pickles:      { kcal: 12, p: 0.5, c: 2.4, f: 0.3, na: 875, fib: 1, g: { each: 7, cup: 143 }, label: 'Dill pickles', note: 'dill pickle slices; 1 slice = 7 g' },
+  /* ---- the meatloaf's glaze, 2026-10-06. Nothing in either book used vinegar,
+     so the table never had it, and "apple cider vinegar" fell through to the
+     longest name it did know: apple. USDA cider vinegar; white is the same to
+     within a calorie. Its energy is its acid, which no macro counts. */
+  vinegar:      { kcal: 21, p: 0, c: 0.9, f: 0, na: 5, fib: 0, g: { tsp: 5, tbsp: 15, cup: 239 }, label: 'Vinegar', note: 'cider or white' },
 };
 
 /*
@@ -601,6 +606,9 @@ const ALIASES = {
   'enchilada sauce': 'enchilada_sauce', 'red enchilada sauce': 'enchilada_sauce',
   'avocado': 'avocado', 'avocados': 'avocado', 'jalapeño': 'jalapeno', 'jalapeños': 'jalapeno',
   'jalapeno': 'jalapeno', 'jalapenos': 'jalapeno',
+  // the meatloaf, 2026-10-06; longer than 'apple', so the vinegar is found first
+  'vinegar': 'vinegar', 'cider vinegar': 'vinegar', 'apple cider vinegar': 'vinegar',
+  'white vinegar': 'vinegar', 'distilled vinegar': 'vinegar', 'distilled white vinegar': 'vinegar',
 };
 
 /*

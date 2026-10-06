@@ -87,7 +87,7 @@ more than 12% away from the sum of its own macros.
 
 ### What that did to the numbers
 
-Score range across all 350 scored recipes: **21–98**, median **63**.
+Score range across all 351 scored recipes: **21–98**, median **63**.
 Under the old formula almost everything clustered in the eighties and nineties,
 which is another way of saying it was not discriminating.
 
@@ -174,7 +174,7 @@ Around the Table shipped with **no nutrition data**: all 125 recipes carried a t
 the macro field. Macros here are estimated from the ingredient lists using the
 food table in `tools/food-db.js`, divided by the recipe's own serving count.
 
-- Recipes given macros: 200 of 200
+- Recipes given macros: 201 of 201
 - Score range: 21–86 (median 55)
 
 **These are estimates and the app labels them as such** — every Around the Table recipe
@@ -204,10 +204,11 @@ numbers are never labelled that way, so the two are never confused.
 
 ### Newly written recipes
 
-125 recipes across 11 sections were written for this edition rather than carried
+126 recipes across 12 sections were written for this edition rather than carried
 over from the original books:
 
-- **Simple Family Treats & Desserts** — 1 recipes
+- **Simple Family Treats & Desserts** — 1 recipe
+- **Kid-Approved Weeknight Comfort Dinners** — 1 recipe
 - **Worth the Afternoon** — 12 recipes
 - **The Copycat Shelf** — 38 recipes
 - **For the Love of Chocolate** — 10 recipes
@@ -225,7 +226,7 @@ a sauce — "In-Depth" nearly always meant "leave it in the slow cooker". There 
 no cookie of any kind in the collection, chocolate chips appeared in exactly one
 recipe, and there were no restaurant copies at all.
 
-Every ingredient was checked against the storehouse order list. 95 of the 125
+Every ingredient was checked against the storehouse order list. 95 of the 126
 need nothing beyond it; the rest are honest about their pantry extras, which cost
 them the storehouse bonus and so score lower.
 
@@ -352,51 +353,51 @@ the change; this table is the whole record of it.
 | 227 | Slow-Cooker Chicken & Rice Soup | `Put chicken, raw rice, carrots, onions, and water into slow cooker.` | `Put the chicken, carrots, onions, salt and water in the slow cooker, but keep the rice back: six hours turns it to a sol…` |
 | 228 | Cheesy Black Bean & Rice Bake | `Mix black beans, rice, tomato sauce, and sour cream in baking dish.` | `Mix black beans, rice, tomato sauce, and sour cream in an 8-inch square baking dish.` |
 | 229 | Pan-Seared Beef Roast Slices with Roasted Carrots | `Preheat oven to 400°F. Roast cubed potatoes and carrots 25 mins.` | `Preheat oven to 425°F. Cube the potatoes and carrots, toss with the oil and a little salt, spread on a sheet pan, and ro…` |
-| 230 | Slow-Cooker Sunday Pot Roast with Brown Gravy | `Sear beef roast in hot skillet 3 mins per side.` | `Sear beef roast in hot skillet 3 mins per side. Rub the roast with a tablespoon of Worcestershire before it goes in the …` |
-| 231 | Roast Pork Loin with Sweet Applesauce & Ribbon Noodles | `Boil ribbon noodles 8 mins; toss with butter.` | `Boil ribbon noodles 8 mins; toss with butter. Heat the green beans through in their own liquid while the noodles boil, t…` |
-| 232 | Homemade Meatballs & Italian Spaghetti Feast | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins.` | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins. No breadcrumbs in the c…` |
-| 233 | Creamy Chicken & Ribbon Pasta Alfredo Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes…` |
-| 234 | Dutch Oven Beef Stew with Fluffy Drop Biscuits | `Simmer beef, potatoes, carrots, onions in 3 cups water in Dutch oven 1 hour.` | `Brown the beef in the Dutch oven in batches, dark on every side. The stew tastes of that crust; skip it and it tastes of…` |
-| 235 | Slow-Cooker Pulled Beef BBQ Feast | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce.` | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce. No bottle in the house? {r:264} makes …` |
-| 236 | Homestyle Roasted Chicken & Gravy with Mashed Potatoes | `Preheat oven to 400°F. Roast chicken breasts 25 mins.` | `Preheat oven to 400°F. Roast chicken breasts 25 mins. Roast until the thickest breast reads 165°F and the juices run cle…` |
-| 237 | Baked Ham with Brown Sugar Glaze | `Preheat oven to 350°F. Mix brown sugar and mustard.` | `Heat the oven to 400°F. Cut the potatoes into 1-inch chunks, toss them with the oil and the salt, and roast 25 minutes.` |
-| 238 | Cheesy Beef & Spaghetti Roll-Up Bake | `Preheat oven to 350°F. Boil spaghetti 9 mins.` | `Preheat oven to 350°F. Boil the spaghetti two minutes short of the packet time — it finishes in the oven.` |
-| 239 | Slow-Cooked Pork Carnitas Feast | `Cook pork roast in slow cooker on LOW 6 hours with salsa; shred and sear on hot skillet until crispy.` | `Cook the pork roast in the slow cooker on LOW 6 hours with the salsa, then shred it. An onion first: chopped, into a hot…` |
-| 240 | Chicken Cordon Bleu Casserole | `Layer chicken breasts and ham slices in dish, cover with cream soup and cheddar.` | `Pound the thick end of each breast level so they cook evenly. Layer the chicken breasts and ham slices in a 9x13 dish an…` |
-| 241 | Braised Stewing Beef over Rice | `Simmer stewing beef and onions in gravy mix with 2 cups water for 1.5 hours until tender.` | `Simmer the stewing beef and onions in the gravy mix with 2 cups water, covered, on low for 1.5 hours until tender, addin…` |
-| 242 | Savory Beef & Vegetable Cobbler | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
-| 243 | Roasted Pork Loin with Garlic Potatoes | `Season pork roast and potatoes with garlic powder and butter.` | `Cut the potatoes into 1½-inch chunks and the carrots into thick batons; they roast in the same time. Season the pork roa…` |
-| 244 | Loaded Chicken Enchilada Grand Bake | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
-| 245 | Sunday Pot Roast with Glazed Carrots | `Cook beef roast and potatoes in slow cooker on LOW 8 hours.` | `Sear the roast hard on both sides in a hot skillet, 3 minutes a side. This is where the colour and most of the flavour o…` |
-| 246 | Creamy Tomato Chicken Pasta Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 350°F.` |
-| 247 | Hearty Country Beef Chili & Corn Skillet Bread | `Simmer beef, beans, and tomato sauce 30 mins.` | `Brown the beef in a large pot, breaking it up, until no pink remains, and drain off the fat. Add the drained beans and t…` |
-| 248 | Glazed Ham & Cheesy Scalloped Potatoes | `Preheat oven to 375°F.` | `Heat the oven to 375°F. Slice the potatoes as thin as you can — a quarter inch or less — and simmer them in salted water…` |
-| 249 | Slow-Cooked Salisbury Steak Patties with Gravy | `Put in slow cooker with onions and brown gravy mix; cook LOW 4 hours. Serve over potatoes.` | `Put the patties in the slow cooker with the sliced onions. Whisk the gravy packet into 1½ cups of water and pour it over…` |
-| 250 | Creamy Beef Stroganoff over Noodles | `Brown beef 8 mins; stir in cream of mushroom soup and sour cream.` | `Brown the beef over medium-high about 8 minutes and drain it. Stir in the soup and the water and simmer 5 minutes. Take …` |
-| 251 | Roasted Pork Loin with Peach Glaze | `Puree peaches with brown sugar and mustard; brush over pork roast.` | `Puree the drained peaches with the brown sugar and mustard, then simmer in a small pan 10 to 15 minutes until it is thic…` |
-| 252 | Country Fried Chicken Breasts with Gravy | `Dip chicken in milk, coat in flour.` | `Pound the thick end of each breast level so they fry evenly. Dip the chicken in ½ cup of the milk, then coat it in the d…` |
-| 253 | Slow-Cooker Beef Stew Meat in Rich Tomato Sauce | `Place stewing beef, quartered potatoes, green beans, and tomato sauce in slow cooker.` | `Brown the stewing beef in a hot pan, dark on every side. The cooker cannot make that crust, and the stew tastes of it fo…` |
-| 254 | Ultimate Family Taco & Nacho Grand Platter | `Bake tortilla wedges at 400°F 8 mins until crisp.` | `Brown the beef in a hot pan, breaking it up, and drain it. Stir in 2 tbsp taco seasoning and ¼ cup water and let it bubb…` |
-| 255 | Cinnamon Apple Crisp | `Toss sliced apples with 1 tsp cinnamon in baking dish.` | `Toss sliced apples with 1 tsp cinnamon in an 8-inch square baking dish.` |
-| 257 | Warm Peach Cobbler | `Pour peaches into baking dish.` | `Pour the drained peaches into an 8-inch square baking dish.` |
-| 258 | Fudgy Chocolate Cake Bake | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
-| 259 | Golden Yellow Cake with Chocolate Frosting | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
-| 260 | No-Bake PB & Oat Squares | `Stir in oats and raisins.` | `Stir in the oats, raisins, salt and vanilla. The salt and vanilla are the two things a box leaves out, and the two that …` |
-| 261 | Strawberry Gelatin Fruit Mold | `Stir in diced peaches.` | `Refrigerate about 1 hour, until it is as thick as unbeaten egg white. Dice the drained peaches and stir them in so they …` |
-| 263 | Cinnamon Sugar Churro Bites | `Make thick pancake batter.` | `Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batte…` |
-| 264 | Warm Banana Pudding Crisp | `Layer banana slices and vanilla pudding in dish.` | `Whisk the pudding mix with the 2 cups of cold milk for two minutes until it thickens, then layer it with the banana slic…` |
-| 266 | Apple Cinnamon Dumplings | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
-| 267 | PB & Jam Thumbprint Treats | `Preheat oven to 350°F.` | `Heat the oven to 350°F.` |
-| 268 | Chocolate Cake Pops | `Mix with 2 tbsp milk until fudgy dough forms.` | `Mix in the cocoa and the milk until it comes together into a fudgy dough that holds a shape when squeezed. Add the milk …` |
-| 269 | Pear & Apple Crumble | `Mix pears and apples with cinnamon in dish.` | `Dice the drained pears and mix them with the apples and cinnamon in an 8-inch square dish.` |
-| 270 | Vanilla Cream Fruit Trifle | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins.` | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins. The cake is half of {r:205}, bake…` |
-| 271 | Cinnamon Dessert Waffles | `Cook waffles in waffle iron.` | `Cook waffles in waffle iron. Beat the waffle mix, milk and egg together first and let the batter stand a couple of minut…` |
-| 272 | Homemade Chocolate Pudding Pie | `Preheat oven to 375°F. Make pastry crust with flour and butter, bake 15 mins.` | `Heat the oven to 375°F. Rub the cold butter into the flour and a pinch of salt until it looks like coarse crumbs, then s…` |
-| 273 | Sweet Cinnamon Raisin Bread Pudding | `Preheat oven to 350°F.` | `Butter an 8-inch square baking dish and heat the oven to 350°F.` |
-| 274 | Chocolate Covered Banana Pops | `Melt cocoa powder, butter, and sugar into chocolate sauce.` | `Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pou…` |
-| 276 | Peanut Butter Fudge Squares | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth.` | `Stir the melted butter, peanut butter, powdered sugar, salt and vanilla together in a bowl until smooth.` |
-| 277 | Yellow Cake Berry Shortcake | `Slice yellow cake horizontally.` | `Slice yellow cake horizontally. The cake is half of {r:205}, baked and left unfrosted.` |
-| 278 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
+| 231 | Slow-Cooker Sunday Pot Roast with Brown Gravy | `Sear beef roast in hot skillet 3 mins per side.` | `Sear beef roast in hot skillet 3 mins per side. Rub the roast with a tablespoon of Worcestershire before it goes in the …` |
+| 232 | Roast Pork Loin with Sweet Applesauce & Ribbon Noodles | `Boil ribbon noodles 8 mins; toss with butter.` | `Boil ribbon noodles 8 mins; toss with butter. Heat the green beans through in their own liquid while the noodles boil, t…` |
+| 233 | Homemade Meatballs & Italian Spaghetti Feast | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins.` | `Preheat oven to 400°F. Mix ground beef, egg, and breadcrumbs; roll into meatballs. Bake 20 mins. No breadcrumbs in the c…` |
+| 234 | Creamy Chicken & Ribbon Pasta Alfredo Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 375°F. Boil the pasta in well-salted water, but stop two minutes short of the packet time — it finishes…` |
+| 235 | Dutch Oven Beef Stew with Fluffy Drop Biscuits | `Simmer beef, potatoes, carrots, onions in 3 cups water in Dutch oven 1 hour.` | `Brown the beef in the Dutch oven in batches, dark on every side. The stew tastes of that crust; skip it and it tastes of…` |
+| 236 | Slow-Cooker Pulled Beef BBQ Feast | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce.` | `Cook beef roast in slow cooker on LOW for 8 hours; shred and toss with BBQ sauce. No bottle in the house? {r:264} makes …` |
+| 237 | Homestyle Roasted Chicken & Gravy with Mashed Potatoes | `Preheat oven to 400°F. Roast chicken breasts 25 mins.` | `Preheat oven to 400°F. Roast chicken breasts 25 mins. Roast until the thickest breast reads 165°F and the juices run cle…` |
+| 238 | Baked Ham with Brown Sugar Glaze | `Preheat oven to 350°F. Mix brown sugar and mustard.` | `Heat the oven to 400°F. Cut the potatoes into 1-inch chunks, toss them with the oil and the salt, and roast 25 minutes.` |
+| 239 | Cheesy Beef & Spaghetti Roll-Up Bake | `Preheat oven to 350°F. Boil spaghetti 9 mins.` | `Preheat oven to 350°F. Boil the spaghetti two minutes short of the packet time — it finishes in the oven.` |
+| 240 | Slow-Cooked Pork Carnitas Feast | `Cook pork roast in slow cooker on LOW 6 hours with salsa; shred and sear on hot skillet until crispy.` | `Cook the pork roast in the slow cooker on LOW 6 hours with the salsa, then shred it. An onion first: chopped, into a hot…` |
+| 241 | Chicken Cordon Bleu Casserole | `Layer chicken breasts and ham slices in dish, cover with cream soup and cheddar.` | `Pound the thick end of each breast level so they cook evenly. Layer the chicken breasts and ham slices in a 9x13 dish an…` |
+| 242 | Braised Stewing Beef over Rice | `Simmer stewing beef and onions in gravy mix with 2 cups water for 1.5 hours until tender.` | `Simmer the stewing beef and onions in the gravy mix with 2 cups water, covered, on low for 1.5 hours until tender, addin…` |
+| 243 | Savory Beef & Vegetable Cobbler | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
+| 244 | Roasted Pork Loin with Garlic Potatoes | `Season pork roast and potatoes with garlic powder and butter.` | `Cut the potatoes into 1½-inch chunks and the carrots into thick batons; they roast in the same time. Season the pork roa…` |
+| 245 | Loaded Chicken Enchilada Grand Bake | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
+| 246 | Sunday Pot Roast with Glazed Carrots | `Cook beef roast and potatoes in slow cooker on LOW 8 hours.` | `Sear the roast hard on both sides in a hot skillet, 3 minutes a side. This is where the colour and most of the flavour o…` |
+| 247 | Creamy Tomato Chicken Pasta Bake | `Preheat oven to 350°F. Boil pasta 8 mins.` | `Heat the oven to 350°F.` |
+| 248 | Hearty Country Beef Chili & Corn Skillet Bread | `Simmer beef, beans, and tomato sauce 30 mins.` | `Brown the beef in a large pot, breaking it up, until no pink remains, and drain off the fat. Add the drained beans and t…` |
+| 249 | Glazed Ham & Cheesy Scalloped Potatoes | `Preheat oven to 375°F.` | `Heat the oven to 375°F. Slice the potatoes as thin as you can — a quarter inch or less — and simmer them in salted water…` |
+| 250 | Slow-Cooked Salisbury Steak Patties with Gravy | `Put in slow cooker with onions and brown gravy mix; cook LOW 4 hours. Serve over potatoes.` | `Put the patties in the slow cooker with the sliced onions. Whisk the gravy packet into 1½ cups of water and pour it over…` |
+| 251 | Creamy Beef Stroganoff over Noodles | `Brown beef 8 mins; stir in cream of mushroom soup and sour cream.` | `Brown the beef over medium-high about 8 minutes and drain it. Stir in the soup and the water and simmer 5 minutes. Take …` |
+| 252 | Roasted Pork Loin with Peach Glaze | `Puree peaches with brown sugar and mustard; brush over pork roast.` | `Puree the drained peaches with the brown sugar and mustard, then simmer in a small pan 10 to 15 minutes until it is thic…` |
+| 253 | Country Fried Chicken Breasts with Gravy | `Dip chicken in milk, coat in flour.` | `Pound the thick end of each breast level so they fry evenly. Dip the chicken in ½ cup of the milk, then coat it in the d…` |
+| 254 | Slow-Cooker Beef Stew Meat in Rich Tomato Sauce | `Place stewing beef, quartered potatoes, green beans, and tomato sauce in slow cooker.` | `Brown the stewing beef in a hot pan, dark on every side. The cooker cannot make that crust, and the stew tastes of it fo…` |
+| 255 | Ultimate Family Taco & Nacho Grand Platter | `Bake tortilla wedges at 400°F 8 mins until crisp.` | `Brown the beef in a hot pan, breaking it up, and drain it. Stir in 2 tbsp taco seasoning and ¼ cup water and let it bubb…` |
+| 256 | Cinnamon Apple Crisp | `Toss sliced apples with 1 tsp cinnamon in baking dish.` | `Toss sliced apples with 1 tsp cinnamon in an 8-inch square baking dish.` |
+| 258 | Warm Peach Cobbler | `Pour peaches into baking dish.` | `Pour the drained peaches into an 8-inch square baking dish.` |
+| 259 | Fudgy Chocolate Cake Bake | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
+| 260 | Golden Yellow Cake with Chocolate Frosting | `Preheat oven to 350°F.` | `Heat the oven to 350°F and butter a 9x13 dish.` |
+| 261 | No-Bake PB & Oat Squares | `Stir in oats and raisins.` | `Stir in the oats, raisins, salt and vanilla. The salt and vanilla are the two things a box leaves out, and the two that …` |
+| 262 | Strawberry Gelatin Fruit Mold | `Stir in diced peaches.` | `Refrigerate about 1 hour, until it is as thick as unbeaten egg white. Dice the drained peaches and stir them in so they …` |
+| 264 | Cinnamon Sugar Churro Bites | `Make thick pancake batter.` | `Whisk the pancake mix with the milk into a batter thick enough to hold its shape on a spoon — thicker than pancake batte…` |
+| 265 | Warm Banana Pudding Crisp | `Layer banana slices and vanilla pudding in dish.` | `Whisk the pudding mix with the 2 cups of cold milk for two minutes until it thickens, then layer it with the banana slic…` |
+| 267 | Apple Cinnamon Dumplings | `Preheat oven to 375°F.` | `Heat the oven to 375°F.` |
+| 268 | PB & Jam Thumbprint Treats | `Preheat oven to 350°F.` | `Heat the oven to 350°F.` |
+| 269 | Chocolate Cake Pops | `Mix with 2 tbsp milk until fudgy dough forms.` | `Mix in the cocoa and the milk until it comes together into a fudgy dough that holds a shape when squeezed. Add the milk …` |
+| 270 | Pear & Apple Crumble | `Mix pears and apples with cinnamon in dish.` | `Dice the drained pears and mix them with the apples and cinnamon in an 8-inch square dish.` |
+| 271 | Vanilla Cream Fruit Trifle | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins.` | `Layer in glass bowl: yellow cake cubes, vanilla pudding, diced peaches. Chill 30 mins. The cake is half of {r:205}, bake…` |
+| 272 | Cinnamon Dessert Waffles | `Cook waffles in waffle iron.` | `Cook waffles in waffle iron. Beat the waffle mix, milk and egg together first and let the batter stand a couple of minut…` |
+| 273 | Homemade Chocolate Pudding Pie | `Preheat oven to 375°F. Make pastry crust with flour and butter, bake 15 mins.` | `Heat the oven to 375°F. Rub the cold butter into the flour and a pinch of salt until it looks like coarse crumbs, then s…` |
+| 274 | Sweet Cinnamon Raisin Bread Pudding | `Preheat oven to 350°F.` | `Butter an 8-inch square baking dish and heat the oven to 350°F.` |
+| 275 | Chocolate Covered Banana Pops | `Melt cocoa powder, butter, and sugar into chocolate sauce.` | `Melt the butter in a small pan over low heat, then whisk in the sugar, the cocoa and the milk until it is glossy and pou…` |
+| 277 | Peanut Butter Fudge Squares | `Stir melted butter, peanut butter, and powdered sugar in bowl until smooth.` | `Stir the melted butter, peanut butter, powdered sugar, salt and vanilla together in a bowl until smooth.` |
+| 278 | Yellow Cake Berry Shortcake | `Slice yellow cake horizontally.` | `Slice yellow cake horizontally. The cake is half of {r:205}, baked and left unfrosted.` |
+| 279 | Hot Fudge Cake Bowls | `Preheat oven to 350°F.` | `Heat the oven to 350°F. Butter a 9x13 dish.` |
 
 ### Coverage
 
