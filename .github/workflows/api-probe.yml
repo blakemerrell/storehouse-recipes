@@ -1,0 +1,22 @@
+# One-off: ask USDA FoodData Central and Open Food Facts what they send back.
+# Lives only on the scratch branch claude/api-probe, which is deleted after.
+name: api-probe
+on:
+  push:
+    branches: [claude/api-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Ask both food APIs
+        run: |
+          KEY=$(sed -n 's/.*USDA_KEY = "\([^"]*\)".*/\1/p' src/config.js)
+          echo "::add-mask::$KEY"
+          USDA_KEY="$KEY" node .github/probe.mjs
