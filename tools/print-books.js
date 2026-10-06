@@ -201,9 +201,15 @@ function stampPageCounts(made) {
 
   await page.goto('http://127.0.0.1:' + srv.address().port + '/index.html');
   await page.evaluate(() => localStorage.clear());   // print the books, not somebody's week
+  /* ...and past the front door (src/door.js), which a cleared phone meets
+     first and which stands over the button below. The mark is the one the
+     door leaves when it is done, and the one tests/run.js sets. */
+  await page.evaluate(() => localStorage.setItem('sh.door', 'print'));
   await page.reload();
   await page.evaluate(() => document.fonts.ready);
-  // the book left the tab row (c57d39a); it opens from Recipes now
+  /* the book left the tab row (c57d39a); it opens from Recipes now, and the
+     app opens on Today, so Recipes first or the button is never on screen */
+  await page.click('.tab[data-view="browse"]');
   await page.click('#bookBtn');
 
   const made = {};

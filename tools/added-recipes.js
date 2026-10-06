@@ -109,6 +109,283 @@ module.exports = [
     macro: null, tagline: 'Frosted Pink', score: null, sc: null,
     diff: 'Medium', time: '45 mins', extras: null,
   },
+  /* ---- Kid-Approved Weeknight Comfort Dinners --------------------------
+   *
+   * Asked for by name, 2026-10-06: "a traditional meatloaf". Neither book had
+   * one; the only meatloaf in the collection was a mention in the
+   * breadcrumbs. Bread soaked in milk rather than dry crumbs, because the
+   * storehouse carries bread and not crumbs, and because a panade is what
+   * keeps 90/10 beef — the beef the food table prices — from baking dry.
+   * The glaze is the diner one, ketchup, brown sugar and vinegar, which is
+   * why vinegar joined the food table the same day. Garlic, Worcestershire,
+   * thyme and the vinegar are off the order sheet and say so. */
+  {
+    id: 351, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Traditional Meatloaf with Brown Sugar Glaze',
+    servings: '8 Servings (1 Slice)', servN: 8,
+    ing: ['2 lbs ground beef', '3 slices bread', '½ cup milk', '2 eggs', '1 onion, finely chopped',
+      '2 cloves garlic, minced', '2 tbsp Worcestershire sauce', '1 tsp dried thyme', '1 tsp salt',
+      '½ tsp black pepper', '¾ cup ketchup', '3 tbsp brown sugar', '1 tbsp cider vinegar'],
+    steps: [
+      'Heat the oven to 350°F and line a rimmed baking sheet with foil.',
+      'Tear the bread into small pieces in a large bowl, pour the milk over and leave it 5 minutes. Mash it to a paste with a fork. This is what keeps the loaf moist.',
+      'Beat in the eggs, then the onion, garlic, Worcestershire, thyme, salt and pepper.',
+      'Add the ground beef and work it in with your hands just until nothing is streaky. Squeezing it longer makes the loaf tough.',
+      'Shape it into a loaf about 9 by 5 inches on the baking sheet. Free-standing rather than in a pan, so the sides brown and the fat runs away from it.',
+      'Stir the ketchup, brown sugar and vinegar together, and spread half of it over the top.',
+      'Bake 45 minutes. Spread on the rest of the glaze and bake 15 to 25 minutes more, until the middle reads 160°F.',
+      'Let it rest 10 minutes before slicing into 8. Cut straight from the oven, it crumbles.',
+    ],
+    macro: null, tagline: 'Glazed Twice, Sliced Thick', score: null, sc: null,
+    diff: 'Easy', time: '1 hr 30 mins', extras: 'Garlic, Worcestershire Sauce, Thyme, Vinegar',
+  },
+  /* ---- the rest of the comfort table, 2026-10-06 ---------------------------
+   *
+   * After the meatloaf Blake asked what else a family table like this would
+   * miss, and the answer was counted rather than guessed: the classic
+   * American weeknight dinners, checked by name against both books (shepherd's
+   * pie, pot roast, Salisbury steak, stroganoff, sloppy joes, mac and cheese,
+   * pot pie, stew, chili and meatballs were already here), then every
+   * ingredient of what was missing run through the parser and the pantry. The
+   * twelve below need nothing the standard order does not carry, apart from the
+   * tots, which have their own recipe in Made, Not Bought. Stuffed cabbage was
+   * offered and turned down.
+   *
+   * The two noodle dishes needed the food table first: egg noodles were read
+   * as eggs and chicken broth as a kilo of canned chicken. The chicken soup
+   * makes its own broth from water, because the storehouse carries none.
+   *
+   * Every one states its doneness the way the food-safety audit asked of the
+   * rest of the book: ground beef and sausage to 160°F, chicken to 165°F. */
+  {
+    id: 352, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Baked Porcupine Meatballs',
+    servings: '6 Servings (3 Meatballs)', servN: 6,
+    ing: ['1.5 lbs ground beef', '½ cup uncooked white rice', '1 onion, finely chopped', '1 egg', '½ tsp salt',
+      '¼ tsp black pepper', '2 cans tomato soup', '1 cup water'],
+    steps: [
+      'Heat the oven to 350°F.',
+      'Mix the ground beef, the uncooked rice, the onion, egg, salt and pepper with your hands until just combined.',
+      'Roll into 18 balls the size of a golf ball and set them in a 9x13 dish, a little apart.',
+      'Whisk the tomato soup with the water and pour it over and around the meatballs.',
+      'Cover tightly with foil and bake 1 hour. The rice cooks in the sauce and pokes out of the meat as it swells, which is the name.',
+      'Uncover and bake 15 minutes more, until the rice is tender and the middle of a meatball reads 160°F.',
+    ],
+    macro: null, tagline: 'The Rice Cooks in the Sauce', score: null, sc: null,
+    diff: 'Easy', time: '1 hr 30 mins', extras: null,
+  },
+  {
+    id: 353, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'American Goulash',
+    servings: '6 Servings', servN: 6,
+    ing: ['1.5 lbs ground beef', '1 onion, chopped', '1 bell pepper, chopped', '1 can diced tomatoes',
+      '1 can tomato sauce', '2 cups water', '½ tsp salt', '½ tsp black pepper', '2 cups macaroni',
+      '1 cup cheddar cheese'],
+    steps: [
+      'Brown the ground beef with the onion and bell pepper in a large pot over medium-high, breaking it up, 8 to 10 minutes, until no pink remains. Drain off the fat.',
+      'Stir in the diced tomatoes, tomato sauce, water, salt and pepper, and bring it to a boil.',
+      'Stir in the uncooked macaroni. Cover, turn the heat to low and simmer 15 to 18 minutes, stirring every few minutes so it does not catch, until the pasta is tender.',
+      'Take it off the heat, scatter the cheddar over the top, cover and leave it 2 minutes to melt.',
+    ],
+    macro: null, tagline: 'One Pot, Macaroni and All', score: null, sc: null,
+    diff: 'Easy', time: '35 mins', extras: null,
+  },
+  {
+    id: 354, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Hamburger Gravy over Mashed Potatoes',
+    servings: '4 Servings', servN: 4,
+    ing: ['1 lb ground beef', '1 onion, chopped', '3 tbsp flour', '2 cups milk, for the gravy', '1 tsp salt',
+      '½ tsp black pepper', '1.5 cups water', '2 tbsp butter', '½ cup milk, for the potatoes', '2 cups instant potatoes'],
+    steps: [
+      'Brown the ground beef and onion in a large skillet over medium-high, breaking it up, 8 to 10 minutes, until no pink remains. Spoon off all but about 2 tablespoons of the fat.',
+      'Sprinkle the flour over the beef and stir 1 minute, so the gravy does not taste of raw flour.',
+      'Pour in the 2 cups of milk a little at a time, stirring, and simmer 3 to 5 minutes until it is thick enough to coat a spoon. Season with the salt and pepper. It thickens more as it stands, so loosen it with a splash of water if it goes too far.',
+      'For the potatoes, bring the water and butter to a boil, take it off the heat, add the ½ cup of milk and stir in the instant potatoes. Let them stand 1 minute, then fluff with a fork.',
+      'Spoon the potatoes onto plates and ladle the gravy over.',
+    ],
+    macro: null, tagline: 'Supper on Twenty Minutes', score: null, sc: null,
+    diff: 'Easy', time: '20 mins', extras: null,
+  },
+  {
+    id: 355, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Swedish Meatballs over Egg Noodles',
+    servings: '6 Servings', servN: 6,
+    ing: ['2 slices bread', '½ cup milk', '1 egg', '1 onion, finely chopped', '1 tsp salt', '¼ tsp black pepper',
+      '1.5 lbs ground beef', '2 tbsp oil', '1 can cream of mushroom soup', '¾ cup water', '½ cup sour cream',
+      '12 oz egg noodles'],
+    steps: [
+      'Tear the bread into a large bowl, pour the milk over and leave it 5 minutes, then mash it to a paste.',
+      'Beat in the egg, onion, salt and pepper, then work in the ground beef with your hands just until combined.',
+      'Roll into about 30 one-inch meatballs.',
+      'Heat the oil in a large skillet over medium and brown the meatballs in batches, turning, 8 to 10 minutes a batch. They do not have to be cooked through yet.',
+      'Pour off the fat, return all the meatballs, and stir in the cream of mushroom soup and the water. Cover and simmer 10 minutes, until the middle of a meatball reads 160°F.',
+      'Meanwhile boil the egg noodles in salted water 6 to 8 minutes, until tender, and drain.',
+      'Take the skillet off the heat and stir in the sour cream. Do not let it boil again after this, or the sauce splits. Spoon it over the noodles.',
+    ],
+    macro: null, tagline: 'Creamy, and Ready by Six', score: null, sc: null,
+    diff: 'Medium', time: '45 mins', extras: null,
+  },
+  {
+    id: 356, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Spanish Rice with Ground Beef',
+    servings: '6 Servings', servN: 6,
+    ing: ['1 lb ground beef', '1 onion, chopped', '1 bell pepper, chopped', '1 cup uncooked white rice',
+      '1 can tomato sauce', '½ can diced tomatoes', '¾ cup water', '½ cup salsa', '½ tsp salt',
+      '¼ tsp black pepper', '½ cup cheddar cheese'],
+    steps: [
+      'Brown the ground beef with the onion and bell pepper in a large, deep skillet over medium-high, 8 to 10 minutes, until no pink remains. Drain off the fat.',
+      'Stir in the uncooked rice and cook 2 minutes, stirring, so every grain is coated.',
+      'Add the tomato sauce, half the can of diced tomatoes (the storehouse tin is 28 ounces; the rest keeps a week in the fridge), the water, salsa, salt and pepper, and bring it to a boil.',
+      'Cover, turn the heat to low and simmer 20 to 25 minutes, until the rice is tender and the liquid is gone. Leave the lid on for the first 15 minutes; the steam is what cooks the rice.',
+      'Rest it covered 5 minutes off the heat, fluff it, and scatter the cheddar on top.',
+    ],
+    macro: null, tagline: 'The Rice Cooks in the Pan', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+  {
+    id: 357, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Chicken & Dumplings',
+    servings: '6 Servings', servN: 6,
+    ing: ['1.5 lbs chicken breasts', '1 onion, chopped', '2 carrots, sliced', '6 cups water', '½ tsp salt',
+      '½ tsp black pepper', '1 can cream of chicken soup', '2 cups flour', '1 tbsp baking powder',
+      '½ tsp salt, for the dumplings', '1 cup milk', '3 tbsp butter, melted'],
+    steps: [
+      'Put the whole chicken breasts, the onion, carrots, water, ½ teaspoon of salt and the pepper in a large pot. Bring to a boil, then cover and simmer 20 to 25 minutes, until the thickest part of the chicken reads 165°F.',
+      'Lift out the chicken, shred it with two forks, and whisk the cream of chicken soup into the pot. Return the chicken and keep it at a gentle simmer.',
+      'For the dumplings, whisk the flour, baking powder and the ½ teaspoon of salt in a bowl. Stir in the milk and the melted butter just until there is no dry flour. A lumpy dough makes lighter dumplings.',
+      'Drop the dough by heaping spoonfuls onto the simmering stew, close together.',
+      'Cover tightly and cook 15 minutes without lifting the lid. They steam, and a peek lets the steam out.',
+      'They are done when a toothpick through the middle of one comes out clean. Taste the stew before salting it again; the soup and the baking powder have brought a good deal.',
+    ],
+    macro: null, tagline: 'Lid On, No Peeking', score: null, sc: null,
+    diff: 'Medium', time: '1 hr', extras: null,
+  },
+  {
+    id: 358, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Tater Tot Casserole',
+    servings: '8 Servings', servN: 8,
+    ing: ['1.5 lbs ground beef', '1 onion, chopped', '1 can cream of mushroom soup', '1 can green beans',
+      '½ cup milk', '½ tsp black pepper', '1 cup cheddar cheese', '2 lbs tater tots'],
+    steps: [
+      'Heat the oven to 375°F.',
+      'Brown the ground beef and onion in a large skillet over medium-high, 8 to 10 minutes, until no pink remains. Drain off the fat.',
+      'Stir in the cream of mushroom soup, the drained green beans, the milk and pepper, and spread it in a 9x13 dish. No salt: the soup and the tots carry plenty.',
+      'Scatter the cheddar over, then set the tater tots on top in close rows, one layer. A 9x13 takes a 2-pound bag, about 80, or two batches of the homemade ones.',
+      'Bake 30 to 40 minutes, until the tots are deep gold and crisp and the sauce bubbles at the edges. Frozen tots take the longer time; homemade ones, already baked, the shorter.',
+    ],
+    macro: null, tagline: 'Rows of Tots on Top', score: null, sc: null,
+    diff: 'Easy', time: '55 mins', extras: 'Tater Tots',
+  },
+  {
+    id: 359, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Tuna Noodle Casserole',
+    servings: '6 Servings', servN: 6,
+    ing: ['8 oz egg noodles', '1 can cream of mushroom soup', '1 cup milk', '2 cans tuna', '1 can green beans',
+      '1 cup cheddar cheese', '¼ tsp salt', '¼ tsp black pepper', '2 slices bread', '2 tbsp butter, melted'],
+    steps: [
+      'Heat the oven to 375°F and butter a 2-quart or 8x8 dish.',
+      'Boil the egg noodles 2 minutes short of the packet time, about 6 minutes. They finish in the oven. Drain.',
+      'Whisk the cream of mushroom soup and the milk in a large bowl. Fold in the drained, flaked tuna, the drained green beans, half the cheddar, the salt and pepper, and the noodles.',
+      'Spread it in the dish and scatter the rest of the cheddar over.',
+      'Tear the bread into fine crumbs, toss them with the melted butter, and scatter them on top.',
+      'Bake 25 to 30 minutes, until it bubbles at the edges and the crumbs are golden.',
+    ],
+    macro: null, tagline: 'Buttered Crumbs on Top', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+  {
+    id: 360, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Ham & White Bean Soup',
+    servings: '6 Servings', servN: 6,
+    ing: ['1 tbsp butter', '1 onion, chopped', '2 carrots, diced', '2 potatoes, diced', '6 cups water',
+      '2 cans great northern beans', '2 cups chopped ham', '½ tsp black pepper', '½ tsp salt'],
+    steps: [
+      'Melt the butter in a large pot over medium and cook the onion and carrots 5 minutes, until the onion softens.',
+      'Add the potatoes, water, drained beans, ham and pepper. Bring to a boil, then lower the heat and simmer 25 to 30 minutes, until the potatoes are tender.',
+      'Mash about a cup of the beans against the side of the pot and stir them back in. That is what thickens it.',
+      'Taste before you add the salt. The ham brings a good deal of its own.',
+    ],
+    macro: null, tagline: 'Thickened with Its Own Beans', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+  {
+    id: 361, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Cheesy Baked Potato Soup',
+    servings: '6 Servings', servN: 6,
+    ing: ['3 lbs potatoes', '4 tbsp butter', '1 onion, chopped', '⅓ cup flour', '4 cups milk', '2 cups water',
+      '1.5 tsp salt', '½ tsp black pepper', '1 cup cheddar cheese', '½ cup sour cream'],
+    steps: [
+      'Peel the potatoes and cut them into ½-inch dice.',
+      'Melt the butter in a large pot over medium and cook the onion 5 minutes, until soft.',
+      'Stir in the flour and cook 1 minute, then pour in the milk a little at a time, stirring, followed by the water.',
+      'Add the potatoes, salt and pepper and simmer gently 15 to 20 minutes, stirring now and then, until the potatoes are tender. A hard boil scorches the milk on the bottom of the pot.',
+      'Mash about half the potatoes in the pot, for a soup that is thick but still has pieces in it.',
+      'Take it off the heat and stir in the cheddar until it melts. Serve with a spoonful of sour cream on each bowl.',
+    ],
+    macro: null, tagline: 'Thick, with Pieces Left In', score: null, sc: null,
+    diff: 'Easy', time: '40 mins', extras: null,
+  },
+  {
+    id: 362, book: 2, secNum: 3, secName: 'Kid-Approved Weeknight Comfort Dinners',
+    name: 'Chicken Noodle Soup from Scratch',
+    servings: '6 Servings', servN: 6,
+    ing: ['2 tbsp butter', '1 onion, chopped', '3 carrots, sliced', '10 cups water', '1.5 lbs chicken breasts',
+      '2 tsp salt', '½ tsp black pepper', '6 oz egg noodles'],
+    steps: [
+      'Melt the butter in a large pot over medium and cook the onion and carrots 5 minutes, until the onion softens.',
+      'Add the water, the whole chicken breasts, the salt and pepper. Bring to a boil, then cover and simmer 20 to 25 minutes, until the thickest part of the chicken reads 165°F. The water becomes the broth.',
+      'Lift out the chicken and shred it with two forks.',
+      'Bring the soup back to a boil, add the egg noodles and cook 6 to 8 minutes, until tender.',
+      'Return the chicken, taste, and salt it again if it wants it. A light broth needs more than you expect.',
+    ],
+    macro: null, tagline: 'The Water Becomes the Broth', score: null, sc: null,
+    diff: 'Easy', time: '45 mins', extras: null,
+  },
+  {
+    id: 363, book: 2, secNum: 1, secName: 'Speedy Weekday Breakfasts & Morning Treats',
+    name: 'Biscuits & Sausage Gravy',
+    servings: '6 Servings (1 Biscuit and Gravy)', servN: 6,
+    ing: ['2 cups flour, for the biscuits', '1 tbsp baking powder', '1 tsp salt', '6 tbsp cold butter',
+      '¾ cup milk, for the biscuits', '1 lb pork sausage', '¼ cup flour, for the gravy', '3 cups milk, for the gravy',
+      '½ tsp black pepper'],
+    steps: [
+      'Heat the oven to 425°F.',
+      'Whisk the 2 cups of flour, the baking powder and salt. Cut in the cold butter with a fork or your fingertips until the biggest pieces are the size of peas. Those pieces are the flakes.',
+      'Stir in the ¾ cup of milk just until a shaggy dough forms. Pat it ¾ inch thick on a floured counter and cut 6 biscuits, straight down without twisting, or they rise lopsided.',
+      'Bake on a sheet 12 to 15 minutes, until tall and golden.',
+      'Meanwhile brown the pork sausage in a large skillet over medium, breaking it up, 8 to 10 minutes, until no pink remains and it reads 160°F. Leave the fat in the pan.',
+      'Sprinkle the ¼ cup of flour over the sausage and stir 1 minute.',
+      'Pour in the 3 cups of milk a little at a time, stirring, and simmer 5 to 8 minutes until thick. Season with the pepper; the sausage has brought the salt.',
+      'Split the biscuits and ladle the gravy over.',
+    ],
+    macro: null, tagline: 'Split, and Smothered', score: null, sc: null,
+    diff: 'Medium', time: '35 mins', extras: null,
+  },
+  /* ---- Elaborate Sunday Feasts & Roasts ----------------------------------
+   *
+   * Blake: "Chicken fried chicken? Or steak if I can cut up my roast on to
+   * steaks??" The chicken was already here as Country Fried Chicken Breasts
+   * with Gravy. The steak is the storehouse's chuck roast cut into slices and
+   * pounded thin, which is what a butcher's cube steak is: a tougher cut,
+   * flattened until it is tender. Pounded beef is cooked through, to 160°F,
+   * the way ground beef is. */
+  {
+    id: 364, book: 2, secNum: 4, secName: 'Elaborate Sunday Feasts & Roasts',
+    name: 'Chicken-Fried Steak from the Roast, with Cream Gravy',
+    servings: '6 Servings (1 Steak)', servN: 6,
+    ing: ['2 lbs beef roast, trimmed', '1 tsp salt', '½ tsp black pepper', '1 cup flour, for the dredge', '2 eggs',
+      '½ cup milk, for the dredge', '⅓ cup oil', '3 tbsp flour, for the gravy', '2 cups milk, for the gravy'],
+    steps: [
+      'Put the beef roast in the freezer 30 minutes. Firm, it slices cleanly.',
+      'Cut it across the grain into 6 slices about ½ inch thick, trimming away the thick seams of fat and gristle.',
+      'Lay each slice between plastic wrap and pound it with a meat mallet or a heavy pan to ¼ inch. This is what makes a chuck roast tender enough to fry; do not skip it. Season both sides with the salt and pepper.',
+      'Put the dredge flour in one shallow dish and whisk the eggs with the ½ cup of milk in another. Coat each steak in flour, then egg, then flour again, pressing it on. Let them sit 10 minutes so the coating sets.',
+      'Heat the oil in a large heavy skillet to 350°F, or until a pinch of flour sizzles at once. Fry the steaks two or three at a time, 3 to 4 minutes a side, until deep golden and cooked through, the middle reading 160°F. Drain them on a rack, not paper, so the bottoms stay crisp.',
+      'Pour off all but 3 tablespoons of the fat. Whisk in the 3 tablespoons of flour and cook 1 minute, then whisk in the 2 cups of milk a little at a time and simmer 3 to 5 minutes, until thick. Season it, and pour it over the steaks.',
+    ],
+    macro: null, tagline: 'A Roast, Pounded Thin', score: null, sc: null,
+    diff: 'In-Depth', time: '1 hr 15 mins', extras: null,
+  },
   {
     id: 226, book: 2, secNum: 6, secName: SECTION,
     name: 'Everyday White Bread',
@@ -2494,5 +2771,27 @@ module.exports = [
     makes: ['enchilada_sauce'],
     macro: null, tagline: 'From the Spice Shelf, Not a Can', score: null, sc: null,
     diff: 'Easy', time: '20 mins', extras: 'Chili powder, Cumin, Garlic powder, Oregano',
+  },
+  /* Tater tots, 2026-10-06, for the Tater Tot Casserole. The storehouse
+     carries potatoes fresh and instant and nothing frozen, so the bag of tots
+     is the one thing standing between that casserole and the standard order.
+     These are made from the fresh ones and freeze like the bag. */
+  {
+    id: 365, book: 2, secNum: 9, secName: MADE,
+    name: 'Homemade Tater Tots',
+    servings: '6 Servings (About 40 Tots)', servN: 6,
+    makes: ['tater_tots'],
+    ing: ['2 lbs potatoes', '2 tbsp flour', '1 tsp salt', '¼ tsp black pepper', '3 tbsp oil'],
+    steps: [
+      'Peel the potatoes and boil them whole 8 to 10 minutes, until a knife goes in a quarter inch and the middle is still hard.',
+      'Drain them and let them cool completely, at least 30 minutes. Grated warm, they turn to paste.',
+      'Grate them on the large holes of a box grater and toss with the flour, salt and pepper.',
+      'Heat the oven to 425°F and brush a baking sheet with half the oil.',
+      'Squeeze tablespoons of the potato into little logs and set them on the sheet. Brush them with the rest of the oil.',
+      'Bake 25 to 30 minutes, turning once, until deep gold and crisp.',
+      'To keep a batch, freeze the shaped tots on the tray before baking, then bag them. Bake them straight from the freezer and add 5 minutes.',
+    ],
+    macro: null, tagline: 'Two Pounds of Potatoes, a Box Grater', score: null, sc: null,
+    diff: 'Medium', time: '1 hr 15 mins', extras: null,
   },
 ];

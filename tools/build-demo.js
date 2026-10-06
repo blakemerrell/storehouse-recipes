@@ -147,6 +147,10 @@ function serve() {
   const page = await ctx.newPage();
   await page.goto(base + 'index.html');
   await page.evaluate(() => localStorage.clear());
+  /* Past the front door (src/door.js), which a cleared phone meets first and
+     which stands over every tab below. The mark is the one the door leaves
+     when it is done, and the one tests/run.js and print-books.js set. */
+  await page.evaluate(() => localStorage.setItem('sh.door', 'demo'));
   await page.reload();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(900);
@@ -168,7 +172,8 @@ function serve() {
   await page.click('.sheet-x'); await page.waitForTimeout(300);
   await page.click('.tab[data-view="plan"]'); await page.waitForTimeout(600);
   await shot('app-3-plan');
-  await page.click('.pstep[data-view="list"]'); await page.waitForTimeout(700);
+  // the step row went; the plan's own "The list" button is the way on now
+  await page.click('[data-stepgo="list"]'); await page.waitForTimeout(700);
   await shot('app-4-list');
 
   await browser.close();
