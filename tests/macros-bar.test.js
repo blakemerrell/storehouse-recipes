@@ -509,7 +509,12 @@ module.exports = nourish({
      *
      * The click asserts the WIRING, not the USDA: the row is pressed and the
      * container underneath it must say it is asking. What the tables answer
-     * is their business and not something a test should wait on. */
+     * is their business and not something a test should wait on.
+     *
+     * It asks for gouda now. American cheese stopped being nothing when
+     * American Goulash, which carries cheese, joined the book (2026-10-06);
+     * the search was right to find it, and the test wants a food the book
+     * has no word for at all. */
     const look = await t.fresh({ viewport: { width: 412, height: 915 } });
     await look.click('.tab[data-view="macros"]');
     await look.waitForTimeout(250);
@@ -521,7 +526,7 @@ module.exports = nourish({
       net: (document.getElementById('nfResults') || {}).textContent || '',
     }));
 
-    await look.fill('#mpFind', 'american cheese');
+    await look.fill('#mpFind', 'gouda cheese');
     await look.waitForTimeout(500);
     const dead = await lookRow();
     t.ok('a food the book does not stock still has somewhere for the answer to land',
@@ -532,7 +537,7 @@ module.exports = nourish({
     /* And it goes and asks, with no row to press. Any of the states mLookNet
        can be in counts — asking, answered, or refused — because what the
        tables say is their business and this is about the wiring. The query is
-       still "american cheese" here: the two-letter case below retypes it, and
+       still "gouda cheese" here: the two-letter case below retypes it, and
        putting this after that was checking a lookup that correctly never
        happened. */
     await look.waitForTimeout(900);
