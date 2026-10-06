@@ -554,9 +554,10 @@
        Blake, 2026-10-04, of the RP-style day: "Way to fat and tall... hard
        to know where to add food... Many ways." So the day is small trays:
        the meal's tick, its name, its calories against its share, and its
-       foods as small lines. The tick is the only control on a tray; a tap
-       anywhere else opens the meal's sheet (data-mopen), which is the one
-       place food is added or changed. Mockup (Tray A):
+       foods as small lines. The tick and a recipe's line are the only
+       controls on a tray; a tap anywhere else opens the meal's sheet
+       (data-mopen), which is the one place food is added or changed.
+       Mockup (Tray A):
        https://claude.ai/artifact/SseR1TPa4JAFNanYYsGP4k */
     var ahead = mAhead(k);
     var trayHTML = function (sk, name, onPlan) {
@@ -588,12 +589,31 @@
         var weight = byG ? mDialText(r, it.x) : mDialMeasure(r, it.x);
         if (kitchen === weight) kitchen = '';
         var ml = mlOf(kitchen);
-        return '<span class="mtray-f"><span class="mtray-fn">' + esc(r.name) + '</span>' +
+        var inner = '<span class="mtray-fn">' + esc(r.name) + '</span>' +
           (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small><i> &middot; </i>' + ml + '</small>' : '') + '</span>' : '') +
-          '<em class="num">' + esc(weight) + '</em></span>';
+          '<em class="num">' + esc(weight) + '</em>';
+        /* A recipe's line opens the recipe (Blake, 2026-10-06: "I tried to
+           open the recipe card for my meal and it just opened the meal
+           picker. I need easy links to the recipes when I click on the
+           recipe names"). Only the meal's sheet had that door, two taps and
+           an opened tray away. Same door, same portion: data-open and the
+           plate's servings, which mDayClick scales the card to make. A
+           food's line stays part of the tray, and opens the meal. */
+        if (!r.food) {
+          return '<button class="mtray-f mtray-go" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '"' +
+            ' aria-label="' + esc(r.name) + ', the recipe">' + inner + '</button>';
+        }
+        return '<span class="mtray-f">' + inner + '</span>';
       }).join('');
+      /* The door is still the whole tray, but no longer by holding it all:
+         a recipe's line is a button of its own now, and a button cannot sit
+         inside another. So the door holds the name and the pills, and
+         reaches over the foods under it (.mtray-b::after, the length of
+         .mtray-c); the recipe lines stand above that reach, and a tap
+         anywhere else still opens the meal. */
       return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
           M.dot +
+          '<div class="mtray-c">' +
           '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
             (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
             '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
@@ -603,8 +623,9 @@
                that show me that meal's calories and macros"). An empty meal
                shows them too: 0 of its share is what it is for. */
             (M.aim ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
-            '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
           '</button>' +
+          '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
+          '</div>' +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
     };
     var html = slots.list.map(function (s) { return trayHTML(s.k, s.n, true); }).join('');

@@ -7664,10 +7664,21 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   background-color: var(--green); border-color: var(--green);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
 }
-.mtray-b {
-  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left;
-  border: 0; background: none; padding: 12px 12px 9px 2px; margin: 0; font: inherit; color: var(--ink); cursor: pointer;
+/* The tray's body: the door (name and pills) and the foods under it. The
+   door's ::after reaches over all of it, so a tap on a food's line still
+   opens the meal; a recipe's line (.mtray-go) stands above that reach and
+   opens the recipe. Both are buttons side by side, not one in the other. */
+.mtray-c {
+  position: relative; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  padding: 12px 12px 9px 2px;
 }
+.mtray-b {
+  display: flex; flex-direction: column; gap: 1px; text-align: left; width: 100%;
+  border: 0; background: none; padding: 0; margin: 0; font: inherit; color: var(--ink); cursor: pointer;
+}
+.mtray-b::after { content: ''; position: absolute; inset: 0; border-radius: 11px; }
+.mtray-b:focus-visible { outline: none; }
+.mtray-b:focus-visible::after { outline: 2px solid var(--ochre); outline-offset: -2px; }
 .mtray-b:hover .mtray-n { color: var(--ink); }
 .mtray-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 20px; }
 .mtray-n { font-size: 0.78125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
@@ -7682,6 +7693,20 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-fm b { font-weight: 600; }
 .mtray-fm small { font-size: 0.8125rem; color: var(--note); }
 .mtray-f em { grid-column: 3; font-style: normal; font-size: 0.78125rem; color: var(--note); text-align: right; white-space: nowrap; }
+/* A recipe's line: the same line, a button of its own, its name in the
+   link colour so it reads as one on a phone, where nothing hovers. Never
+   underlined: a line under a food's name on the day has only ever meant
+   something was struck off. Its reach runs 6px past the line above and
+   below (::before), a fuller target than the 20px line without making the
+   tray any taller. */
+.mtray-go {
+  position: relative; z-index: 1; width: 100%; border: 0; background: none; padding: 0; margin: 0;
+  font-family: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.mtray-go::before { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
+/* .mtray beside it so an eaten meal, which greys its foods, keeps its links */
+.mtray .mtray-go .mtray-fn { color: var(--ochre-text); font-weight: 600; }
+.mtray .mtray-go:hover .mtray-fn, .mtray .mtray-go:focus-visible .mtray-fn { color: var(--ink); }
 /* the meal's pills, small, under its name */
 .mtray-caps { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; margin: 4px 0 6px; }
 .mtray-caps .mcap { padding: 2px 3px; }

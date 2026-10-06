@@ -1677,7 +1677,7 @@
     S.add = { day: day, f: 'dinner', q: '', seen: [], sug: null };
     adSuggest();
     S.addOpen = true;
-    if (inPlace && !popping) history.replaceState({ ad: 1 }, ''); else pushSheet({ ad: 1 });
+    if (inPlace && !popping) history.replaceState({ ad: 1, life: LIFE }, ''); else pushSheet({ ad: 1 });
     renderModal();
   }
   document.addEventListener('click', function (e) {
@@ -7527,6 +7527,16 @@
    * --------------------------------------------------------------------- */
   var depth = 0;                 // history entries this modal has pushed
   var popping = false;           // inside a popstate, so do not push back
+  /* This page's own entries, told from the ones a previous load left behind.
+     The history outlives the page: a phone that drops the app in the
+     background and reopens it, or a reload, comes back on the same entry
+     with nothing open and depth at 0, and whatever entry it was standing on
+     is still there. Blake looked at the meatloaf, the app was reloaded, and
+     the next meal sheet he opened pushed on top of that old {r:351}; Done
+     stepped back onto it, and the popstate below restored the meatloaf at
+     1x over a sheet he had just closed. An entry from another life of the
+     page is read as the bottom of the stack, which is what it is now. */
+  var LIFE = String(Date.now()) + Math.random().toString(36).slice(2);
 
   /* Every sheet is an entry, not just a recipe.
    *
@@ -7544,7 +7554,9 @@
    * sits on the base entry and back closes. */
   function pushSheet(state) {
     if (popping) return;
-    history.pushState(state || {}, '');
+    var st = state || {};
+    st.life = LIFE;
+    history.pushState(st, '');
     depth++;
   }
 
@@ -7562,7 +7574,9 @@
   }
 
   window.addEventListener('popstate', function (e) {
-    var id = e.state && e.state.r;
+    // an entry this load did not push is the base, whatever it carries
+    var st = e.state && e.state.life === LIFE ? e.state : null;
+    var id = st && st.r;
     popping = true;
     /* A dialog is not part of the modal, so closing the modal would leave the
        question sitting there over a page it no longer belongs to. */
@@ -7577,7 +7591,7 @@
       S.scale = 1;
       S.why = false;
       renderModal();
-    } else if (e.state && e.state.m && S.macroPick && (mOverMeal() || S.mBackPending)) {
+    } else if (st && st.m && S.macroPick && (mOverMeal() || S.mBackPending)) {
       /* Back from a recipe, a food, Save meal or Repeat a day opened from a
          meal's sheet lands on the meal's sheet, not on the day under it. */
       depth = Math.max(0, depth - 1);
@@ -7585,7 +7599,7 @@
       mOffMeal();
       renderModal();
       if (S.view === 'macros') renderMacros();
-    } else if (e.state && ((e.state.pw && S.pwOpen) || (e.state.ad && S.addOpen) || (e.state.ds && S.daySheet) || (e.state.td && S.tdSheet))) {
+    } else if (st && ((st.pw && S.pwOpen) || (st.ad && S.addOpen) || (st.ds && S.daySheet) || (st.td && S.tdSheet))) {
       /* Back from a recipe opened over Plan my week's list, + Add or a day's
          sheet lands on that sheet, not on the page under all of them. */
       depth = Math.max(0, depth - 1);
