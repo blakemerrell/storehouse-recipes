@@ -428,6 +428,17 @@ const FOODS = {
      longest name it did know: apple. USDA cider vinegar; white is the same to
      within a calorie. Its energy is its acid, which no macro counts. */
   vinegar:      { kcal: 21, p: 0, c: 0.9, f: 0, na: 5, fib: 0, g: { tsp: 5, tbsp: 15, cup: 239 }, label: 'Vinegar', note: 'cider or white' },
+  /* ---- the comfort dinners, 2026-10-06. Broth was not here, so "8 cups
+     chicken broth" fell through to the longest name it knew and was priced as
+     a kilo of canned chicken. A carton's worth, regular salt; the storehouse
+     carries none, and the soups in the book make their own from water.
+     Tater tots are the frozen bag, 9 pieces to 86 g; the book's Homemade
+     Tater Tots come out within a few per cent of them. */
+  broth:        { kcal: 5, p: 0.4, c: 0.4, f: 0.2, na: 360, fib: 0, g: { cup: 240, can: 411 }, label: 'Broth', note: 'chicken or beef, from a carton or can' },
+  /* Dry egg noodles weigh 38 g a cup to macaroni's 105, so "3 cups egg
+     noodles" read as pasta would have counted nearly three times the food. */
+  egg_noodles:  { kcal: 384, p: 14.2, c: 71.3, f: 4.4, na: 21, fib: 3.3, g: { cup: 38, oz: 28.35, lb: 453.6, pkg: 340 }, label: 'Egg noodles', note: 'dry; the ribbon pasta on the standard order' },
+  tater_tots:   { kcal: 186, p: 2.3, c: 23.3, f: 9.3, na: 488, fib: 2.3, g: { each: 9.5, cup: 86, lb: 453.6, oz: 28.35 }, label: 'Tater tots', note: 'frozen; 9 pieces = 86 g' },
 };
 
 /*
@@ -604,6 +615,12 @@ const ALIASES = {
   // the meatloaf, 2026-10-06; longer than 'apple', so the vinegar is found first
   'vinegar': 'vinegar', 'cider vinegar': 'vinegar', 'apple cider vinegar': 'vinegar',
   'white vinegar': 'vinegar', 'distilled vinegar': 'vinegar', 'distilled white vinegar': 'vinegar',
+  // the comfort dinners, 2026-10-06; egg noodles were read as eggs
+  'egg noodles': 'egg_noodles', 'wide egg noodles': 'egg_noodles', 'noodles': 'egg_noodles',
+  'ribbon noodles': 'egg_noodles',
+  'chicken broth': 'broth', 'beef broth': 'broth', 'chicken stock': 'broth', 'beef stock': 'broth',
+  'broth': 'broth',
+  'tater tots': 'tater_tots', 'tater tot': 'tater_tots', 'frozen tater tots': 'tater_tots',
 };
 
 /*
