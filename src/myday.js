@@ -152,11 +152,15 @@
     var c = [['kcal', '🔥', ''], ['p', 'P', 'mb-p'], ['f', 'F', 'mb-f'], ['c', 'C', 'mb-c']].map(function (x) {
       /* A macro the day can no longer pay for says so: a dashed pill and the
          figure on the plate (or a dash), never "N/0" — the old day pills'
-         rule (mMealPillsHTML), kept for the sheet. */
+         rule (mMealPillsHTML), kept for the sheet. The words "none left" went
+         from the face on 2026-10-06 (Blake: "Remove the text 'none left' from
+         in the pills"): cut to "none l" by a narrow pill, they were the
+         loudest thing on a meal with nothing to do. The dash and the dashed
+         edge say it; a screen reader still hears it. */
       if (spent[x[0]]) {
         var hv = sub[x[0]] || 0;
         return '<span class="mcap spent" data-want="0"><span class="mcap-t num"><i class="' + x[2] + '">' + x[1] + '</i>' +
-          (hv > 0 ? fmtK(hv) : '&mdash;') + '<em> none left</em></span></span>';
+          (hv > 0 ? fmtK(hv) : '&mdash;') + '<span class="vis-hidden"> none left</span></span></span>';
       }
       var have = sub[x[0]] || 0, a = x[0] === 'kcal' ? (aim.kcal || (4 * aim.p + 9 * aim.f + 4 * aim.c)) : (aim[x[0]] || 0);
       var pct = a > 0 ? Math.min(100, have * 100 / a) : 0;

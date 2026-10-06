@@ -7891,9 +7891,10 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mrow .mrow-m .mitem-mac { white-space: normal; }
 #modalRoot .msheet .mfood-mi:not(.mdel) { color: var(--ink); }
 #modalRoot .msheet .mfood-mi.mdel { color: var(--danger); }
-.msheet .mcap.spent { border-style: dashed; opacity: 0.8; }
-.msheet .mcap.spent .mcap-t { color: var(--muted); }
-.msheet .mcap.spent em { font-size: 0.75rem; }
+/* Spent: dashed and quiet, on the day's trays as in the sheet, now that the
+   pill carries no words to say so (2026-10-06). */
+.mcap.spent { border-style: dashed; opacity: 0.8; }
+.mcap.spent .mcap-t { color: var(--muted); }
 /* thumb-sized: the menus' rows 44 tall, and − and + a 44 square each with
    the 28 px circle drawn inside it */
 #modalRoot .msheet .mfood-mi { min-height: 44px; }
@@ -7907,7 +7908,7 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mrow .mrow-g { width: 56px; }
 /* No type under 13 px (Blake, 2026-09-27), in the trays and the sheet too. */
 .mtray-n, .mtray-k, .mtray-f em, .mtray-sw, .msh-t small, .mrow-mk, .mrow-g small,
-.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i, .msheet .mcap.spent em { font-size: 0.8125rem; }
+.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i { font-size: 0.8125rem; }
 .mrow-mk { letter-spacing: 0.03em; }
 .mrow-g small { line-height: 1.1; }
 .msheet .mcap.mcap-max { border-color: var(--dial-over); }
