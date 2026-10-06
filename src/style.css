@@ -7832,8 +7832,12 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   font-family: var(--sans); font-size: 0.9375rem; font-weight: 600; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 .msheet .mrow .mrow-dial.spent .mstep-x { font-weight: 500; color: var(--label); }
-.msheet .mrow .mitem-typing { display: flex; align-items: baseline; justify-content: center; gap: 2px; }
-.msheet .mrow .mstep-in { width: 4.2ch; font-size: 0.9375rem; text-align: center; padding: 2px 0; border: 1px solid var(--ochre); border-radius: 6px; background: var(--field); }
+/* The box keeps room for four digits whatever its unit says. It used to
+   shrink to fit beside the unit, and "× 100 g" left it 7px: one digit,
+   half seen. A unit too long to sit beside it goes under it instead. */
+.msheet .mrow .mitem-typing { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px; }
+.msheet .mrow .mitem-typing i { max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+.msheet .mrow .mstep-in { width: 4.2ch; flex: none; font-size: 0.9375rem; text-align: center; padding: 2px 0; border: 1px solid var(--ochre); border-radius: 6px; background: var(--field); }
 .msheet .mrow .mitem-typing i { font-style: normal; font-size: 0.75rem; color: var(--note); }
 .mrow-g small { font-size: 0.6875rem; color: var(--ochre-text); min-height: 12px; }
 .msheet .mrow-more { width: 40px; height: 44px; border: 0; background: none; border-radius: 8px; padding: 0; margin: 0; display: grid; place-items: center; color: var(--note); cursor: pointer; }

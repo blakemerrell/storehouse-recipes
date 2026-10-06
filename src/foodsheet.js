@@ -40,7 +40,18 @@
      starts where every add starts (what you logged last time, else one of
      it) and can be said in any unit the table weighs the food in; the Add
      goes to the meal the plate was on, or to the meal you choose. */
+  /* Grams in one x of a food whose unit is itself a weight: "100 g", which
+     is how the USDA and Open Food Facts hand over a food with no household
+     measure. It carries no grams of its own, so this page offered it in
+     "× 100 g" servings, where 50 typed meant five kilos. The meal's sheet
+     reads the same unit the same way (mLabelServing, src/portion.js). */
+  function mFsGramUnit(r) {
+    var m = r && r.food && !r.grams && /^\s*(\d+(?:\.\d+)?)\s+(?:g|grams?)\s*$/i.exec(String(r.unit || ''));
+    return m && Number(m[1]) > 0 ? Number(m[1]) : 0;
+  }
+  function mFsPer(r) { return r.grams || mFsGramUnit(r); }
   function mFsUnits(r) {
+    if (mFsGramUnit(r)) return [{ u: 'g', g: 1 }];
     if (!r.food || !r.grams) return [{ u: mDialUnit(r), g: 0 }];
     var key = String(r.id).slice(2), N = window.Nutrition;
     var f = N && N.FOODS && N.FOODS[key];
@@ -57,11 +68,13 @@
   function mFsX(r, amt, unit) {
     var n = Number(amt);
     if (!isFinite(n) || n <= 0) return null;
-    var x = unit && unit.g && r.grams ? n * unit.g / r.grams : n;
+    var per = mFsPer(r);
+    var x = unit && unit.g && per ? n * unit.g / per : n;
     return Math.round(x * 10000) / 10000;
   }
   function mFsAmt(r, x, unit) {
-    var n = unit && unit.g && r.grams ? x * r.grams / unit.g : x;
+    var per = mFsPer(r);
+    var n = unit && unit.g && per ? x * per / unit.g : x;
     return unit && unit.u === 'g' ? Math.round(n) : Math.round(n * 100) / 100;
   }
   var MNUTR = [['kcal', 'Calories', ''], ['p', 'Protein', 'g'], ['f', 'Fat', 'g'], ['c', 'Carbs', 'g'],

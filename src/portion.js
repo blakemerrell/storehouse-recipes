@@ -312,7 +312,16 @@
     if (!m) return null;
     var q = m[1].indexOf('/') > 0 ? Number(m[1].split('/')[0]) / Number(m[1].split('/')[1]) : Number(m[1]);
     if (!(q > 0)) return null;
-    return { q: q, noun: m[2].trim(), g: m[3] ? Number(m[3]) : 0 };
+    var noun = m[2].trim();
+    /* A serving already said in grams weighs what it says. The USDA quotes a
+       food with no household measure per "100 g", and so does Open Food
+       Facts for a product with no serving size (src/foodsearch.js,
+       src/lookup.js); read as a serving called "g" with no weight, the dial
+       showed "50 g" and then asked for multiples of 100 g once tapped, in a
+       box squeezed to one digit. Blake typed the 5 he could see: five
+       hundred grams of butter replacement. */
+    if (!m[3] && /^(g|grams?)$/i.test(noun)) return { q: q, noun: noun, g: q };
+    return { q: q, noun: noun, g: m[3] ? Number(m[3]) : 0 };
   }
   function mPortion(r, x) {
     var unit = mUnitWord(r);
@@ -320,6 +329,8 @@
     if (ls) {
       var tot = Math.round(x * ls.q * 8) / 8;
       var gl = ls.g ? Math.round(ls.g * x) : (r.grams ? Math.round(r.grams * x) : 0);
+      // a serving said in grams has said its weight already: not "30 g · 30 g"
+      if (/^(g|grams?)$/i.test(ls.noun)) gl = 0;
       return { head: fmtNum(tot) + ' ' + mLabelNoun(ls.noun, tot), detail: gl ? gl + ' g' : '' };
     }
     var grams = r.grams ? Math.round(r.grams * x) : 0;
