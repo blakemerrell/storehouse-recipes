@@ -328,6 +328,8 @@
           na: Number(f.na) || 0, fib: Number(f.fib) || 0 };
         }())
       };
+      // what the packet declared, off the scan that made it (src/camera.js); not a nutrient, so not in macro
+      if (Array.isArray(f.alg) && f.alg.length) rec.alg = f.alg.map(String).slice(0, 8);
       MFOODS.push(rec);
       BY_ID[rec.id] = rec;
     });
@@ -3234,6 +3236,7 @@
   var FOODSEARCH = window.HiveParts.foodsearch({});
   function mNutrients(list) { return FOODSEARCH.mNutrients(list); }
   function mFoodSearch(q, packaged) { return FOODSEARCH.mFoodSearch(q, packaged); }
+  function mUsdaBarcode(code) { return FOODSEARCH.mUsdaBarcode(code); }
 
   /* src/barcode.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -3251,7 +3254,7 @@
 
   /* src/lookup.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var LOOKUP = window.HiveParts.lookup({ BUILD: BUILD, S: S, mFoodSearch: mFoodSearch, mQueryKind: mQueryKind, LIVE: LIVE });
+  var LOOKUP = window.HiveParts.lookup({ BUILD: BUILD, S: S, mFoodSearch: mFoodSearch, mUsdaBarcode: mUsdaBarcode, mQueryKind: mQueryKind, LIVE: LIVE });
   function mBarcodeLookup(code) { return LOOKUP.mBarcodeLookup(code); }
   function mLookSay(err, code) { return LOOKUP.mLookSay(err, code); }
   function mLookupRows(list) { return LOOKUP.mLookupRows(list); }
@@ -3267,6 +3270,8 @@
   function mScanStart() { return CAMERA.mScanStart(); }
   function mScanGot(code, typed) { return CAMERA.mScanGot(code, typed); }
   function mNewFoodHTML() { return CAMERA.mNewFoodHTML(); }
+  function mNfRefresh() { return CAMERA.mNfRefresh(); }
+  function mNfFill(got) { return CAMERA.mNfFill(got); }
 
   /* src/plandays.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -3854,6 +3859,7 @@
     if (S.newFood) {
       if (!prev || !prev.querySelector('#nfName')) {
         root.innerHTML = mNewFoodHTML();
+        mNfRefresh();                  // the % Daily Values of what arrived filled in
         document.body.style.overflow = 'hidden';
         var nn = root.querySelector('#nfName');
         if (nn) nn.focus();
@@ -4723,6 +4729,7 @@
     dayN: mDayN,
     lookSay: mLookSay,
     nutrients: mNutrients,
+    foodSearch: mFoodSearch,
     /* What the next push would actually send, so a test can weigh it against
        the whole. */
     partial: function () { return mSyncPartial(); },
@@ -6606,20 +6613,18 @@
            packet's numbers the answer to a question nobody asked. */
         if (got && S.macroPick && !$('nfName')) {
           mScanStop();
-          S.newFood = { slot: S.macroPick.slot, pre: got, back: 1 };
+          S.newFood = { slot: S.macroPick.slot, pre: got, alg: got.alg || [], back: 1 };
           renderModal();
           return;
         }
         if (got) {
-          $('nfName').value = got.name;
-          $('nfUnit').value = got.unit;
-          $('nfKcal').value = got.kcal;
-          $('nfP').value = got.p;
-          $('nfF').value = got.f;
-          $('nfC').value = got.c;
-          $('nfResults').innerHTML = '';
+          mNfFill(got);
+          if ($('nfResults')) $('nfResults').innerHTML = '';
+          /* A serving said with its number, "2 Tbsp (32 g)", is not "one 2
+             Tbsp (32 g)". */
           $('nfNote').textContent = 'Filled in from ' + (got.note || 'the USDA') +
-            '. Change the amount if you had more or less than one ' + got.unit + '.';
+            '. Change the amount if you had more or less than ' +
+            (/^\d/.test(String(got.unit)) ? '' : 'one ') + got.unit + '.';
         }
         return;
       }
@@ -6709,6 +6714,14 @@
         var allF = mReadMyFoods(), ffresh = mNewFoodKey(nm, allF), fkey = ffresh.key;
         nm = ffresh.name;
         allF[fkey] = { name: nm, unit: nval('nfUnit') || 'serving', kcal: kc, p: pp, f: ff, c: cc };
+        /* Sodium and fiber when the label gave them: whole milligrams, fiber
+           to a tenth. An empty box is left out rather than kept as 0, which
+           is what an own food without them has always counted as anyway —
+           but a 0 written down would claim it was read off the packet. The
+           allergens ride along from the lookup that filled the form. */
+        if (nval('nfNa') !== '') allF[fkey].na = nnum('nfNa');
+        if (nval('nfFib') !== '') allF[fkey].fib = Math.max(0, Math.round((Number($('nfFib').value) || 0) * 10) / 10);
+        if (S.newFood.alg && S.newFood.alg.length) allF[fkey].alg = S.newFood.alg.slice(0, 8);
         mWriteMyFoods(allF);
         mBuildFoods();
         /* Named from inside a meal's sheet, so it goes on that meal, the way
@@ -7370,6 +7383,8 @@
         e.target.id === 'edExtras' || /^ed(Kcal|P|C|F)$/.test(e.target.id))) refreshPreview();
       if (S.syncOpen && e.target.id === 'myJoin') S.myJoin = e.target.value;
       if (S.newFood && e.target.id === 'nfFind') { /* typed; the buttons ask */ }
+      // the label panel's % Daily Values and what the day will count, as you type
+      if (S.newFood && e.target.closest && e.target.closest('.nfl')) mNfRefresh();
       if (S.macroPick && e.target.id === 'mpFind') {
         S.mpQuery = e.target.value;
         refreshMacroPicker();

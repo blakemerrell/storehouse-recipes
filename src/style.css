@@ -2348,6 +2348,57 @@ select { max-width: 280px; }
 .mt-sheet input[type="number"], #macroWeigh input { -moz-appearance: textfield; text-align: center; }
 /* the two menus stay sans and muted — they are lists to pick from, not ink */
 .mt-sheet select { font-family: var(--sans); font-size: 0.8125rem; color: var(--muted-2); }
+
+/* ---- "How much?" drawn as the panel on the packet (2026-10-07).
+   Black rules of three weights, heavy sans, the packet's order — so the
+   boxes read as a food rather than a form, and the eye goes down the label
+   in your hand and down this together. In ink and card, not black and
+   white, so a dark phone gets a dark panel with light rules. The boxes in
+   it are written in the label's own type, a dotted line under each saying
+   "type here", and a whole row is a thumb tall. */
+.nfl {
+  border: 1.5px solid var(--ink); background: var(--card); color: var(--ink);
+  padding: 4px 10px 8px; margin: 12px 0 4px; font-family: var(--sans);
+}
+.nfl-h { font-size: 2rem; font-weight: 900; line-height: 1.05; letter-spacing: -0.01em; }
+.nfl-serv {
+  display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--ink);
+  border-bottom: 9px solid var(--ink); font-size: 1rem; font-weight: 800;
+}
+.nfl-serv label { flex: none; }
+.nfl-aps { font-size: 0.8125rem; font-weight: 700; padding-top: 4px; }
+.nfl-cal { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; border-bottom: 5px solid var(--ink); padding-bottom: 2px; }
+.nfl-cal label { font-size: 1.75rem; font-weight: 900; line-height: 1.1; }
+.nfl-dvh { text-align: right; font-size: 0.8125rem; font-weight: 700; padding: 3px 0; border-bottom: 1px solid var(--ink); }
+.nfl-row {
+  display: flex; align-items: center; gap: 4px; min-height: 44px;
+  border-bottom: 1px solid var(--ink); font-size: 0.9375rem;
+}
+.nfl-row label { font-weight: 800; }
+.nfl-row.sub { padding-left: 16px; }
+.nfl-row.sub label { font-weight: 400; }
+.nfl-u { font-size: 0.9375rem; }
+.nfl-dv { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.nfl-foot { border-top: 8px solid var(--ink); padding-top: 5px; font-size: 0.8125rem; line-height: 1.35; }
+.mt-sheet .nfl input:not([type="checkbox"]) {
+  font-family: var(--sans); font-weight: 700; color: var(--ink); text-align: right;
+  border-bottom: 1.5px dotted var(--line-firm); padding: 2px 2px;
+}
+.mt-sheet .nfl input:not([type="checkbox"]):focus { border-bottom: 2px solid var(--ochre); box-shadow: none; }
+.mt-sheet .nfl-row input { width: 5ch; }
+.mt-sheet .nfl-serv input { flex: 1 1 auto; min-width: 0; font-weight: 800; }
+.mt-sheet .nfl-cal input { width: 4.4ch; font-size: 2.25rem; font-weight: 900; line-height: 1.1; }
+/* "Contains" sits over the panel where a label prints it, tinted so an
+   allergy is seen before a number is */
+.nfl-alg {
+  margin-top: 10px; padding: 8px 12px; border-radius: 10px; font-size: 0.9375rem; line-height: 1.4;
+  background: var(--hint); color: var(--ink);
+}
+.nfl-alg:empty { display: none; }
+.nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
+/* the same line on the food's own page */
+.mfs-alg { font-size: 0.875rem; margin-top: 6px; }
+.mfs-alg span { font-size: 0.8125rem; color: var(--muted); }
 /* the meal rows: arrow, name, kind, gone — edited in place, saved together */
 /* One meal, one line: arrow, name, kind, share, gone. Everything is scoped
    under .mtm-row because the phone media query hands every bare .txt the

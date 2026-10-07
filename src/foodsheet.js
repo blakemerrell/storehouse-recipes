@@ -149,6 +149,10 @@
         '</div>' +
         '<div class="mfs-name">' + esc(r.name) + '</div>' +
         '<div class="mfs-one">One of it: ' + esc(mPortionText(r, 1)) + '</div>' +
+        /* What the packet declared, kept from the scan that made the food
+           (src/camera.js), and said as whose list it is. */
+        (r.alg && r.alg.length ? '<div class="mfs-alg"><b>Contains</b> ' + esc(r.alg.join(', ')) +
+          ' <span>(Open Food Facts)</span></div>' : '') +
         (partRows ? '<div class="mt-div">What went in</div><div class="mfs-parts">' + partRows + '</div>' : '') +
         (o.onPlate === false ? '' :
           '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
