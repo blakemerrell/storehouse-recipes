@@ -57,7 +57,9 @@
        service and is not part of this API, which is why the searching here
        is the USDA's job and the barcodes are theirs. */
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
-      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags' +
+      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags,' +
+      'nutriscore_grade,nova_group,nova_groups_markers,nutrient_levels,ingredients_analysis_tags,' +
+      'additives_tags,ingredients_text,ingredients_text_en' +
       '&app_name=' + encodeURIComponent('Hive and Hearth') +
       '&app_version=' + encodeURIComponent(BUILD);
     return fetch(url).then(function (r) {
@@ -103,6 +105,8 @@
         kcal: num2(e.v), p: num2(pr2.v), f: num2(fa.v), c: num2(ca.v),
         na: naMg === null ? null : Math.round(naMg), fib: typeof fb === 'number' ? Math.round(fb * 10) / 10 : null,
         alg: mAllergens(p.allergens_tags),
+        off: mOffMore(p),
+        code: String(code),
         note: 'Open Food Facts'
       }];
     });
@@ -122,6 +126,80 @@
       if (w && out.indexOf(w) < 0 && out.length < 8) out.push(w);
     });
     return out;
+  }
+
+  /* The rest of what Open Food Facts says about a packet, read the way the
+     mockup Blake picked (2026-10-07, "D") shows it: the two grades, the
+     traffic lights, what the ingredients say about it, and the ingredients
+     themselves. Every part is optional and most US packets lack some of it,
+     so an absent answer is left out rather than guessed at: no grade is no
+     badge, an unknown vegetarian status is no tag, and "no additives" is
+     only said when there is an ingredient list for that to be true of.
+   *
+     A Leaf score is deliberately not among them. It was tuned for a plate
+     of food (tools/score-lib.js) and gives a can of cola 48, "worth
+     eating": three of its six parts are full marks for a modest calorie
+     count, no fat and no salt, which is a plate's virtue and a soda's whole
+     description. The Nutri-Score grades the same can E. */
+  function mOffMore(p) {
+    var out = {};
+    var ns = String(p.nutriscore_grade || '').toLowerCase();
+    if (/^[a-e]$/.test(ns)) out.ns = ns;
+    var nova = Number(p.nova_group);
+    if (nova >= 1 && nova <= 4) out.nova = Math.round(nova);
+    var lv = p.nutrient_levels || {}, levels = {};
+    ['fat', 'saturated-fat', 'sugars', 'salt'].forEach(function (k) {
+      if (/^(low|moderate|high)$/.test(lv[k])) levels[k] = lv[k];
+    });
+    if (Object.keys(levels).length) out.lv = levels;
+    var an = Array.isArray(p.ingredients_analysis_tags) ? p.ingredients_analysis_tags : [];
+    var has = function (t) { return an.indexOf('en:' + t) >= 0; };
+    var tags = [];
+    if (has('vegan')) tags.push('Vegan');
+    else if (has('vegetarian')) tags.push('Vegetarian');
+    else if (has('non-vegetarian')) tags.push('Not vegetarian');
+    if (has('palm-oil')) tags.push('Palm oil');
+    else if (has('palm-oil-free')) tags.push('No palm oil');
+    else if (has('may-contain-palm-oil')) tags.push('May contain palm oil');
+    var ingr = String(p.ingredients_text_en || p.ingredients_text || '').replace(/\s+/g, ' ').trim().slice(0, 1200);
+    var adds = Array.isArray(p.additives_tags) ? p.additives_tags.map(mAdditive) : [];
+    if (adds.length) tags.push(adds.length === 1 ? '1 additive: ' + adds[0] : adds.length + ' additives');
+    else if (ingr && Array.isArray(p.additives_tags)) tags.push('No additives');
+    if (tags.length) out.tags = tags;
+    if (adds.length > 1) out.adds = adds.slice(0, 12);
+    if (ingr) out.ingr = ingr;
+    /* What made it NOVA 4, in Open Food Facts' own markers: an ingredient,
+       an additive or the kind of food. Said in words, so the line can say
+       why and the ingredients can be marked where the words appear. */
+    var mk = p.nova_groups_markers && p.nova_groups_markers['4'];
+    if (out.nova === 4 && Array.isArray(mk)) {
+      var why = [];
+      mk.forEach(function (m) {
+        if (!Array.isArray(m) || m.length < 2) return;
+        var w = m[0] === 'additives' ? mAdditive(m[1]) : String(m[1] || '').replace(/^[a-z]{2}:/, '').replace(/-/g, ' ');
+        if (w && why.indexOf(w) < 0 && why.length < 6) why.push(w);
+      });
+      if (why.length) out.why = why;
+    }
+    return out;
+  }
+
+  /* An additive by the name on an American label rather than its E number.
+     The common ones only; anything else keeps its number, which is at
+     least searchable. */
+  var ADDITIVE = { e100: 'turmeric colour', e101: 'riboflavin', e102: 'Yellow 5', e110: 'Yellow 6', e120: 'carmine',
+    e129: 'Red 40', e133: 'Blue 1', e150: 'caramel colour', e160a: 'beta-carotene', e160b: 'annatto', e160c: 'paprika extract',
+    e171: 'titanium dioxide', e200: 'sorbic acid', e202: 'potassium sorbate', e211: 'sodium benzoate', e250: 'sodium nitrite',
+    e260: 'acetic acid', e270: 'lactic acid', e282: 'calcium propionate', e296: 'malic acid', e300: 'vitamin C',
+    e306: 'tocopherols', e319: 'TBHQ', e320: 'BHA', e321: 'BHT', e322: 'lecithin', e330: 'citric acid',
+    e331: 'sodium citrate', e339: 'sodium phosphate', e341: 'calcium phosphate', e407: 'carrageenan', e412: 'guar gum',
+    e415: 'xanthan gum', e440: 'pectin', e450: 'diphosphates', e460: 'cellulose', e466: 'cellulose gum',
+    e471: 'mono- and diglycerides', e472e: 'DATEM', e481: 'sodium stearoyl lactylate', e500: 'sodium carbonates',
+    e500ii: 'baking soda', e509: 'calcium chloride', e551: 'silicon dioxide', e621: 'MSG', e627: 'disodium guanylate',
+    e631: 'disodium inosinate', e950: 'acesulfame K', e951: 'aspartame', e955: 'sucralose', e1422: 'modified starch' };
+  function mAdditive(tag) {
+    var t = String(tag || '').replace(/^[a-z]{2}:/, '').toLowerCase();
+    return ADDITIVE[t] || ADDITIVE[t.replace(/^(e\d+)[a-z]*$/, '$1')] || t.toUpperCase();
   }
 
   /* What a failed lookup says, in one place. It was written out three times

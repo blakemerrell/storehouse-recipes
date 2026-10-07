@@ -2396,6 +2396,62 @@ select { max-width: 280px; }
 }
 .nfl-alg:empty { display: none; }
 .nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
+/* What Open Food Facts adds beyond the label (src/camera.js): the two
+   grades, its tags, the traffic lights and the ingredients. Each grade has
+   its word beside its colour, so the colours can be the official ones
+   without the meaning living in them alone. */
+.nfs-grades { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+.nfs-grade {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+}
+.nfs-ns { display: flex; align-items: center; gap: 3px; min-height: 36px; }
+.nfs-l {
+  flex: 1 1 0; text-align: center; font-family: var(--sans); font-weight: 800; font-size: 0.8125rem;
+  line-height: 24px; border-radius: 5px; opacity: 0.42;
+}
+.nfs-l.on { opacity: 1; font-size: 1.125rem; line-height: 34px; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--ink); }
+.nfs-a { background: oklch(0.50 0.13 150); color: #fff; }
+.nfs-b { background: oklch(0.70 0.15 130); color: oklch(0.22 0.04 130); }
+.nfs-c { background: oklch(0.86 0.16 95); color: oklch(0.25 0.04 90); }
+.nfs-d { background: oklch(0.72 0.16 60); color: oklch(0.22 0.04 60); }
+.nfs-e { background: oklch(0.56 0.19 35); color: #fff; }
+.nfs-nova {
+  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px;
+  font-family: var(--sans); font-weight: 800; font-size: 1.125rem;
+}
+.nfs-n1 { background: oklch(0.50 0.13 150); color: #fff; }
+.nfs-n2 { background: oklch(0.86 0.16 95); color: oklch(0.25 0.04 90); }
+.nfs-n3 { background: oklch(0.72 0.16 60); color: oklch(0.22 0.04 60); }
+.nfs-n4 { background: oklch(0.56 0.19 35); color: #fff; }
+.nfs-k { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
+.nfs-sub { font-size: 0.8125rem; line-height: 1.35; color: var(--muted-2); }
+.nfs-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.nfs-tag {
+  font-size: 0.8125rem; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted-2); background: var(--card);
+}
+.nfs-lv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.nfs-lvi {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px;
+  border-radius: 10px; font-size: 0.8125rem; color: var(--ink); text-align: center;
+}
+.nfs-lvi b { font-size: 0.875rem; }
+.nfs-lvk { color: var(--muted-2); }
+.lv-low { background: color-mix(in oklab, oklch(0.62 0.12 150) 22%, var(--card)); }
+.lv-moderate { background: color-mix(in oklab, oklch(0.80 0.15 85) 30%, var(--card)); }
+.lv-high { background: color-mix(in oklab, oklch(0.60 0.18 35) 26%, var(--card)); }
+.nfs-lvc { margin-top: 4px; }
+.nfs-ingr { margin-top: 10px; border-top: 1px solid var(--line-soft); }
+.nfs-ingr > summary {
+  min-height: 44px; display: flex; align-items: center; cursor: pointer;
+  font-size: 0.9375rem; font-weight: 600; color: var(--ink);
+}
+.nfs-ingr p { margin: 0 0 8px; font-size: 0.875rem; line-height: 1.5; color: var(--ink); }
+.nfs-ingr mark { background: color-mix(in oklab, oklch(0.70 0.14 50) 30%, var(--card)); color: inherit; padding: 0 2px; border-radius: 3px; }
+.nfs-src { margin-top: 12px; font-size: 0.8125rem; line-height: 1.4; color: var(--muted-2); }
+/* a link in a line of text: a thumb tall, the line unmoved */
+.nfs-src a { color: var(--ochre-text); display: inline-block; padding: 13px 0; margin: -13px 0; }
 /* the same line on the food's own page */
 .mfs-alg { font-size: 0.875rem; margin-top: 6px; }
 .mfs-alg span { font-size: 0.8125rem; color: var(--muted); }

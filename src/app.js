@@ -330,6 +330,9 @@
       };
       // what the packet declared, off the scan that made it (src/camera.js); not a nutrient, so not in macro
       if (Array.isArray(f.alg) && f.alg.length) rec.alg = f.alg.map(String).slice(0, 8);
+      // and its grades, the same way (Nutri-Score a–e, NOVA 1–4)
+      if (/^[a-e]$/.test(String(f.ns || ''))) rec.ns = String(f.ns);
+      if (Number(f.nova) >= 1 && Number(f.nova) <= 4) rec.nova = Math.round(Number(f.nova));
       MFOODS.push(rec);
       BY_ID[rec.id] = rec;
     });
@@ -6722,6 +6725,13 @@
         if (nval('nfNa') !== '') allF[fkey].na = nnum('nfNa');
         if (nval('nfFib') !== '') allF[fkey].fib = Math.max(0, Math.round((Number($('nfFib').value) || 0) * 10) / 10);
         if (S.newFood.alg && S.newFood.alg.length) allF[fkey].alg = S.newFood.alg.slice(0, 8);
+        /* The two grades too, a letter and a number, so the food's own page
+           can say them again. Not the ingredients or the traffic lights:
+           those are long, or per 100 g, and every saved food rides in the
+           one household document that syncs. */
+        var noff = (S.newFood.pre && S.newFood.pre.off) || {};
+        if (noff.ns) allF[fkey].ns = noff.ns;
+        if (noff.nova) allF[fkey].nova = noff.nova;
         mWriteMyFoods(allF);
         mBuildFoods();
         /* Named from inside a meal's sheet, so it goes on that meal, the way

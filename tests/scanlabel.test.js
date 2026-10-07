@@ -149,6 +149,101 @@ module.exports = {
     }
     await a.context().close();
 
+    // ---- what else Open Food Facts says: grades, tags, levels, ingredients ----
+    /* The same can as Open Food Facts had it on 2026-10-06, with the rest of
+       its record: the mockup Blake picked ("D"). The ingredients carry a tag
+       of their own, which has to arrive as text. */
+    const FULL = JSON.parse(JSON.stringify(BEANS));
+    Object.assign(FULL.product, { nutriscore_grade: 'b', nova_group: 4,
+      nutrient_levels: { fat: 'low', 'saturated-fat': 'low', sugars: 'moderate', salt: 'moderate' },
+      ingredients_analysis_tags: ['en:palm-oil-free', 'en:non-vegan', 'en:non-vegetarian'],
+      additives_tags: ['en:e500ii'],
+      ingredients_text: 'Prepared white beans, water, high fructose corn syrup, salt, <b>pork</b>, baking soda.',
+      nova_groups_markers: { 3: [['ingredients', 'en:salt']], 4: [['ingredients', 'en:high-fructose-corn-syrup'], ['additives', 'en:e500ii']] } });
+    let g = await open(() => BEANS);
+    await ask(g, '0078742370842');
+    await g.click('[data-nfpick="0"]');
+    await g.waitForTimeout(250);
+    const bare = await g.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).innerHTML).join(''));
+    t.ok('a packet with no grades, tags or ingredients in its record shows none of them', bare === '', bare);
+    await g.context().close();
+    g = await open(() => FULL);
+    await ask(g, '0078742370859');
+    await g.click('[data-nfpick="0"]');
+    await g.waitForTimeout(250);
+    const more = await g.evaluate(() => {
+      const q = (s) => document.querySelector(s);
+      return { ns: (q('.nfs-ns') || {}).getAttribute && q('.nfs-ns').getAttribute('aria-label'), on: (q('.nfs-l.on') || {}).textContent,
+        grades: [...document.querySelectorAll('.nfs-grade')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()),
+        tags: [...document.querySelectorAll('.nfs-tag')].map((x) => x.textContent),
+        lv: [...document.querySelectorAll('.nfs-lvi')].map((x) => x.textContent),
+        open: (q('.nfs-ingr') || {}).open, marks: [...document.querySelectorAll('.nfs-ingr mark')].map((m) => m.textContent),
+        injected: !!document.querySelector('.nfs-ingr p b'), ingr: (q('.nfs-ingr p') || {}).textContent || '',
+        link: q('.nfs-src a') && [q('.nfs-src a').href, q('.nfs-src a').target, q('.nfs-src a').rel].join(' '),
+        leaf: !!document.querySelector('.mt-sheet .leaf') };
+    });
+    t.ok('the Nutri-Score is drawn A to E with its letter picked out, and said in words',
+      more.on === 'B' && /^Nutri-Score B, on a scale from A/.test(more.ns) && /Nutri-Score B/.test(more.grades[0]), JSON.stringify(more));
+    t.ok('the NOVA group says what it is and, for an ultra-processed food, what made it so',
+      /Ultra-processed/.test(more.grades[1]) && /NOVA 4 of 4, for high fructose corn syrup, baking soda/.test(more.grades[1]), JSON.stringify(more.grades));
+    t.ok('the ingredients\u2019 own tags: vegetarian or not, palm oil, and the additive by its name',
+      JSON.stringify(more.tags) === '["Not vegetarian","No palm oil","1 additive: baking soda"]', JSON.stringify(more.tags));
+    t.ok('the traffic lights per 100 g, each in words',
+      JSON.stringify(more.lv) === '["FatLow","Sat. fatLow","SugarsModerate","SaltModerate"]', JSON.stringify(more.lv));
+    t.ok('the ingredients folded away, the words that made it ultra-processed marked in them',
+      more.open === false && JSON.stringify(more.marks) === '["high fructose corn syrup","baking soda"]', JSON.stringify(more));
+    t.ok('and a tag in the ingredients arrives as text, never as markup', !more.injected && /<b>pork<\/b>/.test(more.ingr), more.ingr);
+    t.ok('said as Open Food Facts\u2019 and volunteers\u2019, with a way to fix it there that opens on its own',
+      more.link === 'https://world.openfoodfacts.org/product/0078742370859 _blank noopener', more.link);
+    t.ok('and no Leaf score on a packet: it was tuned for a plate, and would call a can of cola worth eating', !more.leaf);
+    const cola = await g.evaluate(() => window.Nutrition.scoreFrom({ kcal: 140, p: 0, f: 0, c: 39, na: 45, fib: 0 }).score);
+    t.ok('(which it would: the Leaf gives a can of cola ' + cola + ')', cola >= 45, String(cola));
+    await g.click('[data-nf="save"]');
+    await g.waitForTimeout(350);
+    const kept2 = await g.evaluate(() => Object.values(JSON.parse(localStorage.getItem('bsc.myFoods') || '{}')));
+    const full = kept2.find((f) => f.ns) || {};
+    t.ok('saved, the food keeps its two grades and nothing longer',
+      full.ns === 'b' && full.nova === 4 && !('ingr' in full) && !('lv' in full) && !('off' in full), JSON.stringify(full));
+    await openTray(g);
+    await g.evaluate(() => {
+      const b = [...document.querySelectorAll('#modalRoot .mitem-food')].find((x) => /Pork/.test(x.textContent));
+      b.scrollIntoView({ block: 'center' }); b.click();
+    });
+    await g.waitForTimeout(250);
+    const grades = await g.evaluate(() => [...document.querySelectorAll('.mfs-alg')].map((x) => x.textContent).join(' | '));
+    t.ok('and its own page says them again', /Nutri-Score B · Ultra-processed \(NOVA 4\) \(Open Food Facts\)/.test(grades), grades);
+    if (process.env.SHOT) {
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(150);
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(150);
+      await g.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+      await g.click('#macroSlots .mtray-b');
+      await g.waitForTimeout(400);
+      await ask(g, '0078742370859');
+      await g.click('[data-nfpick="0"]');
+      await g.waitForTimeout(300);
+      await g.screenshot({ path: process.env.SHOT + '/off-1.png' });
+      await g.evaluate(() => { document.querySelector('.nfs-ingr').open = true; document.querySelector('.scrim').scrollTo(0, 700); });
+      await g.screenshot({ path: process.env.SHOT + '/off-2.png' });
+      await g.evaluate(() => { document.documentElement.setAttribute('data-theme', 'dark'); document.querySelector('.scrim').scrollTo(0, 0); });
+      await g.waitForTimeout(100);
+      await g.screenshot({ path: process.env.SHOT + '/off-dark.png' });
+    }
+    await g.context().close();
+
+    // ---- what is not known is not said --------------------------------------
+    const UNK = JSON.parse(JSON.stringify(BEANS));
+    Object.assign(UNK.product, { nutriscore_grade: 'unknown', nova_group: '', additives_tags: [],
+      ingredients_analysis_tags: ['en:palm-oil-content-unknown', 'en:vegan-status-unknown', 'en:vegetarian-status-unknown'] });
+    const k = await open(() => UNK);
+    await ask(k, '0078742370842');
+    await k.click('[data-nfpick="0"]');
+    await k.waitForTimeout(250);
+    const unk = await k.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
+    t.ok('an ungraded packet gets no grade, an unknown status no tag, and no ingredient list no claim of "no additives"', unk === '', unk);
+    await k.context().close();
+
     // ---- typed in by hand: an empty panel claims nothing ---------------------
     const h = await open(() => ({ status: 0 }));
     await h.click('[data-mpnew]');

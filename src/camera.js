@@ -210,7 +210,9 @@
           '<span class="mtl-val"><input type="text" id="nfName" ' +
             'placeholder="Chicken tamale" aria-label="What it is called" value="' +
             esc((pre && pre.name) || '') + '"></span></div>' +
+        '<div id="nfOffTop">' + mOffTopHTML(pre && pre.off) + '</div>' +
         '<div class="nfl-alg" id="nfAlg">' + mAlgHTML((S.newFood && S.newFood.alg) || []) + '</div>' +
+        '<div id="nfOffMid">' + mOffMidHTML(pre && pre.off) + '</div>' +
         '<div class="nfl" role="group" aria-labelledby="nflH">' +
           '<div class="nfl-h" id="nflH">Nutrition Facts</div>' +
           '<div class="nfl-serv"><label for="nfUnit">Serving size</label>' +
@@ -228,13 +230,73 @@
           '<div class="nfl-foot">* The % Daily Value tells you how much a nutrient in a serving ' +
             'contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.</div>' +
         '</div>' +
+        '<div id="nfOffEnd">' + mOffEndHTML(pre && pre.off) + '</div>' +
         '<div class="mt-cap" id="nfCounts"></div>' +
         '<div class="mt-cap" id="nfNote"></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
           '<button class="ghost" data-nf="cancel">Cancel</button>' +
         '</div>' +
+        '<div id="nfOffSrc">' + mOffSrcHTML(pre && pre.off, pre && pre.code) + '</div>' +
       '</div></div>';
+  }
+
+  /* What Open Food Facts adds beyond the label (src/lookup.js, mOffMore),
+     in the order of the mockup Blake picked (2026-10-07, "D"): the two
+     grades side by side, then what the ingredients say about it, then the
+     traffic lights, the panel, and the ingredients under it. A packet the
+     USDA answered for has none of it, and the form is as it was. Each grade
+     is said in words beside its colours, so neither is colour alone. */
+  var NOVA_WORD = { 1: 'Unprocessed or minimally processed', 2: 'Processed culinary ingredient',
+    3: 'Processed', 4: 'Ultra-processed' };
+  function mOffTopHTML(o) {
+    if (!o || !(o.ns || o.nova)) return '';
+    var ns = o.ns ? '<div class="nfs-grade"><span class="nfs-ns" role="img" aria-label="Nutri-Score ' +
+        o.ns.toUpperCase() + ', on a scale from A, the best, to E">' +
+        'abcde'.split('').map(function (l) {
+          return '<span class="nfs-l nfs-' + l + (l === o.ns ? ' on' : '') + '">' + l.toUpperCase() + '</span>';
+        }).join('') + '</span>' +
+        '<span class="nfs-k">Nutri-Score <b>' + o.ns.toUpperCase() + '</b></span>' +
+        '<span class="nfs-sub">How it compares in its aisle, per 100 g</span></div>' : '';
+    var nova = o.nova ? '<div class="nfs-grade"><span class="nfs-nova nfs-n' + o.nova + '" aria-hidden="true">' + o.nova + '</span>' +
+        '<span class="nfs-k">' + NOVA_WORD[o.nova] + '</span>' +
+        '<span class="nfs-sub">NOVA ' + o.nova + ' of 4' +
+          (o.why ? ', for ' + esc(o.why.join(', ')) : '') + '</span></div>' : '';
+    return '<div class="nfs-grades">' + ns + nova + '</div>';
+  }
+  var LEVEL_NAME = [['fat', 'Fat'], ['saturated-fat', 'Sat. fat'], ['sugars', 'Sugars'], ['salt', 'Salt']];
+  function mOffMidHTML(o) {
+    if (!o) return '';
+    var out = o.tags ? '<div class="nfs-tags">' + o.tags.map(function (t) {
+      return '<span class="nfs-tag">' + esc(t) + '</span>';
+    }).join('') + '</div>' : '';
+    if (o.lv) {
+      out += '<div class="nfs-lv">' + LEVEL_NAME.filter(function (n) { return o.lv[n[0]]; }).map(function (n) {
+        var v = o.lv[n[0]];
+        return '<span class="nfs-lvi lv-' + v + '"><span class="nfs-lvk">' + n[1] + '</span><b>' +
+          v.charAt(0).toUpperCase() + v.slice(1) + '</b></span>';
+      }).join('') + '</div><div class="nfs-sub nfs-lvc">Fat, salt and sugar per 100 g, by the UK\u2019s traffic-light bands</div>';
+    }
+    return out;
+  }
+  /* The ingredients, folded, with what made it ultra-processed marked where
+     those words appear. Escaped first and marked after, so a marker can only
+     ever wrap text, never markup. */
+  function mOffEndHTML(o) {
+    if (!o || !o.ingr) return '';
+    var txt = esc(o.ingr);
+    (o.why || []).forEach(function (w) {
+      var re = new RegExp('(' + esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+      txt = txt.replace(re, '<mark>$1</mark>');
+    });
+    return '<details class="nfs-ingr"><summary>Ingredients</summary><p>' + txt + '</p>' +
+      (o.adds ? '<p class="nfs-sub">Additives: ' + esc(o.adds.join(', ')) + '</p>' : '') + '</details>';
+  }
+  function mOffSrcHTML(o, code) {
+    if (!o || !(o.ns || o.nova || o.tags || o.lv || o.ingr)) return '';
+    return '<div class="nfs-src">Grades, tags and ingredients from Open Food Facts, written by volunteers.' +
+      (code ? ' <a href="https://world.openfoodfacts.org/product/' + encodeURIComponent(code) +
+        '" target="_blank" rel="noopener">Something wrong? Fix it there</a>' : '') + '</div>';
   }
 
   /* What the packet declares, said once above the panel where a label puts
@@ -280,8 +342,12 @@
     put('nfName', got.name); put('nfUnit', got.unit); put('nfKcal', got.kcal);
     put('nfP', got.p); put('nfF', got.f); put('nfC', got.c);
     put('nfNa', got.na); put('nfFib', got.fib);
-    if (S.newFood) S.newFood.alg = got.alg || [];
+    if (S.newFood) { S.newFood.alg = got.alg || []; S.newFood.pre = got; }
     if ($('nfAlg')) $('nfAlg').innerHTML = mAlgHTML(got.alg);
+    if ($('nfOffTop')) $('nfOffTop').innerHTML = mOffTopHTML(got.off);
+    if ($('nfOffMid')) $('nfOffMid').innerHTML = mOffMidHTML(got.off);
+    if ($('nfOffEnd')) $('nfOffEnd').innerHTML = mOffEndHTML(got.off);
+    if ($('nfOffSrc')) $('nfOffSrc').innerHTML = mOffSrcHTML(got.off, got.code);
     mNfRefresh();
   }
 

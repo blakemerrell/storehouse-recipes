@@ -153,6 +153,10 @@
            (src/camera.js), and said as whose list it is. */
         (r.alg && r.alg.length ? '<div class="mfs-alg"><b>Contains</b> ' + esc(r.alg.join(', ')) +
           ' <span>(Open Food Facts)</span></div>' : '') +
+        (r.ns || r.nova ? '<div class="mfs-alg">' + [r.ns ? 'Nutri-Score <b>' + r.ns.toUpperCase() + '</b>' : '',
+          r.nova ? '<b>' + ['', 'Unprocessed', 'Culinary ingredient', 'Processed', 'Ultra-processed'][r.nova] +
+            '</b> (NOVA ' + r.nova + ')' : ''].filter(Boolean).join(' &middot; ') +
+          ' <span>(Open Food Facts)</span></div>' : '') +
         (partRows ? '<div class="mt-div">What went in</div><div class="mfs-parts">' + partRows + '</div>' : '') +
         (o.onPlate === false ? '' :
           '<div class="mt-div">On your plate: ' + esc(mPortionText(r, x)) + '</div>' +
