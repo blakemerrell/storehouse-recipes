@@ -371,7 +371,7 @@ module.exports = {
     await sp.click('#macroSlots .mtray-b');
     await sp.waitForTimeout(400);
     await sp.fill('#mpFind', 'chicken breast');
-    await sp.waitForFunction(() => /From the food tables/.test((document.getElementById('nfResults') || {}).textContent || ''), null, { timeout: 8000 });
+    await sp.waitForFunction(() => /Not in the app yet/.test((document.getElementById('nfResults') || {}).textContent || ''), null, { timeout: 8000 });
     await sp.click('#nfResults [data-nfpick="0"]');
     await sp.waitForTimeout(300);
     const card = () => sp.evaluate(() => {

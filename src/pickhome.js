@@ -111,7 +111,15 @@
     var recent = mpRecentHTML(shown);
     var closers = mpComboHTML(shown);
     var fits = mpFitsHTML(shown);
-    var body = named + pins + recent + fits + closers + mpElseHTML(shown);
+    /* The USDA's answers come straight after the foods in the app that the
+       words found, not under every recipe: Blake picked the search list in
+       mockup I (2026-10-07), and "chicken breast" had put the one USDA row
+       below twenty-two recipes. The box is drawn here empty and filled when
+       the USDA answers, so the rows under it move down when the answer
+       lands; under the foods they move far less than a screen of recipes
+       would have hidden it. */
+    var look = mpLookFootHTML();
+    var body = named + look + pins + recent + fits + closers + mpElseHTML(shown);
     /* Judged on the ROWS, not on the string. A barcode with nothing behind it
        draws a band and no rows, and so does a shelf crossed with a lens that
        has nothing in it — and the Fits band now keeps its divider either way,
@@ -127,7 +135,7 @@
           : 'Nothing to offer for this meal yet.') + '</div>';
     }
     return mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w }) + body + mpLookFootHTML();
+      { k: S.macroPick.slot, w: S.macroPick.w }) + body;
   }
 
   /* Rebuilds ONLY the list, never the sheet.

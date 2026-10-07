@@ -542,7 +542,7 @@ module.exports = nourish({
        happened. */
     await look.waitForTimeout(900);
     t.ok('and asks the food tables on its own once the typing stops',
-      /looking in the food tables|from the food tables|did not answer|asked too often|no usda key|nothing came back/i
+      /asking the usda|from the usda|did not answer|asked too often|no usda key|nothing came back/i
         .test((await lookRow()).net), JSON.stringify((await lookRow()).net.slice(0, 120)));
 
     /* Two characters is not a question worth asking somebody else's server. */

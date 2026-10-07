@@ -77,25 +77,44 @@
     var n = unit && unit.g && per ? x * per / unit.g : x;
     return unit && unit.u === 'g' ? Math.round(n) : Math.round(n * 100) / 100;
   }
-  var MNUTR = [['kcal', 'Calories', ''], ['p', 'Protein', 'g'], ['f', 'Fat', 'g'], ['c', 'Carbs', 'g'],
-    ['fib', 'Fibre', 'g'], ['na', 'Sodium', 'mg']];
+  /* The amount in the box as a Nutrition Facts panel, the one the "How
+     much?" form draws (Blake took the label onto each food's own page,
+     mockup F, 2026-10-07), read rather than typed. It was a list of six
+     lines, Calories to Sodium, in an order no packet uses; now it is the
+     packet's order with each figure's % Daily Value, and the rest of a
+     label (saturated fat, cholesterol, sugars, calcium, iron, potassium)
+     wherever a scan or a search kept it on the food (`lab`, app.js). The
+     rows keep .mfs-nr, which is what the tests reach for. */
+  var FS_DV = { f: 78, na: 2300, c: 275, fib: 28, sat: 20, chol: 300, ca: 1300, fe: 18, k: 4700 };
   function mFsNutrHTML(r, x) {
-    var mac = r.macro || {}, known = {};
-    var row = function (lab, v, u) {
-      return '<div class="mfs-nr"><span>' + esc(lab) + '</span><b>' + v + (u ? ' ' + u : '') + '</b></div>';
+    var mac = r.macro || {}, lab = r.lab || {};
+    var val = function (k) {
+      var n = Object.prototype.hasOwnProperty.call(mac, k) ? mac[k] : lab[k];
+      return typeof n === 'number' ? n * x : null;
     };
-    var out = MNUTR.map(function (n) {
-      known[n[0]] = 1;
-      var v = (Number(mac[n[0]]) || 0) * x;
-      // whole grams, as the plate's own line says them; fibre to a tenth
-      return row(n[1], n[0] === 'fib' ? String(Math.round(v * 10) / 10) : Math.round(v).toLocaleString(), n[2]);
-    });
-    // anything else the table carries for it, named as the table names it
-    Object.keys(mac).forEach(function (k2) {
-      if (known[k2] || typeof mac[k2] !== 'number') return;
-      out.push(row(k2, String(Math.round(mac[k2] * x * 10) / 10), ''));
-    });
-    return out.join('');
+    // whole grams and milligrams, as the plate's own line says them; fibre, saturated fat and iron to a tenth
+    var show = function (k, n) { return /^(fib|sat|fe)$/.test(k) ? String(Math.round(n * 10) / 10) : Math.round(n).toLocaleString(); };
+    var row = function (k, name, unit, cls) {
+      var n = val(k);
+      if (n === null) return '';
+      return '<div class="mfs-nr nfl-row nfl-ro' + (cls ? ' ' + cls : '') + '"><span>' + name + '</span>' +
+        '<b>' + show(k, n) + ' ' + unit + '</b><i class="nfl-dv">' +
+        (FS_DV[k] ? Math.round(n / FS_DV[k] * 100) + '%' : '') + '</i></div>';
+    };
+    var minTop = val('ca') !== null ? 'ca' : val('fe') !== null ? 'fe' : 'k';
+    return '<div class="nfl nfl-read" role="group" aria-label="Nutrition Facts for ' + esc(mPortionText(r, x)) + '">' +
+      '<div class="nfl-h" aria-hidden="true">Nutrition Facts</div>' +
+      '<div class="nfl-serv"><span>Serving size</span><span>' + esc(mPortionText(r, x)) + '</span></div>' +
+      '<div class="mfs-nr nfl-cal"><span>Calories</span><b>' + Math.round((Number(mac.kcal) || 0) * x).toLocaleString() + '</b></div>' +
+      '<div class="nfl-dvh">% Daily Value*</div>' +
+      row('f', '<em>Total Fat</em>', 'g') + row('sat', 'Saturated Fat', 'g', 'sub') + row('chol', '<em>Cholesterol</em>', 'mg') +
+      row('na', '<em>Sodium</em>', 'mg') + row('c', '<em>Total Carbohydrate</em>', 'g') +
+      row('fib', 'Dietary Fiber', 'g', 'sub') + row('sug', 'Total Sugars', 'g', 'sub') + row('p', '<em>Protein</em>', 'g') +
+      row('ca', 'Calcium', 'mg', minTop === 'ca' ? 'nfl-min' : '') + row('fe', 'Iron', 'mg', minTop === 'fe' ? 'nfl-min' : '') +
+      row('k', 'Potassium', 'mg', minTop === 'k' ? 'nfl-min' : '') +
+      '<div class="nfl-foot">* The % Daily Value tells you how much a nutrient in a serving contributes to a daily diet. ' +
+        '2,000 calories a day is used for general nutrition advice.</div>' +
+    '</div>';
   }
   function mFsState(r) {
     var o = S.foodOpen, units = mFsUnits(r);

@@ -291,7 +291,7 @@
       ' with no nutrition table yet. Read it off the packet below.';
     if (why === 'nowhere') return (code || 'That') + ' is not in Open Food Facts or the USDA\u2019s packaged foods. Type what it was below.';
     if (why === 'none') return (code || 'That') + ' is not in Open Food Facts. Type what it was below.';
-    return (code ? 'Open Food Facts' : 'The food tables') + ' did not answer. Type it in below, or try again.';
+    return (code ? 'Open Food Facts' : 'The USDA') + ' did not answer. Type it in below, or try again.';
   }
 
   function mLookupRows(list) {
@@ -303,12 +303,24 @@
         ' Pick the one that matches the packet in your hand.</div>' : '') +
       list.map(function (x, i) {
       LIVE.MLOOKUP[i] = x;
-      return '<button class="mpick-row" data-nfpick="' + i + '">' +
+      /* A row from outside the app opens its label rather than going on the
+         meal, so it says so with a chevron where the app's own rows have a
+         +. Its salt is on it, in the recipes' words, and flagged past the
+         same third of a day; and what it is, and how many sizes it comes in,
+         ride under it in plain words. */
+      var na = typeof x.na === 'number' ? x.na : null;
+      var salt = na === null ? '' : na >= 800
+        ? ' <span class="msalt">' + na.toLocaleString() + ' mg salt</span>'
+        : ' &middot; ' + na.toLocaleString() + ' mg salt';
+      var tags = [x.src, x.sizes && x.sizes.length > 1 ? x.sizes.length + ' sizes' : ''].filter(Boolean);
+      return '<button class="mpick-row mlook-row" data-nfpick="' + i + '">' +
         '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
         '<span class="mp-fit">' + x.kcal + ' kcal &middot; ' + x.p + 'P &middot; ' + x.f +
-        'F &middot; ' + x.c + 'C per ' + esc(x.unit) +
-        (x.src ? ' <span class="mp-src">' + esc(x.src) + '</span>' : '') +
-        '</span></span></button>';
+        'F &middot; ' + x.c + 'C per ' + esc(x.unit) + salt + '</span>' +
+        (tags.length ? '<span class="mlook-tags">' + tags.map(function (tg) {
+          return '<span class="mp-src">' + esc(tg) + '</span>';
+        }).join('') + '</span>' : '') +
+        '</span><svg class="mlook-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>';
     }).join('');
   }
 
@@ -336,12 +348,16 @@
     var mine = ++LIVE.mLookSeq;
     var res = $('nfResults');
     if (!res) return;
-    res.innerHTML = '<div class="mslot-empty">Looking in the food tables&hellip;</div>';
+    /* Said by name, as the rows are tagged: "the food tables" told nobody
+       whose tables, or that they are not the app's own (Blake picked the
+       search list in mockup I, 2026-10-07). */
+    res.innerHTML = '<div class="mt-div">From the USDA</div><div class="mslot-empty">Asking the USDA&hellip;</div>';
     LIVE.MLOOKUP = {};
     mFoodSearch(term, false).then(function (list) {
       if (mine !== LIVE.mLookSeq || !$('nfResults')) return;
       $('nfResults').innerHTML = list.length
-        ? '<div class="mt-div">From the food tables</div>' + mLookupRows(list) : '';
+        ? '<div class="mt-div">From the USDA</div><div class="mlook-sub">Not in the app yet. Tap one for its label and its sizes.</div>' +
+          mLookupRows(list) : '';
     }, function (err) {
       if (mine !== LIVE.mLookSeq || !$('nfResults')) return;
       $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err)) + '</div>' +
@@ -349,7 +365,7 @@
            and only you know whether it is worth asking again. */
         (err && err.message === 'nokey' ? ''
           : '<button class="mpick-row mpick-new" data-mplook="' + esc(term) +
-            '"><span class="mp-body"><span class="mp-name">Try the food tables again' +
+            '"><span class="mp-body"><span class="mp-name">Ask the USDA again' +
             '</span></span></button>');
     });
   }

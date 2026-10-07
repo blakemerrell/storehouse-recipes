@@ -2429,6 +2429,14 @@ select { max-width: 280px; }
 }
 .nfl-alg:empty { display: none; }
 .nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
+/* A USDA row in the search list (src/lookup.js): its tags under it in
+   plain words, and a chevron where the app's own rows have a + */
+.mlook-sub { font-size: 0.8125rem; color: var(--muted-2); margin: -2px 0 4px; }
+.mlook-row .mp-body { flex-direction: column; align-items: stretch; gap: 3px; }
+.mlook-row { min-height: 60px; }
+.mlook-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.mlook-tags .mp-src { margin-left: 0; padding: 2px 8px; border-radius: 999px; background: var(--hint); opacity: 1; letter-spacing: 0.02em; text-transform: none; color: var(--muted-2); }
+.mlook-go { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--icon-faint); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 /* Two sources, two answers for one barcode (src/lookup.js, mTwoAnswers):
    said above the two rows, before either is picked */
 .mlook-clash {
@@ -2491,6 +2499,20 @@ select { max-width: 280px; }
 .nfs-src { margin-top: 12px; font-size: 0.8125rem; line-height: 1.4; color: var(--muted-2); }
 /* a link in a line of text: a thumb tall, the line unmoved */
 .nfs-src a { color: var(--ochre-text); display: inline-block; padding: 13px 0; margin: -13px 0; }
+/* The food's own page (src/foodsheet.js) draws the same panel, read-only:
+   its rows are .mfs-nr too, so the list's spacing and grey names are undone
+   inside it */
+.nfl-read { margin-top: 4px; }
+.nfl .mfs-nr { justify-content: flex-start; gap: 6px; padding: 0; border-bottom: 1px solid var(--ink); font-size: 0.9375rem; }
+.nfl .mfs-nr span { color: var(--ink); }
+.nfl .mfs-nr span em { font-style: normal; font-weight: 800; }
+.nfl .mfs-nr.sub { padding-left: 16px; }
+.nfl .mfs-nr b { font-weight: 400; }
+.nfl .mfs-nr i.nfl-dv { font-style: normal; }
+.nfl-read .nfl-serv { min-height: 34px; justify-content: space-between; }
+.nfl-read .nfl-cal { border-bottom: 5px solid var(--ink); padding: 2px 0; align-items: flex-end; justify-content: space-between; }
+.nfl-read .nfl-cal span { font-size: 1.75rem; font-weight: 900; line-height: 1.1; }
+.nfl-read .nfl-cal b { font-size: 2rem; font-weight: 900; line-height: 1.1; }
 /* the same line on the food's own page */
 .mfs-alg { font-size: 0.875rem; margin-top: 6px; }
 .mfs-alg span { font-size: 0.8125rem; color: var(--muted); }
