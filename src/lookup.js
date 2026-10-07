@@ -29,20 +29,57 @@
   }
   function $(id) { return document.getElementById(id); }
 
-  /* A barcode, asked of Open Food Facts and then, if it does not know the
-     packet or knows it without a nutrition table, of the USDA's packaged
-     foods (mUsdaBarcode). Neither knowing it is said as that. A USDA that
-     cannot be reached, or has no key here, leaves Open Food Facts' answer
-     standing: "did not answer" is never upgraded to "does not exist". */
+  /* A barcode, asked of Open Food Facts and the USDA's packaged foods at
+     once (mUsdaBarcode), and the two answers weighed against each other
+     (mTwoAnswers). The USDA used to be asked only when Open Food Facts had
+     nothing, which caught the packets it did not know and none of the ones
+     it knew wrongly: Blake picked mockup "E" (2026-10-07) after a probe
+     found a US peanut butter there as "Yellowfin Tuna" at a sixth of its
+     calories, a record the USDA had right by the same barcode.
+   *
+     Asked together, so a scan waits for the slower of two answers rather
+     than for one after the other. Either alone is the answer when the other
+     does not know the packet or cannot be reached. Neither knowing it is
+     said as that; a USDA out of reach leaves Open Food Facts' own failure
+     standing, so "did not answer" is never upgraded to "does not exist". */
   function mBarcodeLookup(code) {
-    return mOffLookup(code).catch(function (err) {
-      var why = err && err.message;
-      if (why !== 'none' && why !== 'nonutrition') throw err;
-      return mUsdaBarcode(code).catch(function (u) {
-        if (u && u.message === 'none' && why === 'none') throw new Error('nowhere');
-        throw err;
-      });
+    var settle = function (p) {
+      return p.then(function (l) { return { ok: l[0] }; }, function (e) { return { err: e }; });
+    };
+    return Promise.all([settle(mOffLookup(code)), settle(mUsdaBarcode(code))]).then(function (r) {
+      var o = r[0], u = r[1];
+      if (o.ok && u.ok) return mTwoAnswers(o.ok, u.ok);
+      if (o.ok || u.ok) return [o.ok || u.ok];
+      if (o.err && o.err.message === 'none' && u.err && u.err.message === 'none') throw new Error('nowhere');
+      throw o.err;
     });
+  }
+
+  /* Two answers for one barcode. Calories per 100 g are the one figure both
+     always give on the same basis, so they are what is compared: apart by
+     more than a fifth (and by 30 kcal, so a can of broth at 8 against 11 is
+     not a quarrel), the two are shown side by side, the USDA's first since
+     it is the maker's own label, and you pick the one that matches the
+     packet in your hand. Open Food Facts runs checks of its own and says
+     when its calories fail them; that is said too.
+   *
+     Agreeing, Open Food Facts' answer is the one used, because it is the
+     one with the grades and the allergens, and anything it is missing that
+     the USDA has (sodium and fiber, most often) is filled in from the USDA
+     at the same serving. The form says it was checked. */
+  function mTwoAnswers(o, u) {
+    var a = o.k100, b = u.k100;
+    var both = typeof a === 'number' && typeof b === 'number' && a > 0 && b > 0;
+    if (both && Math.abs(a - b) > Math.max(30, 0.2 * Math.max(a, b))) {
+      var list = [u, o];
+      list.clash = { off: Math.round(a), usda: Math.round(b), flagged: !!o.flag };
+      return list;
+    }
+    var g = o.g, h = u.per100 || {};
+    if (g && o.na === null && typeof h.na === 'number') o.na = Math.round(h.na * g / 100);
+    if (g && o.fib === null && typeof h.fib === 'number') o.fib = Math.round(h.fib * g / 10) / 10;
+    if (both) o.note = 'Open Food Facts, checked against the USDA\u2019s packaged foods';
+    return [o];
   }
   function mOffLookup(code) {
     /* Open Food Facts asks callers to say who they are. A browser cannot set
@@ -59,7 +96,7 @@
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
       encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags,' +
       'nutriscore_grade,nova_group,nova_groups_markers,nutrient_levels,ingredients_analysis_tags,' +
-      'additives_tags,ingredients_text,ingredients_text_en' +
+      'additives_tags,ingredients_text,ingredients_text_en,data_quality_errors_tags' +
       '&app_name=' + encodeURIComponent('Hive and Hearth') +
       '&app_version=' + encodeURIComponent(BUILD);
     return fetch(url).then(function (r) {
@@ -107,6 +144,16 @@
         alg: mAllergens(p.allergens_tags),
         off: mOffMore(p),
         code: String(code),
+        /* What the USDA's answer is weighed against (mTwoAnswers): the
+           calories per 100 g, the grams the row's figures are for when the
+           packet says, and whether Open Food Facts' own checks fault its
+           numbers. */
+        k100: typeof nu['energy-kcal_100g'] === 'number' ? nu['energy-kcal_100g'] : null,
+        g: e.serving ? mServingGrams(p.serving_size) : 100,
+        flag: (Array.isArray(p.data_quality_errors_tags) ? p.data_quality_errors_tags : []).some(function (t) {
+          return /energy|nutrition|nutrient/.test(String(t));
+        }),
+        src: 'Open Food Facts',
         note: 'Open Food Facts'
       }];
     });
@@ -126,6 +173,12 @@
       if (w && out.indexOf(w) < 0 && out.length < 8) out.push(w);
     });
     return out;
+  }
+
+  // the grams in a serving as Open Food Facts writes it: "1/2 cup (130 g)", "30g"
+  function mServingGrams(s) {
+    var m = /(\d+(?:[.,]\d+)?)\s*(?:g|grams?)\b/i.exec(String(s || ''));
+    return m ? Number(m[1].replace(',', '.')) : null;
   }
 
   /* The rest of what Open Food Facts says about a packet, read the way the
@@ -221,7 +274,12 @@
 
   function mLookupRows(list) {
     if (!list.length) return '<div class="mslot-empty">Nothing came back.</div>';
-    return list.map(function (x, i) {
+    var k = list.clash;
+    return (k ? '<div class="mlook-clash" role="note"><b>Two different answers for this barcode.</b> ' +
+        'Open Food Facts says ' + k.off + ' kcal per 100 g; the USDA\u2019s packaged foods, from the maker\u2019s label, say ' +
+        k.usda + '.' + (k.flagged ? ' Open Food Facts\u2019 own checks fault its figures.' : '') +
+        ' Pick the one that matches the packet in your hand.</div>' : '') +
+      list.map(function (x, i) {
       LIVE.MLOOKUP[i] = x;
       return '<button class="mpick-row" data-nfpick="' + i + '">' +
         '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +

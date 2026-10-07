@@ -2396,6 +2396,12 @@ select { max-width: 280px; }
 }
 .nfl-alg:empty { display: none; }
 .nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
+/* Two sources, two answers for one barcode (src/lookup.js, mTwoAnswers):
+   said above the two rows, before either is picked */
+.mlook-clash {
+  margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--hint);
+  font-size: 0.875rem; line-height: 1.45; color: var(--ink);
+}
 /* What Open Food Facts adds beyond the label (src/camera.js): the two
    grades, its tags, the traffic lights and the ingredients. Each grade has
    its word beside its colour, so the colours can be the official ones

@@ -40,7 +40,9 @@ module.exports = {
       p.usdaAsked = [];
       await p.context().route(OFF, async (r) => {
         const code = (r.request().url().match(/product\/(\d+)/) || [])[1];
-        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(off(code)) });
+        const body = off(code);
+        if (body === null) { await r.abort(); return; }            // Open Food Facts out of reach
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
       if (usda) {
         await p.context().route(USDA, async (r) => {
@@ -291,6 +293,61 @@ module.exports = {
     t.ok('a USDA that cannot be reached leaves Open Food Facts’ answer as it was, not "known nowhere"',
       /is not in Open Food Facts\./.test(off) && !/USDA/.test(off), off);
     await o.context().close();
+
+    // ---- both asked at once, and weighed against each other -------------------
+    /* The can again, this time known to both. Open Food Facts lacks its
+       fiber; the USDA's packaged foods have the same can at 85 kcal per
+       100 g, near enough to agree. */
+    const NOFIB = JSON.parse(JSON.stringify(BEANS));
+    delete NOFIB.product.nutriments.fiber_serving;
+    delete NOFIB.product.nutriments.fiber_100g;
+    const CAN = { foods: [{ dataType: 'Branded', gtinUpc: '078742370842', description: 'PORK & BEANS', brandName: 'GREAT VALUE',
+      servingSize: 130, servingSizeUnit: 'g', householdServingFullText: '1/2 cup', foodNutrients: nutr(85, 4.6, 0.8, 17.7, 300, 4.6) }] };
+    const ag = await open(() => NOFIB, CAN);
+    const agRows = await ask(ag, '078742370842');
+    t.ok('a barcode both know and agree on comes back once, as Open Food Facts\u2019 answer, the USDA asked alongside',
+      (agRows.match(/Pork & Beans/gi) || []).length === 1 && /Open Food Facts/.test(agRows) && !/Two different/.test(agRows) &&
+        ag.usdaAsked.length === 1, agRows);
+    await ag.click('[data-nfpick="0"]');
+    await ag.waitForTimeout(250);
+    got = await panel(ag);
+    const agCap = await ag.evaluate(() => (document.querySelector('.mt-sheet .mt-cap') || {}).textContent || '');
+    t.ok('said as checked, with the fiber it lacked filled in from the USDA at the same serving',
+      /checked against the USDA/.test(agCap) && got.fib === '6' && got.na === '390', agCap + ' ' + JSON.stringify(got));
+    await ag.context().close();
+
+    /* The peanut butter the probe of 2026-10-06 found: "Yellowfin Tuna" in
+       Open Food Facts at a sixth of its calories, its own checks faulting
+       them, and right in the USDA's packaged foods. */
+    const TUNA = { status: 1, product: { product_name: 'Yellowfin Tuna', brands: 'Nature\u2019s Promise', serving_size: '32 g',
+      allergens_tags: ['en:fish'], nutriscore_grade: 'a', nova_group: 1,
+      data_quality_errors_tags: ['en:energy-value-in-kcal-does-not-match-value-computed-from-other-nutrients'],
+      nutriments: { 'energy-kcal_serving': 34, proteins_serving: 7, fat_serving: 1, carbohydrates_serving: 0,
+        'energy-kcal_100g': 106, proteins_100g: 22, fat_100g: 3, carbohydrates_100g: 0 } } };
+    const JAR = { foods: [{ dataType: 'Branded', gtinUpc: '688267151866', description: 'CREAMY PEANUT BUTTER', brandName: 'NATURE\'S PROMISE',
+      servingSize: 32, servingSizeUnit: 'g', householdServingFullText: '2 Tbsp', foodNutrients: nutr(625, 21.9, 53.1, 18.8, 328, 6.2) }] };
+    const cl = await open(() => TUNA, JAR);
+    const clRows = await ask(cl, '688267151866');
+    const clash = await cl.evaluate(() => ({ note: (document.querySelector('.mlook-clash') || {}).textContent || '',
+      rows: [...document.querySelectorAll('#nfResults [data-nfpick]')].map((r) => r.textContent) }));
+    t.ok('two answers far apart are both shown, said as two, the maker\u2019s label first',
+      /Two different answers/.test(clash.note) && /106 kcal per 100 g/.test(clash.note) && /say 625/.test(clash.note) &&
+        clash.rows.length === 2 && /Creamy Peanut Butter/.test(clash.rows[0]) && /Yellowfin Tuna/.test(clash.rows[1]), JSON.stringify(clash));
+    t.ok('and Open Food Facts\u2019 own checks faulting its figures is said too', /own checks fault its figures/.test(clash.note), clash.note);
+    await cl.click('[data-nfpick="0"]');
+    await cl.waitForTimeout(250);
+    got = await panel(cl);
+    const clOff = await cl.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
+    t.ok('taking the USDA\u2019s answer takes none of the other record\u2019s grades or allergens, which may be another product\u2019s',
+      /Creamy Peanut Butter/.test(got.name) && got.kcal === '200' && got.alg === '' && clOff === '', JSON.stringify(got) + clOff);
+    await cl.context().close();
+
+    // Open Food Facts out of reach, the USDA not: the USDA's answer stands
+    const dn = await open(() => null, JAR);
+    const dnRows = await ask(dn, '688267151866');
+    t.ok('with Open Food Facts out of reach, the USDA\u2019s answer is used rather than "did not answer"',
+      /Creamy Peanut Butter/.test(dnRows) && !/did not answer/.test(dnRows), dnRows);
+    await dn.context().close();
 
     // ---- what the USDA's answers carry ---------------------------------------
     const e = await t.fresh();

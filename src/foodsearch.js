@@ -188,6 +188,8 @@
         unit: bs.unit,
         kcal: Math.round(n.kcal * per), p: Math.round(n.p * per), f: Math.round(n.f * per), c: Math.round(n.c * per),
         na: mPer(n.na, per, 1), fib: mPer(n.fib, per, 10),
+        // per 100 g, for weighing against Open Food Facts' answer (src/lookup.js, mTwoAnswers)
+        k100: n.kcal || null, per100: { na: n.na, fib: n.fib },
         src: 'USDA packaged foods', note: 'the USDA\u2019s packaged foods'
       }];
     });
