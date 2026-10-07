@@ -230,7 +230,7 @@
             '<span id="nfAmtU"></span><span class="nfh-g" id="nfAmtG"></span></div>' +
           '<button class="nfh-b" data-nfamt="1" aria-label="Half a serving more">+</button>' +
         '</div>' +
-        '<div class="nfh-with"><div class="nfz-h">' + esc((S.macroPick && S.macroPick.n) || 'The meal') +
+        '<div class="nfh-with"><div class="nfz-h" id="nfWithH">' + esc((S.macroPick && S.macroPick.n) || 'The meal') +
           ', with this</div><div id="nfWith"></div><div class="nfh-salt" id="nfSalt"></div></div>' +
       '</div>' : '';
     return '<div class="scrim no-print" data-close="1">' +
@@ -278,7 +278,8 @@
         '<div class="mt-cap" id="nfCounts"></div>' +
         '<div class="mt-cap" id="nfNote"></div>' +
         '<div class="sync-row">' +
-          '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
+          '<button class="btn-primary" data-nf="save">' +
+            (S.macroPick && S.macroPick.n ? 'Add to ' + esc(S.macroPick.n) : 'Add it to the day') + '</button>' +
           '<button class="ghost" data-nf="cancel">Cancel</button>' +
         '</div>' +
         '<div id="nfOffSrc">' + mOffSrcHTML(pre && pre.off, pre && pre.code) + '</div>' +
@@ -427,6 +428,15 @@
   function mNfRefresh() {
     if (!$('nfKcal')) return;
     mNfPhotoWatch();
+    /* Each figure a label row's box holds is as wide as it is, so it reads
+       "Total Fat 1 g" like the rows beside it that are only read
+       ("Saturated Fat 0 g"), not a number adrift in a box sized for four
+       digits (2026-10-07). The row is the thing to tap (app.js), so a
+       narrow box costs no reach. */
+    var ins = document.querySelectorAll('.nfl-row input');
+    for (var q = 0; q < ins.length; q++) {
+      ins[q].style.width = (Math.max(1, String(ins[q].value || ins[q].placeholder || '').length) + 1.2) + 'ch';
+    }
     var num = function (id) { var v = Number(($(id) || {}).value); return isFinite(v) && v > 0 ? v : 0; };
     var cells = document.querySelectorAll('.nfl [data-dv]');
     for (var i = 0; i < cells.length; i++) {
@@ -450,7 +460,11 @@
     $('nfAmtU').textContent = z.t;
     $('nfAmtG').textContent = Math.round(z.g * n) + ' g';
     var kc = typed && !(p || f || c) ? typed : counts;
-    if ($('nfWith')) $('nfWith').innerHTML = mMealNowHTML(S.newFood.slot, { kcal: kc * n, p: p * n, f: f * n, c: c * n });
+    /* No pills when the meal has no share to measure against (no targets
+       yet): "69/0" was a fraction of nothing. */
+    var pills = mMealNowHTML(S.newFood.slot, { kcal: kc * n, p: p * n, f: f * n, c: c * n });
+    if ($('nfWith')) $('nfWith').innerHTML = pills;
+    if ($('nfWithH')) $('nfWithH').hidden = !pills;
     var na = String(($('nfNa') || {}).value || '').trim() === '' ? null : num('nfNa') * n;
     if ($('nfSalt')) $('nfSalt').textContent = na === null ? '' :
       Math.round(na).toLocaleString() + ' mg of sodium: ' + Math.round(na / 2300 * 100) + '% of a day\u2019s 2,300 mg.';

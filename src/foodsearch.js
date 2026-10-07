@@ -125,7 +125,9 @@
            told nobody that it means a dish as people eat it. */
         var src = f.dataType === 'Branded' ? 'packaged' + (f.brandOwner ? ' \u00b7 ' + mTitle(f.brandOwner) : '')
           : f.dataType === 'Survey (FNDDS)' ? 'as eaten' : 'reference';
-        return { name: f.description, unit: unit,
+        // a packet by its brand, in the case a person writes it, as a scanned one is
+        var nm = f.dataType === 'Branded' ? [mTitle(f.brandName || f.brandOwner), mTitle(f.description)].filter(Boolean).join(' ') : f.description;
+        return { name: nm, unit: unit,
           kcal: Math.round(n.kcal * per), p: Math.round(n.p * per),
           f: Math.round(n.f * per), c: Math.round(n.c * per),
           na: mPer(n.na, per, 1), fib: mPer(n.fib, per, 10),
