@@ -2388,6 +2388,39 @@ select { max-width: 280px; }
 .mt-sheet .nfl-row input { width: 5ch; }
 .mt-sheet .nfl-serv input { flex: 1 1 auto; min-width: 0; font-weight: 800; }
 .mt-sheet .nfl-cal input { width: 4.4ch; font-size: 2.25rem; font-weight: 900; line-height: 1.1; }
+/* The rest of a label, read rather than typed (src/camera.js): a row as
+   tall as the panel's own, minerals under a heavy rule as a packet prints them */
+.nfl-ro { min-height: 34px; }
+.nfl-ro > span:first-child { font-weight: 400; }
+.nfl-ro b { font-weight: 800; }
+.nfl-min { border-top: 8px solid var(--ink); }
+/* Pick a size, then how much: the label is per serving, as a packet's is,
+   and the servings are what go on the plate */
+.nfz-h { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
+.nfz { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.nfz-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.nfz-b {
+  min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line-control);
+  background: transparent; color: var(--ink-2); font-family: var(--sans); font-size: 0.875rem; font-weight: 600;
+}
+.nfz-b span { font-weight: 400; color: var(--muted-2); }
+.nfz-b[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.nfz-b[aria-pressed="true"] span { color: inherit; opacity: 0.8; }
+.nfh { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.nfh-row { display: flex; align-items: center; gap: 12px; }
+.nfh-b {
+  flex: none; width: 52px; height: 52px; border-radius: 999px; border: 1.5px solid var(--line-control);
+  background: transparent; color: var(--ink-2); font-size: 1.5rem; line-height: 1;
+}
+.nfh-v {
+  flex: 1 1 auto; min-width: 0; text-align: center; border-bottom: 2px solid var(--ochre); padding-bottom: 4px;
+  font-size: 1rem; color: var(--muted-2); line-height: 1.3;
+}
+.nfh-v b { font-family: var(--serif); font-size: 1.75rem; font-weight: 600; color: var(--ink); }
+.nfh-g { display: block; font-size: 0.875rem; }
+.nfh-with { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--paper-soft); border: 1px solid var(--line-soft); }
+.nfh-salt { font-size: 0.875rem; color: var(--ink); }
+.nfh-salt:empty { display: none; }
 /* "Contains" sits over the panel where a label prints it, tinted so an
    allergy is seen before a number is */
 .nfl-alg {

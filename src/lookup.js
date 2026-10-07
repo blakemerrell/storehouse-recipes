@@ -78,6 +78,10 @@
     var g = o.g, h = u.per100 || {};
     if (g && o.na === null && typeof h.na === 'number') o.na = Math.round(h.na * g / 100);
     if (g && o.fib === null && typeof h.fib === 'number') o.fib = Math.round(h.fib * g / 10) / 10;
+    // and the same gaps in the label per 100 g that the sizes are worked from
+    if (o.per100) Object.keys(h).forEach(function (k) {
+      if (o.per100[k] === null && typeof h[k] === 'number') o.per100[k] = h[k];
+    });
     if (both) o.note = 'Open Food Facts, checked against the USDA\u2019s packaged foods';
     return [o];
   }
@@ -136,6 +140,24 @@
          rather than printing a 0 nobody read off a label. */
       var na = per('sodium').v, sa = per('salt').v, fb = per('fiber').v;
       var naMg = typeof na === 'number' ? na * 1000 : typeof sa === 'number' ? sa / 2.5 * 1000 : null;
+      /* The whole label per 100 g, for the sizes the form offers
+         (src/camera.js): the packet's serving and 100 g. Grams of sodium,
+         cholesterol and minerals are milligrams on a label. */
+      var h = function (k, mult) { var v = nu[k + '_100g']; return typeof v === 'number' ? v * (mult || 1) : null; };
+      var per100 = ['energy-kcal', 'proteins', 'fat', 'carbohydrates'].some(function (k) { return h(k) !== null; }) ? {
+        kcal: h('energy-kcal') || 0, p: h('proteins') || 0, f: h('fat') || 0, c: h('carbohydrates') || 0,
+        na: h('sodium', 1000) !== null ? h('sodium', 1000) : h('salt') !== null ? h('salt') / 2.5 * 1000 : null,
+        fib: h('fiber'), sat: h('saturated-fat'), sug: h('sugars'), chol: h('cholesterol', 1000),
+        ca: h('calcium', 1000), fe: h('iron', 1000), k: h('potassium', 1000) } : null;
+      var sg = e.serving ? mServingGrams(p.serving_size) : 100;
+      /* The first size is the packet's own serving, and keeps the packet's
+         own figures for it (`row`): 85 kcal per 100 g times 130 g is 111,
+         and the can says 110. A serving with no weight given cannot be one
+         of the sizes, and the form is the plain one it was. */
+      var words = String(p.serving_size || '').replace(/\s*\([^)]*\)/g, '').trim();
+      var sizes = !per100 || !sg ? null : e.serving
+        ? [{ t: words && !/^\d+(?:[.,]\d+)?\s*(?:g|grams?)$/i.test(words) ? words : sg + ' g', g: sg, row: 1 }, { t: '100 g', g: 100 }]
+        : [{ t: '100 g', g: 100, row: 1 }];
       return [{
         name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
         unit: e.serving ? (p.serving_size || 'serving') : '100 g',
@@ -149,7 +171,7 @@
            packet says, and whether Open Food Facts' own checks fault its
            numbers. */
         k100: typeof nu['energy-kcal_100g'] === 'number' ? nu['energy-kcal_100g'] : null,
-        g: e.serving ? mServingGrams(p.serving_size) : 100,
+        g: sg, per100: per100, sizes: sizes,
         flag: (Array.isArray(p.data_quality_errors_tags) ? p.data_quality_errors_tags : []).some(function (t) {
           return /energy|nutrition|nutrient/.test(String(t));
         }),

@@ -349,6 +349,77 @@ module.exports = {
       /Creamy Peanut Butter/.test(dnRows) && !/did not answer/.test(dnRows), dnRows);
     await dn.context().close();
 
+    // ---- a food searched for: its sizes, its whole label, how much ----------
+    /* The USDA's own record for a grilled chicken breast, as the probe of
+       2026-10-06 fetched it: per 100 g, with eleven ways it is weighed. */
+    const CHICKEN = { foods: [{ dataType: 'Survey (FNDDS)', description: 'Chicken breast, grilled with sauce, skin eaten',
+      foodNutrients: nutr(202, 21.15, 9.15, 7.34, 454, 0.2).concat([
+        { nutrientName: 'Fatty acids, total saturated', unitName: 'G', value: 2.105 }, { nutrientName: 'Cholesterol', unitName: 'MG', value: 78 },
+        { nutrientName: 'Total Sugars', unitName: 'G', value: 5.98 }, { nutrientName: 'Calcium, Ca', unitName: 'MG', value: 12 },
+        { nutrientName: 'Iron, Fe', unitName: 'MG', value: 0.55 }, { nutrientName: 'Potassium, K', unitName: 'MG', value: 280 }]),
+      foodMeasures: [['Quantity not specified', 175, 11], ['1 small breast', 150, 2], ['1 breast, NS as to size', 175, 5],
+        ['1 cup, cooked, diced', 165, 1], ['1 large breast', 195, 4], ['1 medium slice', 60, 7], ['1 large or thick slice', 85, 8],
+        ['1 small or thin slice', 30, 6], ['1 oz, cooked', 28.35, 9], ['1 medium breast', 175, 3]]
+        .map((m) => ({ disseminationText: m[0], gramWeight: m[1], rank: m[2] })) }] };
+    const sp = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await sp.context().route(USDA, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CHICKEN) }));
+    await sp.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 170 })));
+    await sp.reload();
+    await sp.click('.tab[data-view="macros"]');
+    await sp.waitForTimeout(250);
+    await sp.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+    await sp.click('#macroSlots .mtray-b');
+    await sp.waitForTimeout(400);
+    await sp.fill('#mpFind', 'chicken breast');
+    await sp.waitForFunction(() => /From the food tables/.test((document.getElementById('nfResults') || {}).textContent || ''), null, { timeout: 8000 });
+    await sp.click('#nfResults [data-nfpick="0"]');
+    await sp.waitForTimeout(300);
+    const card = () => sp.evaluate(() => {
+      const v = (id) => (document.getElementById(id) || {}).value, x = (id) => (document.getElementById(id) || {}).textContent;
+      return { sizes: [...document.querySelectorAll('[data-nfsize]')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+        on: (document.querySelector('[data-nfsize][aria-pressed="true"]') || {}).textContent,
+        unit: v('nfUnit'), kcal: v('nfKcal'), p: v('nfP'), f: v('nfF'), c: v('nfC'), na: v('nfNa'), fib: v('nfFib'),
+        sat: x('nfx-sat'), chol: x('nfx-chol'), cholDv: x('nfx-chol-dv'), sug: x('nfx-sug'), ca: x('nfx-ca'), fe: x('nfx-fe'),
+        k: x('nfx-k'), kDv: x('nfx-k-dv'), n: x('nfAmtN'), g: x('nfAmtG'), salt: x('nfSalt'),
+        pills: [...document.querySelectorAll('#nfWith .mcap')].map((m) => m.textContent) };
+    });
+    let cd = await card();
+    t.ok('a food searched for offers the sizes the USDA weighs it in, best first and its shrugs left out, with 100 g last',
+      cd.sizes.length === 7 && /^1 cup, cooked, diced 165 g$/.test(cd.sizes[0]) && /^1 small breast 150 g$/.test(cd.sizes[1]) &&
+        cd.sizes[6] === '100 g' && !cd.sizes.some((z) => /NS|not specified/.test(z)) && /1 cup/.test(cd.on), JSON.stringify(cd.sizes));
+    t.ok('the panel is that size\u2019s label, with the rest of the label the USDA gives',
+      cd.unit === '1 cup, cooked, diced (165 g)' && cd.kcal === '333' && cd.p === '35' && cd.f === '15' && cd.c === '12' &&
+        cd.na === '749' && cd.sat === '3.5' && cd.chol === '129' && cd.cholDv === '43%' && cd.sug === '10' && cd.ca === '20' &&
+        cd.fe === '0.9' && cd.k === '462' && cd.kDv === '10%', JSON.stringify(cd));
+    t.ok('with how much, and the meal\u2019s own pills with it on, and its salt against a day\u2019s',
+      cd.n === '1' && cd.g === '165 g' && cd.pills.length === 4 && /749 mg of sodium: 33% of a day/.test(cd.salt), JSON.stringify(cd));
+    await sp.click('[data-nfsize="1"]');
+    await sp.click('[data-nfamt="1"]');
+    await sp.waitForTimeout(100);
+    cd = await card();
+    t.ok('another size makes the panel that size\u2019s, and + is half a serving more',
+      cd.unit === '1 small breast (150 g)' && cd.kcal === '303' && cd.na === '681' && /1 small breast/.test(cd.on) &&
+        cd.n === '1\u00bd' && cd.g === '225 g' && /1,022 mg of sodium: 44%/.test(cd.salt), JSON.stringify(cd));
+    if (process.env.SHOT) {
+      const scrollAll = (y) => sp.evaluate((yy) => { document.querySelectorAll('.scrim, .mt-sheet').forEach((el) => { el.scrollTop = yy; }); }, y);
+      await scrollAll(0);
+      await sp.screenshot({ path: process.env.SHOT + '/card-1.png' });
+      await scrollAll(560);
+      await sp.screenshot({ path: process.env.SHOT + '/card-2.png' });
+    }
+    await sp.click('[data-nf="save"]');
+    await sp.waitForTimeout(350);
+    const ck = await sp.evaluate(() => {
+      const mine = Object.values(JSON.parse(localStorage.getItem('bsc.myFoods') || '{}'));
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'), d = days[Object.keys(days)[0]] || {};
+      const items = [].concat(...Object.values(d).filter(Array.isArray));
+      return { food: mine.find((f) => /Chicken breast/.test(f.name)), x: (items.find((it) => /^f:my:/.test(it.id)) || {}).x };
+    });
+    t.ok('saved as the size picked, its label per serving kept, and on the plate as the servings asked for',
+      ck.food && ck.food.unit === '1 small breast (150 g)' && ck.food.kcal === 4 * 32 + 4 * 11 + 9 * 14 && ck.x === 1.5 &&
+        ck.food.lab && ck.food.lab.chol === 117 && ck.food.lab.k === 420 && ck.food.lab.sat === 3, JSON.stringify(ck));
+    await sp.context().close();
+
     // ---- what the USDA's answers carry ---------------------------------------
     const e = await t.fresh();
     const nut = await e.evaluate(() => {

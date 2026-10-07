@@ -22,6 +22,7 @@
   var mDecodeFrame = app.mDecodeFrame;
   var mLookSay = app.mLookSay;
   var mLookupRows = app.mLookupRows;
+  var mMealNowHTML = app.mMealNowHTML;
   var LIVE = app.LIVE;
 
   function esc(s) {
@@ -183,6 +184,12 @@
        table — or arriving empty, which is the same form either way. */
     var pre = (S.newFood && S.newFood.pre) || null;
     var val = function (v) { return v || v === 0 ? ' value="' + esc(String(v)) + '"' : ''; };
+    /* A lookup that knows its food per 100 g and the sizes it comes in
+       (src/foodsearch.js, src/lookup.js) opens on one of those sizes, and
+       the panel is that size's label; otherwise it is the panel as given,
+       or empty to type into. */
+    var sized = mNfSized(pre);
+    var at = sized ? mNfAt(pre, S.newFood.size || 0) : pre;
     /* The words on the left are the box's label, for= and all, so the
        numbers are read out as Calories and Protein rather than as unnamed
        boxes; a tap on the word puts the caret in the box too. */
@@ -198,6 +205,34 @@
         (NF_DV[id] ? '<span class="nfl-dv" data-dv="' + id + '"></span>' : '') +
       '</div>';
     };
+    /* The rest of a label, when the source gave it: read, not typed, since
+       nothing the day counts is worked from them. Each has a place on the
+       panel, so each is drawn where the packet prints it, or not at all. */
+    var known = function (k) { return !!(sized && pre.per100[k] !== null && pre.per100[k] !== undefined); };
+    var ro = function (k, label, unit, sub, top) {
+      if (!known(k)) return '';
+      return '<div class="nfl-row nfl-ro' + (sub ? ' sub' : '') + (top ? ' nfl-min' : '') + '"><span>' + label +
+        ' <span id="nfx-' + k + '">' + mNfShow(at[k]) + '</span> ' + unit + '</span>' +
+        '<span class="nfl-dv" id="nfx-' + k + '-dv">' + mNfDv(k, at[k]) + '</span></div>';
+    };
+    var minTop = known('ca') ? 'ca' : known('fe') ? 'fe' : 'k';
+    var sizes = sized && pre.sizes.length > 1 ? '<div class="nfz" role="group" aria-label="Serving size">' +
+        '<div class="nfz-h">Pick a size</div><div class="nfz-row">' +
+        pre.sizes.map(function (z, i) {
+          return '<button class="nfz-b" data-nfsize="' + i + '" aria-pressed="' + (i === (S.newFood.size || 0)) + '">' +
+            esc(z.t) + (/^\d+(?:\.\d+)?\s*g$/.test(z.t) ? '' : ' <span>' + mNfShow(z.g) + ' g</span>') + '</button>';
+        }).join('') + '</div></div>' : '';
+    var how = sized ? '<div class="nfh">' +
+        '<div class="nfz-h" id="nfHowH">How much are you having?</div>' +
+        '<div class="nfh-row">' +
+          '<button class="nfh-b" data-nfamt="-1" aria-label="Half a serving less">&minus;</button>' +
+          '<div class="nfh-v" aria-live="polite" aria-labelledby="nfHowH"><b id="nfAmtN">1</b> &times; ' +
+            '<span id="nfAmtU"></span><span class="nfh-g" id="nfAmtG"></span></div>' +
+          '<button class="nfh-b" data-nfamt="1" aria-label="Half a serving more">+</button>' +
+        '</div>' +
+        '<div class="nfh-with"><div class="nfz-h">' + esc((S.macroPick && S.macroPick.n) || 'The meal') +
+          ', with this</div><div id="nfWith"></div><div class="nfh-salt" id="nfSalt"></div></div>' +
+      '</div>' : '';
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Add a food">' +
         '<div class="sheet-top">' +
@@ -213,23 +248,31 @@
         '<div id="nfOffTop">' + mOffTopHTML(pre && pre.off) + '</div>' +
         '<div class="nfl-alg" id="nfAlg">' + mAlgHTML((S.newFood && S.newFood.alg) || []) + '</div>' +
         '<div id="nfOffMid">' + mOffMidHTML(pre && pre.off) + '</div>' +
+        sizes +
         '<div class="nfl" role="group" aria-labelledby="nflH">' +
           '<div class="nfl-h" id="nflH">Nutrition Facts</div>' +
           '<div class="nfl-serv"><label for="nfUnit">Serving size</label>' +
-            '<input type="text" id="nfUnit" placeholder="1 tamale"' + val(pre && pre.unit) + '></div>' +
+            '<input type="text" id="nfUnit" placeholder="1 tamale"' + val(at && at.unit) + '></div>' +
           '<div class="nfl-aps">Amount per serving</div>' +
           '<div class="nfl-cal"><label for="nfKcal">Calories</label>' +
             '<input type="number" id="nfKcal" min="0" max="9999" step="1" inputmode="numeric" placeholder="250"' +
-              val(pre && pre.kcal) + '></div>' +
+              val(at && at.kcal) + '></div>' +
           '<div class="nfl-dvh">% Daily Value*</div>' +
-          row('nfF', 'Total Fat', 'g', '12', pre && pre.f) +
-          row('nfNa', 'Sodium', 'mg', '', pre && pre.na) +
-          row('nfC', 'Total Carbohydrate', 'g', '25', pre && pre.c) +
-          row('nfFib', 'Dietary Fiber', 'g', '', pre && pre.fib, true) +
-          row('nfP', 'Protein', 'g', '10', pre && pre.p) +
+          row('nfF', 'Total Fat', 'g', '12', at && at.f) +
+          ro('sat', 'Saturated Fat', 'g', true) +
+          ro('chol', '<b>Cholesterol</b>', 'mg') +
+          row('nfNa', 'Sodium', 'mg', '', at && at.na) +
+          row('nfC', 'Total Carbohydrate', 'g', '25', at && at.c) +
+          row('nfFib', 'Dietary Fiber', 'g', '', at && at.fib, true) +
+          ro('sug', 'Total Sugars', 'g', true) +
+          row('nfP', 'Protein', 'g', '10', at && at.p) +
+          ro('ca', 'Calcium', 'mg', false, minTop === 'ca') +
+          ro('fe', 'Iron', 'mg', false, minTop === 'fe') +
+          ro('k', 'Potassium', 'mg', false, minTop === 'k') +
           '<div class="nfl-foot">* The % Daily Value tells you how much a nutrient in a serving ' +
             'contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.</div>' +
         '</div>' +
+        how +
         '<div id="nfOffEnd">' + mOffEndHTML(pre && pre.off) + '</div>' +
         '<div class="mt-cap" id="nfCounts"></div>' +
         '<div class="mt-cap" id="nfNote"></div>' +
@@ -239,6 +282,54 @@
         '</div>' +
         '<div id="nfOffSrc">' + mOffSrcHTML(pre && pre.off, pre && pre.code) + '</div>' +
       '</div></div>';
+  }
+
+  /* The sizes a looked-up food comes in, and the label for one of them
+     (Blake picked the full panel with a size and an amount, mockups D and
+     J, 2026-10-07). The label is per serving, as a packet's is; how many
+     servings is the amount under it, which is what goes on the plate. The
+     packet's own serving keeps the packet's own figures (`row`); the other
+     sizes are worked from the label per 100 g. */
+  var NFX_DV = { sat: 20, chol: 300, ca: 1300, fe: 18, k: 4700 };
+  function mNfSized(pre) { return !!(pre && pre.per100 && pre.sizes && pre.sizes.length && S.newFood); }
+  function mNfAt(pre, i) {
+    var z = pre.sizes[i] || pre.sizes[0], h = pre.per100, x = z.g / 100;
+    var r = function (v, to) { return typeof v === 'number' ? Math.round(v * x * (to || 1)) / (to || 1) : null; };
+    var at = { unit: /^\d+(?:\.\d+)?\s*g$/.test(z.t) ? z.t : z.t + ' (' + mNfShow(z.g) + ' g)', g: z.g, t: z.t,
+      kcal: r(h.kcal), p: r(h.p), f: r(h.f), c: r(h.c), na: r(h.na), fib: r(h.fib, 10),
+      sat: r(h.sat, 2), chol: r(h.chol), sug: r(h.sug), ca: r(h.ca), fe: r(h.fe, 10), k: r(h.k) };
+    if (z.row) ['unit', 'kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (k) { at[k] = pre[k]; });
+    return at;
+  }
+  function mNfShow(v) { return v === null || v === undefined ? '' : String(Math.round(v * 10) / 10); }
+  function mNfDv(k, v) { return typeof v === 'number' && NFX_DV[k] ? Math.round(v / NFX_DV[k] * 100) + '%' : ''; }
+  // halves of a serving, as a kitchen says them: ½, 1, 1½
+  function mNfHalves(n) { var w = Math.floor(n), hf = n - w > 0.25; return (w ? String(w) : '') + (hf ? '\u00bd' : '') || '0'; }
+
+  /* A size picked: the panel becomes that size's label. Anything typed
+     over the figures is the source's again, since they were figures for
+     the size before. */
+  function mNfSize(i) {
+    var pre = S.newFood && S.newFood.pre;
+    if (!mNfSized(pre) || !pre.sizes[i]) return;
+    S.newFood.size = i;
+    var at = mNfAt(pre, i);
+    var put = function (id, v) { if ($(id)) $(id).value = v || v === 0 ? v : ''; };
+    put('nfUnit', at.unit); put('nfKcal', at.kcal); put('nfP', at.p); put('nfF', at.f); put('nfC', at.c);
+    put('nfNa', at.na); put('nfFib', at.fib);
+    Object.keys(NFX_DV).concat('sug').forEach(function (k) {
+      if ($('nfx-' + k)) $('nfx-' + k).textContent = mNfShow(at[k]);
+      if ($('nfx-' + k + '-dv')) $('nfx-' + k + '-dv').textContent = mNfDv(k, at[k]);
+    });
+    var bs = document.querySelectorAll('[data-nfsize]');
+    for (var j = 0; j < bs.length; j++) bs[j].setAttribute('aria-pressed', String(Number(bs[j].dataset.nfsize) === i));
+    mNfRefresh();
+  }
+  // half a serving more or less, never none: removing it is Cancel
+  function mNfAmount(d) {
+    if (!S.newFood) return;
+    S.newFood.n = Math.max(0.5, Math.min(20, (S.newFood.n || 1) + d * 0.5));
+    mNfRefresh();
   }
 
   /* What Open Food Facts adds beyond the label (src/lookup.js, mOffMore),
@@ -332,6 +423,19 @@
       ? 'The day counts ' + counts + ' kcal, not ' + typed + ': protein and carbs at 4 a gram, fat at 9' +
         (fib && counts > typed ? ', where the label counts its ' + (Math.round(fib * 10) / 10) + ' g of fiber at less.' : '.')
       : '';
+    /* How much, and the meal with it: the label times the servings, in the
+       calories the day will count, on the meal's own pills. */
+    var pre = S.newFood && S.newFood.pre;
+    if (!mNfSized(pre) || !$('nfAmtN')) return;
+    var n = S.newFood.n || 1, z = pre.sizes[S.newFood.size || 0] || pre.sizes[0];
+    $('nfAmtN').textContent = mNfHalves(n);
+    $('nfAmtU').textContent = z.t;
+    $('nfAmtG').textContent = Math.round(z.g * n) + ' g';
+    var kc = typed && !(p || f || c) ? typed : counts;
+    if ($('nfWith')) $('nfWith').innerHTML = mMealNowHTML(S.newFood.slot, { kcal: kc * n, p: p * n, f: f * n, c: c * n });
+    var na = String(($('nfNa') || {}).value || '').trim() === '' ? null : num('nfNa') * n;
+    if ($('nfSalt')) $('nfSalt').textContent = na === null ? '' :
+      Math.round(na).toLocaleString() + ' mg of sodium: ' + Math.round(na / 2300 * 100) + '% of a day\u2019s 2,300 mg.';
   }
 
   /* A looked-up row poured into the form already open, rather than opening
@@ -352,5 +456,5 @@
   }
 
   return { mScanStop: mScanStop, mScanStart: mScanStart, mScanGot: mScanGot, mNewFoodHTML: mNewFoodHTML,
-    mNfRefresh: mNfRefresh, mNfFill: mNfFill };
+    mNfRefresh: mNfRefresh, mNfFill: mNfFill, mNfSize: mNfSize, mNfAmount: mNfAmount, mNfAt: mNfAt, mNfSized: mNfSized };
 };
