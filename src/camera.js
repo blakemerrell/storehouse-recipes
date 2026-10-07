@@ -22,6 +22,7 @@
   var mDecodeFrame = app.mDecodeFrame;
   var mLookSay = app.mLookSay;
   var mLookupRows = app.mLookupRows;
+  var mMealNowHTML = app.mMealNowHTML;
   var LIVE = app.LIVE;
 
   function esc(s) {
@@ -183,6 +184,12 @@
        table — or arriving empty, which is the same form either way. */
     var pre = (S.newFood && S.newFood.pre) || null;
     var val = function (v) { return v || v === 0 ? ' value="' + esc(String(v)) + '"' : ''; };
+    /* A lookup that knows its food per 100 g and the sizes it comes in
+       (src/foodsearch.js, src/lookup.js) opens on one of those sizes, and
+       the panel is that size's label; otherwise it is the panel as given,
+       or empty to type into. */
+    var sized = mNfSized(pre);
+    var at = sized ? mNfAt(pre, S.newFood.size || 0) : pre;
     /* The words on the left are the box's label, for= and all, so the
        numbers are read out as Calories and Protein rather than as unnamed
        boxes; a tap on the word puts the caret in the box too. */
@@ -198,6 +205,34 @@
         (NF_DV[id] ? '<span class="nfl-dv" data-dv="' + id + '"></span>' : '') +
       '</div>';
     };
+    /* The rest of a label, when the source gave it: read, not typed, since
+       nothing the day counts is worked from them. Each has a place on the
+       panel, so each is drawn where the packet prints it, or not at all. */
+    var known = function (k) { return !!(sized && pre.per100[k] !== null && pre.per100[k] !== undefined); };
+    var ro = function (k, label, unit, sub, top) {
+      if (!known(k)) return '';
+      return '<div class="nfl-row nfl-ro' + (sub ? ' sub' : '') + (top ? ' nfl-min' : '') + '"><span>' + label +
+        ' <span id="nfx-' + k + '">' + mNfShow(at[k]) + '</span> ' + unit + '</span>' +
+        '<span class="nfl-dv" id="nfx-' + k + '-dv">' + mNfDv(k, at[k]) + '</span></div>';
+    };
+    var minTop = known('ca') ? 'ca' : known('fe') ? 'fe' : 'k';
+    var sizes = sized && pre.sizes.length > 1 ? '<div class="nfz" role="group" aria-label="Serving size">' +
+        '<div class="nfz-h">Pick a size</div><div class="nfz-row">' +
+        pre.sizes.map(function (z, i) {
+          return '<button class="nfz-b" data-nfsize="' + i + '" aria-pressed="' + (i === (S.newFood.size || 0)) + '">' +
+            esc(z.t) + (/^\d+(?:\.\d+)?\s*g$/.test(z.t) ? '' : ' <span>' + mNfShow(z.g) + ' g</span>') + '</button>';
+        }).join('') + '</div></div>' : '';
+    var how = sized ? '<div class="nfh">' +
+        '<div class="nfz-h" id="nfHowH">How much are you having?</div>' +
+        '<div class="nfh-row">' +
+          '<button class="nfh-b" data-nfamt="-1" aria-label="Half a serving less">&minus;</button>' +
+          '<div class="nfh-v" aria-live="polite" aria-labelledby="nfHowH"><b id="nfAmtN">1</b> &times; ' +
+            '<span id="nfAmtU"></span><span class="nfh-g" id="nfAmtG"></span></div>' +
+          '<button class="nfh-b" data-nfamt="1" aria-label="Half a serving more">+</button>' +
+        '</div>' +
+        '<div class="nfh-with"><div class="nfz-h">' + esc((S.macroPick && S.macroPick.n) || 'The meal') +
+          ', with this</div><div id="nfWith"></div><div class="nfh-salt" id="nfSalt"></div></div>' +
+      '</div>' : '';
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Add a food">' +
         '<div class="sheet-top">' +
@@ -206,35 +241,170 @@
         '</div>' +
         (pre && pre.note
           ? '<div class="mt-cap">From ' + esc(pre.note) + '</div>' : '') +
+        '<div id="nfOffPic">' + mOffPicHTML(pre && pre.off) + '</div>' +
         '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
           '<span class="mtl-val"><input type="text" id="nfName" ' +
             'placeholder="Chicken tamale" aria-label="What it is called" value="' +
             esc((pre && pre.name) || '') + '"></span></div>' +
+        '<div id="nfOffTop">' + mOffTopHTML(pre && pre.off) + '</div>' +
         '<div class="nfl-alg" id="nfAlg">' + mAlgHTML((S.newFood && S.newFood.alg) || []) + '</div>' +
+        '<div id="nfOffMid">' + mOffMidHTML(pre && pre.off) + '</div>' +
+        sizes +
         '<div class="nfl" role="group" aria-labelledby="nflH">' +
           '<div class="nfl-h" id="nflH">Nutrition Facts</div>' +
           '<div class="nfl-serv"><label for="nfUnit">Serving size</label>' +
-            '<input type="text" id="nfUnit" placeholder="1 tamale"' + val(pre && pre.unit) + '></div>' +
+            '<input type="text" id="nfUnit" placeholder="1 tamale"' + val(at && at.unit) + '></div>' +
           '<div class="nfl-aps">Amount per serving</div>' +
           '<div class="nfl-cal"><label for="nfKcal">Calories</label>' +
             '<input type="number" id="nfKcal" min="0" max="9999" step="1" inputmode="numeric" placeholder="250"' +
-              val(pre && pre.kcal) + '></div>' +
+              val(at && at.kcal) + '></div>' +
           '<div class="nfl-dvh">% Daily Value*</div>' +
-          row('nfF', 'Total Fat', 'g', '12', pre && pre.f) +
-          row('nfNa', 'Sodium', 'mg', '', pre && pre.na) +
-          row('nfC', 'Total Carbohydrate', 'g', '25', pre && pre.c) +
-          row('nfFib', 'Dietary Fiber', 'g', '', pre && pre.fib, true) +
-          row('nfP', 'Protein', 'g', '10', pre && pre.p) +
+          row('nfF', 'Total Fat', 'g', '12', at && at.f) +
+          ro('sat', 'Saturated Fat', 'g', true) +
+          ro('chol', '<b>Cholesterol</b>', 'mg') +
+          row('nfNa', 'Sodium', 'mg', '', at && at.na) +
+          row('nfC', 'Total Carbohydrate', 'g', '25', at && at.c) +
+          row('nfFib', 'Dietary Fiber', 'g', '', at && at.fib, true) +
+          ro('sug', 'Total Sugars', 'g', true) +
+          row('nfP', 'Protein', 'g', '10', at && at.p) +
+          ro('ca', 'Calcium', 'mg', false, minTop === 'ca') +
+          ro('fe', 'Iron', 'mg', false, minTop === 'fe') +
+          ro('k', 'Potassium', 'mg', false, minTop === 'k') +
           '<div class="nfl-foot">* The % Daily Value tells you how much a nutrient in a serving ' +
             'contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.</div>' +
         '</div>' +
+        how +
+        '<div id="nfOffEnd">' + mOffEndHTML(pre && pre.off) + '</div>' +
         '<div class="mt-cap" id="nfCounts"></div>' +
         '<div class="mt-cap" id="nfNote"></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
           '<button class="ghost" data-nf="cancel">Cancel</button>' +
         '</div>' +
+        '<div id="nfOffSrc">' + mOffSrcHTML(pre && pre.off, pre && pre.code) + '</div>' +
       '</div></div>';
+  }
+
+  /* The sizes a looked-up food comes in, and the label for one of them
+     (Blake picked the full panel with a size and an amount, mockups D and
+     J, 2026-10-07). The label is per serving, as a packet's is; how many
+     servings is the amount under it, which is what goes on the plate. The
+     packet's own serving keeps the packet's own figures (`row`); the other
+     sizes are worked from the label per 100 g. */
+  var NFX_DV = { sat: 20, chol: 300, ca: 1300, fe: 18, k: 4700 };
+  function mNfSized(pre) { return !!(pre && pre.per100 && pre.sizes && pre.sizes.length && S.newFood); }
+  function mNfAt(pre, i) {
+    var z = pre.sizes[i] || pre.sizes[0], h = pre.per100, x = z.g / 100;
+    var r = function (v, to) { return typeof v === 'number' ? Math.round(v * x * (to || 1)) / (to || 1) : null; };
+    var at = { unit: /^\d+(?:\.\d+)?\s*g$/.test(z.t) ? z.t : z.t + ' (' + mNfShow(z.g) + ' g)', g: z.g, t: z.t,
+      kcal: r(h.kcal), p: r(h.p), f: r(h.f), c: r(h.c), na: r(h.na), fib: r(h.fib, 10),
+      sat: r(h.sat, 2), chol: r(h.chol), sug: r(h.sug), ca: r(h.ca), fe: r(h.fe, 10), k: r(h.k) };
+    if (z.row) ['unit', 'kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (k) { at[k] = pre[k]; });
+    return at;
+  }
+  function mNfShow(v) { return v === null || v === undefined ? '' : String(Math.round(v * 10) / 10); }
+  function mNfDv(k, v) { return typeof v === 'number' && NFX_DV[k] ? Math.round(v / NFX_DV[k] * 100) + '%' : ''; }
+  // halves of a serving, as a kitchen says them: ½, 1, 1½
+  function mNfHalves(n) { var w = Math.floor(n), hf = n - w > 0.25; return (w ? String(w) : '') + (hf ? '\u00bd' : '') || '0'; }
+
+  /* A size picked: the panel becomes that size's label. Anything typed
+     over the figures is the source's again, since they were figures for
+     the size before. */
+  function mNfSize(i) {
+    var pre = S.newFood && S.newFood.pre;
+    if (!mNfSized(pre) || !pre.sizes[i]) return;
+    S.newFood.size = i;
+    var at = mNfAt(pre, i);
+    var put = function (id, v) { if ($(id)) $(id).value = v || v === 0 ? v : ''; };
+    put('nfUnit', at.unit); put('nfKcal', at.kcal); put('nfP', at.p); put('nfF', at.f); put('nfC', at.c);
+    put('nfNa', at.na); put('nfFib', at.fib);
+    Object.keys(NFX_DV).concat('sug').forEach(function (k) {
+      if ($('nfx-' + k)) $('nfx-' + k).textContent = mNfShow(at[k]);
+      if ($('nfx-' + k + '-dv')) $('nfx-' + k + '-dv').textContent = mNfDv(k, at[k]);
+    });
+    var bs = document.querySelectorAll('[data-nfsize]');
+    for (var j = 0; j < bs.length; j++) bs[j].setAttribute('aria-pressed', String(Number(bs[j].dataset.nfsize) === i));
+    mNfRefresh();
+  }
+  // half a serving more or less, never none: removing it is Cancel
+  function mNfAmount(d) {
+    if (!S.newFood) return;
+    S.newFood.n = Math.max(0.5, Math.min(20, (S.newFood.n || 1) + d * 0.5));
+    mNfRefresh();
+  }
+
+  /* What Open Food Facts adds beyond the label (src/lookup.js, mOffMore),
+     in the order of the mockup Blake picked (2026-10-07, "D"): the two
+     grades side by side, then what the ingredients say about it, then the
+     traffic lights, the panel, and the ingredients under it. A packet the
+     USDA answered for has none of it, and the form is as it was. Each grade
+     is said in words beside its colours, so neither is colour alone. */
+  /* The packet's photo, credited as its licence asks. With no signal it
+     cannot load, and a broken image says nothing useful, so it goes
+     (mNfPhotoWatch); nothing about the food depends on it. */
+  function mOffPicHTML(o) {
+    if (!o || !o.img || navigator.onLine === false) return '';
+    return '<figure class="nfp"><img src="' + esc(o.img) + '" alt="The front of the packet" decoding="async">' +
+      '<figcaption>Photo: Open Food Facts contributors, CC BY-SA</figcaption></figure>';
+  }
+  function mNfPhotoWatch() {
+    var img = document.querySelector('.nfp img');
+    if (!img || img.getAttribute('data-watched')) return;
+    img.setAttribute('data-watched', '1');
+    var gone = function () { var f = img.closest('.nfp'); if (f) f.hidden = true; };
+    if (img.complete && !img.naturalWidth && img.src) gone();
+    img.addEventListener('error', gone);
+  }
+  var NOVA_WORD = { 1: 'Unprocessed or minimally processed', 2: 'Processed culinary ingredient',
+    3: 'Processed', 4: 'Ultra-processed' };
+  function mOffTopHTML(o) {
+    if (!o || !(o.ns || o.nova)) return '';
+    var ns = o.ns ? '<div class="nfs-grade"><span class="nfs-ns" role="img" aria-label="Nutri-Score ' +
+        o.ns.toUpperCase() + ', on a scale from A, the best, to E">' +
+        'abcde'.split('').map(function (l) {
+          return '<span class="nfs-l nfs-' + l + (l === o.ns ? ' on' : '') + '">' + l.toUpperCase() + '</span>';
+        }).join('') + '</span>' +
+        '<span class="nfs-k">Nutri-Score <b>' + o.ns.toUpperCase() + '</b></span>' +
+        '<span class="nfs-sub">How it compares in its aisle, per 100 g</span></div>' : '';
+    var nova = o.nova ? '<div class="nfs-grade"><span class="nfs-nova nfs-n' + o.nova + '" aria-hidden="true">' + o.nova + '</span>' +
+        '<span class="nfs-k">' + NOVA_WORD[o.nova] + '</span>' +
+        '<span class="nfs-sub">NOVA ' + o.nova + ' of 4' +
+          (o.why ? ', for ' + esc(o.why.join(', ')) : '') + '</span></div>' : '';
+    return '<div class="nfs-grades">' + ns + nova + '</div>';
+  }
+  var LEVEL_NAME = [['fat', 'Fat'], ['saturated-fat', 'Sat. fat'], ['sugars', 'Sugars'], ['salt', 'Salt']];
+  function mOffMidHTML(o) {
+    if (!o) return '';
+    var out = o.tags ? '<div class="nfs-tags">' + o.tags.map(function (t) {
+      return '<span class="nfs-tag">' + esc(t) + '</span>';
+    }).join('') + '</div>' : '';
+    if (o.lv) {
+      out += '<div class="nfs-lv">' + LEVEL_NAME.filter(function (n) { return o.lv[n[0]]; }).map(function (n) {
+        var v = o.lv[n[0]];
+        return '<span class="nfs-lvi lv-' + v + '"><span class="nfs-lvk">' + n[1] + '</span><b>' +
+          v.charAt(0).toUpperCase() + v.slice(1) + '</b></span>';
+      }).join('') + '</div><div class="nfs-sub nfs-lvc">Fat, salt and sugar per 100 g, by the UK\u2019s traffic-light bands</div>';
+    }
+    return out;
+  }
+  /* The ingredients, folded, with what made it ultra-processed marked where
+     those words appear. Escaped first and marked after, so a marker can only
+     ever wrap text, never markup. */
+  function mOffEndHTML(o) {
+    if (!o || !o.ingr) return '';
+    var txt = esc(o.ingr);
+    (o.why || []).forEach(function (w) {
+      var re = new RegExp('(' + esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+      txt = txt.replace(re, '<mark>$1</mark>');
+    });
+    return '<details class="nfs-ingr"><summary>Ingredients</summary><p>' + txt + '</p>' +
+      (o.adds ? '<p class="nfs-sub">Additives: ' + esc(o.adds.join(', ')) + '</p>' : '') + '</details>';
+  }
+  function mOffSrcHTML(o, code) {
+    if (!o || !(o.ns || o.nova || o.tags || o.lv || o.ingr)) return '';
+    return '<div class="nfs-src">Grades, tags and ingredients from Open Food Facts, written by volunteers.' +
+      (code ? ' <a href="https://world.openfoodfacts.org/product/' + encodeURIComponent(code) +
+        '" target="_blank" rel="noopener">Something wrong? Fix it there</a>' : '') + '</div>';
   }
 
   /* What the packet declares, said once above the panel where a label puts
@@ -256,6 +426,7 @@
      at the save; it is said here, under the figure it replaces. */
   function mNfRefresh() {
     if (!$('nfKcal')) return;
+    mNfPhotoWatch();
     var num = function (id) { var v = Number(($(id) || {}).value); return isFinite(v) && v > 0 ? v : 0; };
     var cells = document.querySelectorAll('.nfl [data-dv]');
     for (var i = 0; i < cells.length; i++) {
@@ -270,6 +441,19 @@
       ? 'The day counts ' + counts + ' kcal, not ' + typed + ': protein and carbs at 4 a gram, fat at 9' +
         (fib && counts > typed ? ', where the label counts its ' + (Math.round(fib * 10) / 10) + ' g of fiber at less.' : '.')
       : '';
+    /* How much, and the meal with it: the label times the servings, in the
+       calories the day will count, on the meal's own pills. */
+    var pre = S.newFood && S.newFood.pre;
+    if (!mNfSized(pre) || !$('nfAmtN')) return;
+    var n = S.newFood.n || 1, z = pre.sizes[S.newFood.size || 0] || pre.sizes[0];
+    $('nfAmtN').textContent = mNfHalves(n);
+    $('nfAmtU').textContent = z.t;
+    $('nfAmtG').textContent = Math.round(z.g * n) + ' g';
+    var kc = typed && !(p || f || c) ? typed : counts;
+    if ($('nfWith')) $('nfWith').innerHTML = mMealNowHTML(S.newFood.slot, { kcal: kc * n, p: p * n, f: f * n, c: c * n });
+    var na = String(($('nfNa') || {}).value || '').trim() === '' ? null : num('nfNa') * n;
+    if ($('nfSalt')) $('nfSalt').textContent = na === null ? '' :
+      Math.round(na).toLocaleString() + ' mg of sodium: ' + Math.round(na / 2300 * 100) + '% of a day\u2019s 2,300 mg.';
   }
 
   /* A looked-up row poured into the form already open, rather than opening
@@ -280,11 +464,16 @@
     put('nfName', got.name); put('nfUnit', got.unit); put('nfKcal', got.kcal);
     put('nfP', got.p); put('nfF', got.f); put('nfC', got.c);
     put('nfNa', got.na); put('nfFib', got.fib);
-    if (S.newFood) S.newFood.alg = got.alg || [];
+    if (S.newFood) { S.newFood.alg = got.alg || []; S.newFood.pre = got; }
     if ($('nfAlg')) $('nfAlg').innerHTML = mAlgHTML(got.alg);
+    if ($('nfOffPic')) $('nfOffPic').innerHTML = mOffPicHTML(got.off);
+    if ($('nfOffTop')) $('nfOffTop').innerHTML = mOffTopHTML(got.off);
+    if ($('nfOffMid')) $('nfOffMid').innerHTML = mOffMidHTML(got.off);
+    if ($('nfOffEnd')) $('nfOffEnd').innerHTML = mOffEndHTML(got.off);
+    if ($('nfOffSrc')) $('nfOffSrc').innerHTML = mOffSrcHTML(got.off, got.code);
     mNfRefresh();
   }
 
   return { mScanStop: mScanStop, mScanStart: mScanStart, mScanGot: mScanGot, mNewFoodHTML: mNewFoodHTML,
-    mNfRefresh: mNfRefresh, mNfFill: mNfFill };
+    mNfRefresh: mNfRefresh, mNfFill: mNfFill, mNfSize: mNfSize, mNfAmount: mNfAmount, mNfAt: mNfAt, mNfSized: mNfSized };
 };

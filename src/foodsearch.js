@@ -34,8 +34,11 @@
      100 g and went onto his day as none, under a salt cap the meal sheet
      weighs every food against. */
   function mNutrients(list) {
-    // sodium and fiber stay null when the answer has none: missing is not zero
-    var out = { kcal: 0, p: 0, f: 0, c: 0, na: null, fib: null }, kc = {};
+    /* Sodium and fiber, and the rest of a label (saturated fat, cholesterol,
+       sugars, calcium, iron, potassium: Blake picked the full panel,
+       2026-10-07), stay null when the answer has none: missing is not zero. */
+    var out = { kcal: 0, p: 0, f: 0, c: 0, na: null, fib: null, sat: null, chol: null, sug: null,
+      ca: null, fe: null, k: null }, kc = {};
     (list || []).forEach(function (n) {
       var name = n.nutrientName || (n.nutrient && n.nutrient.name) || '';
       var unit = (n.unitName || (n.nutrient && n.nutrient.unitName) || '').toUpperCase();
@@ -49,6 +52,12 @@
       else if (name === 'Carbohydrate, by difference') out.c = v;
       else if (name === 'Sodium, Na' && unit === 'MG') out.na = v;
       else if (name === 'Fiber, total dietary' && unit === 'G') out.fib = v;
+      else if (name === 'Fatty acids, total saturated' && unit === 'G') out.sat = v;
+      else if (name === 'Cholesterol' && unit === 'MG') out.chol = v;
+      else if (/^(Total Sugars|Sugars, total including NLEA|Sugars, Total)$/.test(name) && unit === 'G') out.sug = v;
+      else if (name === 'Calcium, Ca' && unit === 'MG') out.ca = v;
+      else if (name === 'Iron, Fe' && unit === 'MG') out.fe = v;
+      else if (name === 'Potassium, K' && unit === 'MG') out.k = v;
     });
     out.kcal = kc.plain !== undefined ? kc.plain : kc.spec !== undefined ? kc.spec : kc.gen || 0;
     return out;
@@ -112,12 +121,15 @@
         var per = bs ? bs.per : best ? best.gramWeight / 100 : 1;
         var unit = bs ? bs.unit : best ? mUsdaMeasure(best.disseminationText) +
           ' (' + Math.round(best.gramWeight) + ' g)' : '100 g';
-        var src = f.dataType === 'Branded' ? (f.brandOwner || 'packaged')
-          : f.dataType === 'Survey (FNDDS)' ? 'survey' : 'reference';
+        /* Said in words: "survey" was the USDA's name for its data set, and
+           told nobody that it means a dish as people eat it. */
+        var src = f.dataType === 'Branded' ? 'packaged' + (f.brandOwner ? ' \u00b7 ' + mTitle(f.brandOwner) : '')
+          : f.dataType === 'Survey (FNDDS)' ? 'as eaten' : 'reference';
         return { name: f.description, unit: unit,
           kcal: Math.round(n.kcal * per), p: Math.round(n.p * per),
           f: Math.round(n.f * per), c: Math.round(n.c * per),
           na: mPer(n.na, per, 1), fib: mPer(n.fib, per, 10),
+          per100: n, sizes: bs ? mPacketSizes(bs) : mMeasureSizes(f.foodMeasures),
           src: src, note: 'the USDA' };
       }).filter(function (x) { return x.kcal || x.p || x.f || x.c; });
     });
@@ -132,6 +144,28 @@
     var s = String(t || '').replace(/\s*\([^)]*\)/g, '').trim();
     return /^\d/.test(s) ? s : '1 ' + (s || 'serving');
   }
+  /* Every size the USDA weighs a food in, not only the first (2026-10-07):
+     a grilled chicken breast comes with eleven, from an ounce to a large
+     breast, and the form offers them as the serving to pick. Best-ranked
+     first, a handful at most, and always 100 g last for whoever has a
+     scale. */
+  function mMeasureSizes(list) {
+    var out = [], seen = {};
+    (list || []).slice().sort(function (a, b) { return (a.rank || 99) - (b.rank || 99); }).forEach(function (m) {
+      var t = String(m.disseminationText || '');
+      // "Quantity not specified" and "1 breast, NS as to size" are the USDA's shrugs, not sizes
+      if (!m.gramWeight || /not specified|\bNS\b/i.test(t) || out.length >= 6) return;
+      t = mUsdaMeasure(t);
+      if (seen[t]) return;
+      seen[t] = 1;
+      out.push({ t: t, g: Math.round(m.gramWeight * 10) / 10 });
+    });
+    out.push({ t: '100 g', g: 100 });
+    return out;
+  }
+  function mPacketSizes(bs) {
+    return bs.g === 100 ? [{ t: '100 g', g: 100 }] : [{ t: bs.t, g: bs.g }, { t: '100 g', g: 100 }];
+  }
   // a figure per 100 g scaled to the serving and rounded to 1/to; one never given stays null
   function mPer(v, per, to) { return typeof v === 'number' ? Math.round(v * per * to) / to : null; }
 
@@ -144,7 +178,8 @@
     // its own aside off, as with a reference food's measure (mUsdaMeasure): "1 cup (8 fl oz)"
     var hh = String(f.householdServingFullText || '').replace(/\s*\([^)]*\)/g, '').trim();
     var w = Math.round(g * 10) / 10;
-    return { per: g / 100, unit: hh && /^\d/.test(hh) ? hh + ' (' + w + ' g)' : w + ' g' };
+    return { per: g / 100, unit: hh && /^\d/.test(hh) ? hh + ' (' + w + ' g)' : w + ' g',
+      t: hh && /^\d/.test(hh) ? hh : w + ' g', g: w };
   }
   // the USDA's packets are named in capitals: "CREAMY PEANUT BUTTER"
   function mTitle(s) {
@@ -188,6 +223,8 @@
         unit: bs.unit,
         kcal: Math.round(n.kcal * per), p: Math.round(n.p * per), f: Math.round(n.f * per), c: Math.round(n.c * per),
         na: mPer(n.na, per, 1), fib: mPer(n.fib, per, 10),
+        // per 100 g, for weighing against Open Food Facts' answer (src/lookup.js, mTwoAnswers)
+        k100: n.kcal || null, per100: n, sizes: mUsdaServing(f) ? mPacketSizes(mUsdaServing(f)) : [{ t: '100 g', g: 100 }],
         src: 'USDA packaged foods', note: 'the USDA\u2019s packaged foods'
       }];
     });

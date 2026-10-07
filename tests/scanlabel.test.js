@@ -40,7 +40,9 @@ module.exports = {
       p.usdaAsked = [];
       await p.context().route(OFF, async (r) => {
         const code = (r.request().url().match(/product\/(\d+)/) || [])[1];
-        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(off(code)) });
+        const body = off(code);
+        if (body === null) { await r.abort(); return; }            // Open Food Facts out of reach
+        await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
       });
       if (usda) {
         await p.context().route(USDA, async (r) => {
@@ -149,6 +151,127 @@ module.exports = {
     }
     await a.context().close();
 
+    // ---- what else Open Food Facts says: grades, tags, levels, ingredients ----
+    /* The same can as Open Food Facts had it on 2026-10-06, with the rest of
+       its record: the mockup Blake picked ("D"). The ingredients carry a tag
+       of their own, which has to arrive as text. */
+    const FULL = JSON.parse(JSON.stringify(BEANS));
+    Object.assign(FULL.product, { nutriscore_grade: 'b', nova_group: 4,
+      nutrient_levels: { fat: 'low', 'saturated-fat': 'low', sugars: 'moderate', salt: 'moderate' },
+      ingredients_analysis_tags: ['en:palm-oil-free', 'en:non-vegan', 'en:non-vegetarian'],
+      additives_tags: ['en:e500ii'],
+      ingredients_text: 'Prepared white beans, water, high fructose corn syrup, salt, <b>pork</b>, baking soda.',
+      nova_groups_markers: { 3: [['ingredients', 'en:salt']], 4: [['ingredients', 'en:high-fructose-corn-syrup'], ['additives', 'en:e500ii']] },
+      image_front_small_url: 'https://images.openfoodfacts.org/images/products/007/874/237/0859/front_en.3.200.jpg' });
+    // a one-pixel PNG standing in for the photo, so nothing leaves the machine
+    const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    let g = await open(() => BEANS);
+    await ask(g, '0078742370842');
+    await g.click('[data-nfpick="0"]');
+    await g.waitForTimeout(250);
+    const bare = await g.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).innerHTML).join(''));
+    t.ok('a packet with no grades, tags or ingredients in its record shows none of them', bare === '', bare);
+    await g.context().close();
+    g = await open(() => FULL);
+    await g.context().route(/images\.openfoodfacts\.org/, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }));
+    await ask(g, '0078742370859');
+    await g.click('[data-nfpick="0"]');
+    await g.waitForTimeout(250);
+    /* Loaded, not merely drawn: the page's own policy is enforced here, so
+       an image host it did not admit would leave the picture empty. */
+    const pic = await g.evaluate(() => {
+      const f = document.querySelector('.nfp'), i = f && f.querySelector('img');
+      return f ? { shown: !f.hidden, src: i.getAttribute('src'), alt: i.alt, loaded: i.naturalWidth > 0,
+        credit: f.querySelector('figcaption').textContent } : null;
+    });
+    t.ok('the packet\u2019s photo from Open Food Facts is shown, loaded under the page\u2019s policy, and credited as its licence asks',
+      !!pic && pic.shown && pic.loaded && /front_en\.3\.200\.jpg$/.test(pic.src) && pic.alt === 'The front of the packet' &&
+        /Open Food Facts contributors, CC BY-SA/.test(pic.credit), JSON.stringify(pic));
+    const more = await g.evaluate(() => {
+      const q = (s) => document.querySelector(s);
+      return { ns: (q('.nfs-ns') || {}).getAttribute && q('.nfs-ns').getAttribute('aria-label'), on: (q('.nfs-l.on') || {}).textContent,
+        grades: [...document.querySelectorAll('.nfs-grade')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()),
+        tags: [...document.querySelectorAll('.nfs-tag')].map((x) => x.textContent),
+        lv: [...document.querySelectorAll('.nfs-lvi')].map((x) => x.textContent),
+        open: (q('.nfs-ingr') || {}).open, marks: [...document.querySelectorAll('.nfs-ingr mark')].map((m) => m.textContent),
+        injected: !!document.querySelector('.nfs-ingr p b'), ingr: (q('.nfs-ingr p') || {}).textContent || '',
+        link: q('.nfs-src a') && [q('.nfs-src a').href, q('.nfs-src a').target, q('.nfs-src a').rel].join(' '),
+        leaf: !!document.querySelector('.mt-sheet .leaf') };
+    });
+    t.ok('the Nutri-Score is drawn A to E with its letter picked out, and said in words',
+      more.on === 'B' && /^Nutri-Score B, on a scale from A/.test(more.ns) && /Nutri-Score B/.test(more.grades[0]), JSON.stringify(more));
+    t.ok('the NOVA group says what it is and, for an ultra-processed food, what made it so',
+      /Ultra-processed/.test(more.grades[1]) && /NOVA 4 of 4, for high fructose corn syrup, baking soda/.test(more.grades[1]), JSON.stringify(more.grades));
+    t.ok('the ingredients\u2019 own tags: vegetarian or not, palm oil, and the additive by its name',
+      JSON.stringify(more.tags) === '["Not vegetarian","No palm oil","1 additive: baking soda"]', JSON.stringify(more.tags));
+    t.ok('the traffic lights per 100 g, each in words',
+      JSON.stringify(more.lv) === '["FatLow","Sat. fatLow","SugarsModerate","SaltModerate"]', JSON.stringify(more.lv));
+    t.ok('the ingredients folded away, the words that made it ultra-processed marked in them',
+      more.open === false && JSON.stringify(more.marks) === '["high fructose corn syrup","baking soda"]', JSON.stringify(more));
+    t.ok('and a tag in the ingredients arrives as text, never as markup', !more.injected && /<b>pork<\/b>/.test(more.ingr), more.ingr);
+    t.ok('said as Open Food Facts\u2019 and volunteers\u2019, with a way to fix it there that opens on its own',
+      more.link === 'https://world.openfoodfacts.org/product/0078742370859 _blank noopener', more.link);
+    t.ok('and no Leaf score on a packet: it was tuned for a plate, and would call a can of cola worth eating', !more.leaf);
+    const cola = await g.evaluate(() => window.Nutrition.scoreFrom({ kcal: 140, p: 0, f: 0, c: 39, na: 45, fib: 0 }).score);
+    t.ok('(which it would: the Leaf gives a can of cola ' + cola + ')', cola >= 45, String(cola));
+    await g.click('[data-nf="save"]');
+    await g.waitForTimeout(350);
+    const kept2 = await g.evaluate(() => Object.values(JSON.parse(localStorage.getItem('bsc.myFoods') || '{}')));
+    const full = kept2.find((f) => f.ns) || {};
+    t.ok('saved, the food keeps its two grades and nothing longer',
+      full.ns === 'b' && full.nova === 4 && !('ingr' in full) && !('lv' in full) && !('off' in full), JSON.stringify(full));
+    await openTray(g);
+    await g.evaluate(() => {
+      const b = [...document.querySelectorAll('#modalRoot .mitem-food')].find((x) => /Pork/.test(x.textContent));
+      b.scrollIntoView({ block: 'center' }); b.click();
+    });
+    await g.waitForTimeout(250);
+    const grades = await g.evaluate(() => [...document.querySelectorAll('.mfs-alg')].map((x) => x.textContent).join(' | '));
+    t.ok('and its own page says them again', /Nutri-Score B · Ultra-processed \(NOVA 4\) \(Open Food Facts\)/.test(grades), grades);
+    if (process.env.SHOT) {
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(150);
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(150);
+      await g.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+      await g.click('#macroSlots .mtray-b');
+      await g.waitForTimeout(400);
+      await ask(g, '0078742370859');
+      await g.click('[data-nfpick="0"]');
+      await g.waitForTimeout(300);
+      await g.screenshot({ path: process.env.SHOT + '/off-1.png' });
+      await g.evaluate(() => { document.querySelector('.nfs-ingr').open = true; document.querySelector('.scrim').scrollTo(0, 700); });
+      await g.screenshot({ path: process.env.SHOT + '/off-2.png' });
+      await g.evaluate(() => { document.documentElement.setAttribute('data-theme', 'dark'); document.querySelector('.scrim').scrollTo(0, 0); });
+      await g.waitForTimeout(100);
+      await g.screenshot({ path: process.env.SHOT + '/off-dark.png' });
+    }
+    await g.context().close();
+
+    // ---- what is not known is not said --------------------------------------
+    const UNK = JSON.parse(JSON.stringify(BEANS));
+    Object.assign(UNK.product, { nutriscore_grade: 'unknown', nova_group: '', additives_tags: [],
+      ingredients_analysis_tags: ['en:palm-oil-content-unknown', 'en:vegan-status-unknown', 'en:vegetarian-status-unknown'],
+      image_front_small_url: 'https://elsewhere.example/front.jpg' });
+    const k = await open(() => UNK);
+    await ask(k, '0078742370842');
+    await k.click('[data-nfpick="0"]');
+    await k.waitForTimeout(250);
+    const unk = await k.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
+    t.ok('an ungraded packet gets no grade, an unknown status no tag, and no ingredient list no claim of "no additives"', unk === '', unk);
+    t.ok('and a photo from anywhere but Open Food Facts\u2019 image server is not shown', await k.evaluate(() => !document.querySelector('.nfp')));
+    await k.context().close();
+
+    // a photo that cannot load (no signal, or gone) is taken away rather than left broken
+    const nopic = await open(() => FULL);
+    await nopic.context().route(/images\.openfoodfacts\.org/, (r) => r.abort());
+    await ask(nopic, '0078742370859');
+    await nopic.click('[data-nfpick="0"]');
+    await nopic.waitForTimeout(400);
+    t.ok('a packet photo that cannot load is taken away, not left as a broken picture',
+      await nopic.evaluate(() => { const f = document.querySelector('.nfp'); return !!f && f.hidden; }));
+    await nopic.context().close();
+
     // ---- typed in by hand: an empty panel claims nothing ---------------------
     const h = await open(() => ({ status: 0 }));
     await h.click('[data-mpnew]');
@@ -196,6 +319,132 @@ module.exports = {
     t.ok('a USDA that cannot be reached leaves Open Food Facts’ answer as it was, not "known nowhere"',
       /is not in Open Food Facts\./.test(off) && !/USDA/.test(off), off);
     await o.context().close();
+
+    // ---- both asked at once, and weighed against each other -------------------
+    /* The can again, this time known to both. Open Food Facts lacks its
+       fiber; the USDA's packaged foods have the same can at 85 kcal per
+       100 g, near enough to agree. */
+    const NOFIB = JSON.parse(JSON.stringify(BEANS));
+    delete NOFIB.product.nutriments.fiber_serving;
+    delete NOFIB.product.nutriments.fiber_100g;
+    const CAN = { foods: [{ dataType: 'Branded', gtinUpc: '078742370842', description: 'PORK & BEANS', brandName: 'GREAT VALUE',
+      servingSize: 130, servingSizeUnit: 'g', householdServingFullText: '1/2 cup', foodNutrients: nutr(85, 4.6, 0.8, 17.7, 300, 4.6) }] };
+    const ag = await open(() => NOFIB, CAN);
+    const agRows = await ask(ag, '078742370842');
+    t.ok('a barcode both know and agree on comes back once, as Open Food Facts\u2019 answer, the USDA asked alongside',
+      (agRows.match(/Pork & Beans/gi) || []).length === 1 && /Open Food Facts/.test(agRows) && !/Two different/.test(agRows) &&
+        ag.usdaAsked.length === 1, agRows);
+    await ag.click('[data-nfpick="0"]');
+    await ag.waitForTimeout(250);
+    got = await panel(ag);
+    const agCap = await ag.evaluate(() => (document.querySelector('.mt-sheet .mt-cap') || {}).textContent || '');
+    t.ok('said as checked, with the fiber it lacked filled in from the USDA at the same serving',
+      /checked against the USDA/.test(agCap) && got.fib === '6' && got.na === '390', agCap + ' ' + JSON.stringify(got));
+    await ag.context().close();
+
+    /* The peanut butter the probe of 2026-10-06 found: "Yellowfin Tuna" in
+       Open Food Facts at a sixth of its calories, its own checks faulting
+       them, and right in the USDA's packaged foods. */
+    const TUNA = { status: 1, product: { product_name: 'Yellowfin Tuna', brands: 'Nature\u2019s Promise', serving_size: '32 g',
+      allergens_tags: ['en:fish'], nutriscore_grade: 'a', nova_group: 1,
+      data_quality_errors_tags: ['en:energy-value-in-kcal-does-not-match-value-computed-from-other-nutrients'],
+      nutriments: { 'energy-kcal_serving': 34, proteins_serving: 7, fat_serving: 1, carbohydrates_serving: 0,
+        'energy-kcal_100g': 106, proteins_100g: 22, fat_100g: 3, carbohydrates_100g: 0 } } };
+    const JAR = { foods: [{ dataType: 'Branded', gtinUpc: '688267151866', description: 'CREAMY PEANUT BUTTER', brandName: 'NATURE\'S PROMISE',
+      servingSize: 32, servingSizeUnit: 'g', householdServingFullText: '2 Tbsp', foodNutrients: nutr(625, 21.9, 53.1, 18.8, 328, 6.2) }] };
+    const cl = await open(() => TUNA, JAR);
+    const clRows = await ask(cl, '688267151866');
+    const clash = await cl.evaluate(() => ({ note: (document.querySelector('.mlook-clash') || {}).textContent || '',
+      rows: [...document.querySelectorAll('#nfResults [data-nfpick]')].map((r) => r.textContent) }));
+    t.ok('two answers far apart are both shown, said as two, the maker\u2019s label first',
+      /Two different answers/.test(clash.note) && /106 kcal per 100 g/.test(clash.note) && /say 625/.test(clash.note) &&
+        clash.rows.length === 2 && /Creamy Peanut Butter/.test(clash.rows[0]) && /Yellowfin Tuna/.test(clash.rows[1]), JSON.stringify(clash));
+    t.ok('and Open Food Facts\u2019 own checks faulting its figures is said too', /own checks fault its figures/.test(clash.note), clash.note);
+    await cl.click('[data-nfpick="0"]');
+    await cl.waitForTimeout(250);
+    got = await panel(cl);
+    const clOff = await cl.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
+    t.ok('taking the USDA\u2019s answer takes none of the other record\u2019s grades or allergens, which may be another product\u2019s',
+      /Creamy Peanut Butter/.test(got.name) && got.kcal === '200' && got.alg === '' && clOff === '', JSON.stringify(got) + clOff);
+    await cl.context().close();
+
+    // Open Food Facts out of reach, the USDA not: the USDA's answer stands
+    const dn = await open(() => null, JAR);
+    const dnRows = await ask(dn, '688267151866');
+    t.ok('with Open Food Facts out of reach, the USDA\u2019s answer is used rather than "did not answer"',
+      /Creamy Peanut Butter/.test(dnRows) && !/did not answer/.test(dnRows), dnRows);
+    await dn.context().close();
+
+    // ---- a food searched for: its sizes, its whole label, how much ----------
+    /* The USDA's own record for a grilled chicken breast, as the probe of
+       2026-10-06 fetched it: per 100 g, with eleven ways it is weighed. */
+    const CHICKEN = { foods: [{ dataType: 'Survey (FNDDS)', description: 'Chicken breast, grilled with sauce, skin eaten',
+      foodNutrients: nutr(202, 21.15, 9.15, 7.34, 454, 0.2).concat([
+        { nutrientName: 'Fatty acids, total saturated', unitName: 'G', value: 2.105 }, { nutrientName: 'Cholesterol', unitName: 'MG', value: 78 },
+        { nutrientName: 'Total Sugars', unitName: 'G', value: 5.98 }, { nutrientName: 'Calcium, Ca', unitName: 'MG', value: 12 },
+        { nutrientName: 'Iron, Fe', unitName: 'MG', value: 0.55 }, { nutrientName: 'Potassium, K', unitName: 'MG', value: 280 }]),
+      foodMeasures: [['Quantity not specified', 175, 11], ['1 small breast', 150, 2], ['1 breast, NS as to size', 175, 5],
+        ['1 cup, cooked, diced', 165, 1], ['1 large breast', 195, 4], ['1 medium slice', 60, 7], ['1 large or thick slice', 85, 8],
+        ['1 small or thin slice', 30, 6], ['1 oz, cooked', 28.35, 9], ['1 medium breast', 175, 3]]
+        .map((m) => ({ disseminationText: m[0], gramWeight: m[1], rank: m[2] })) }] };
+    const sp = await t.fresh({ viewport: { width: 390, height: 844 } });
+    await sp.context().route(USDA, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CHICKEN) }));
+    await sp.evaluate(() => localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 60, c: 170 })));
+    await sp.reload();
+    await sp.click('.tab[data-view="macros"]');
+    await sp.waitForTimeout(250);
+    await sp.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+    await sp.click('#macroSlots .mtray-b');
+    await sp.waitForTimeout(400);
+    await sp.fill('#mpFind', 'chicken breast');
+    await sp.waitForFunction(() => /Not in the app yet/.test((document.getElementById('nfResults') || {}).textContent || ''), null, { timeout: 8000 });
+    await sp.click('#nfResults [data-nfpick="0"]');
+    await sp.waitForTimeout(300);
+    const card = () => sp.evaluate(() => {
+      const v = (id) => (document.getElementById(id) || {}).value, x = (id) => (document.getElementById(id) || {}).textContent;
+      return { sizes: [...document.querySelectorAll('[data-nfsize]')].map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
+        on: (document.querySelector('[data-nfsize][aria-pressed="true"]') || {}).textContent,
+        unit: v('nfUnit'), kcal: v('nfKcal'), p: v('nfP'), f: v('nfF'), c: v('nfC'), na: v('nfNa'), fib: v('nfFib'),
+        sat: x('nfx-sat'), chol: x('nfx-chol'), cholDv: x('nfx-chol-dv'), sug: x('nfx-sug'), ca: x('nfx-ca'), fe: x('nfx-fe'),
+        k: x('nfx-k'), kDv: x('nfx-k-dv'), n: x('nfAmtN'), g: x('nfAmtG'), salt: x('nfSalt'),
+        pills: [...document.querySelectorAll('#nfWith .mcap')].map((m) => m.textContent) };
+    });
+    let cd = await card();
+    t.ok('a food searched for offers the sizes the USDA weighs it in, best first and its shrugs left out, with 100 g last',
+      cd.sizes.length === 7 && /^1 cup, cooked, diced 165 g$/.test(cd.sizes[0]) && /^1 small breast 150 g$/.test(cd.sizes[1]) &&
+        cd.sizes[6] === '100 g' && !cd.sizes.some((z) => /NS|not specified/.test(z)) && /1 cup/.test(cd.on), JSON.stringify(cd.sizes));
+    t.ok('the panel is that size\u2019s label, with the rest of the label the USDA gives',
+      cd.unit === '1 cup, cooked, diced (165 g)' && cd.kcal === '333' && cd.p === '35' && cd.f === '15' && cd.c === '12' &&
+        cd.na === '749' && cd.sat === '3.5' && cd.chol === '129' && cd.cholDv === '43%' && cd.sug === '10' && cd.ca === '20' &&
+        cd.fe === '0.9' && cd.k === '462' && cd.kDv === '10%', JSON.stringify(cd));
+    t.ok('with how much, and the meal\u2019s own pills with it on, and its salt against a day\u2019s',
+      cd.n === '1' && cd.g === '165 g' && cd.pills.length === 4 && /749 mg of sodium: 33% of a day/.test(cd.salt), JSON.stringify(cd));
+    await sp.click('[data-nfsize="1"]');
+    await sp.click('[data-nfamt="1"]');
+    await sp.waitForTimeout(100);
+    cd = await card();
+    t.ok('another size makes the panel that size\u2019s, and + is half a serving more',
+      cd.unit === '1 small breast (150 g)' && cd.kcal === '303' && cd.na === '681' && /1 small breast/.test(cd.on) &&
+        cd.n === '1\u00bd' && cd.g === '225 g' && /1,022 mg of sodium: 44%/.test(cd.salt), JSON.stringify(cd));
+    if (process.env.SHOT) {
+      const scrollAll = (y) => sp.evaluate((yy) => { document.querySelectorAll('.scrim, .mt-sheet').forEach((el) => { el.scrollTop = yy; }); }, y);
+      await scrollAll(0);
+      await sp.screenshot({ path: process.env.SHOT + '/card-1.png' });
+      await scrollAll(560);
+      await sp.screenshot({ path: process.env.SHOT + '/card-2.png' });
+    }
+    await sp.click('[data-nf="save"]');
+    await sp.waitForTimeout(350);
+    const ck = await sp.evaluate(() => {
+      const mine = Object.values(JSON.parse(localStorage.getItem('bsc.myFoods') || '{}'));
+      const days = JSON.parse(localStorage.getItem('bsc.macroDays') || '{}'), d = days[Object.keys(days)[0]] || {};
+      const items = [].concat(...Object.values(d).filter(Array.isArray));
+      return { food: mine.find((f) => /Chicken breast/.test(f.name)), x: (items.find((it) => /^f:my:/.test(it.id)) || {}).x };
+    });
+    t.ok('saved as the size picked, its label per serving kept, and on the plate as the servings asked for',
+      ck.food && ck.food.unit === '1 small breast (150 g)' && ck.food.kcal === 4 * 32 + 4 * 11 + 9 * 14 && ck.x === 1.5 &&
+        ck.food.lab && ck.food.lab.chol === 117 && ck.food.lab.k === 420 && ck.food.lab.sat === 3, JSON.stringify(ck));
+    await sp.context().close();
 
     // ---- what the USDA's answers carry ---------------------------------------
     const e = await t.fresh();

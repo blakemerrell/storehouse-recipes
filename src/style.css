@@ -2388,6 +2388,39 @@ select { max-width: 280px; }
 .mt-sheet .nfl-row input { width: 5ch; }
 .mt-sheet .nfl-serv input { flex: 1 1 auto; min-width: 0; font-weight: 800; }
 .mt-sheet .nfl-cal input { width: 4.4ch; font-size: 2.25rem; font-weight: 900; line-height: 1.1; }
+/* The rest of a label, read rather than typed (src/camera.js): a row as
+   tall as the panel's own, minerals under a heavy rule as a packet prints them */
+.nfl-ro { min-height: 34px; }
+.nfl-ro > span:first-child { font-weight: 400; }
+.nfl-ro b { font-weight: 800; }
+.nfl-min { border-top: 8px solid var(--ink); }
+/* Pick a size, then how much: the label is per serving, as a packet's is,
+   and the servings are what go on the plate */
+.nfz-h { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
+.nfz { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.nfz-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.nfz-b {
+  min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line-control);
+  background: transparent; color: var(--ink-2); font-family: var(--sans); font-size: 0.875rem; font-weight: 600;
+}
+.nfz-b span { font-weight: 400; color: var(--muted-2); }
+.nfz-b[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.nfz-b[aria-pressed="true"] span { color: inherit; opacity: 0.8; }
+.nfh { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.nfh-row { display: flex; align-items: center; gap: 12px; }
+.nfh-b {
+  flex: none; width: 52px; height: 52px; border-radius: 999px; border: 1.5px solid var(--line-control);
+  background: transparent; color: var(--ink-2); font-size: 1.5rem; line-height: 1;
+}
+.nfh-v {
+  flex: 1 1 auto; min-width: 0; text-align: center; border-bottom: 2px solid var(--ochre); padding-bottom: 4px;
+  font-size: 1rem; color: var(--muted-2); line-height: 1.3;
+}
+.nfh-v b { font-family: var(--serif); font-size: 1.75rem; font-weight: 600; color: var(--ink); }
+.nfh-g { display: block; font-size: 0.875rem; }
+.nfh-with { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--paper-soft); border: 1px solid var(--line-soft); }
+.nfh-salt { font-size: 0.875rem; color: var(--ink); }
+.nfh-salt:empty { display: none; }
 /* "Contains" sits over the panel where a label prints it, tinted so an
    allergy is seen before a number is */
 .nfl-alg {
@@ -2396,6 +2429,98 @@ select { max-width: 280px; }
 }
 .nfl-alg:empty { display: none; }
 .nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
+/* A USDA row in the search list (src/lookup.js): its tags under it in
+   plain words, and a chevron where the app's own rows have a + */
+.mlook-sub { font-size: 0.8125rem; color: var(--muted-2); margin: -2px 0 4px; }
+.mlook-row .mp-body { flex-direction: column; align-items: stretch; gap: 3px; }
+.mlook-row { min-height: 60px; }
+.mlook-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.mlook-tags .mp-src { margin-left: 0; padding: 2px 8px; border-radius: 999px; background: var(--hint); opacity: 1; letter-spacing: 0.02em; text-transform: none; color: var(--muted-2); }
+.mlook-go { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--icon-faint); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* Two sources, two answers for one barcode (src/lookup.js, mTwoAnswers):
+   said above the two rows, before either is picked */
+.mlook-clash {
+  margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--hint);
+  font-size: 0.875rem; line-height: 1.45; color: var(--ink);
+}
+/* The packet's photo over the form (src/camera.js), on white because
+   packet photos are, and credited under it */
+.nfp { display: flex; align-items: center; gap: 12px; margin: 10px 0 0; }
+.nfp img {
+  width: 96px; height: 96px; flex: none; object-fit: contain; border-radius: 10px;
+  border: 1px solid var(--line); background: #fff;
+}
+.nfp figcaption { font-size: 0.8125rem; line-height: 1.4; color: var(--muted-2); }
+/* What Open Food Facts adds beyond the label (src/camera.js): the two
+   grades, its tags, the traffic lights and the ingredients. Each grade has
+   its word beside its colour, so the colours can be the official ones
+   without the meaning living in them alone. */
+.nfs-grades { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+.nfs-grade {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+}
+.nfs-ns { display: flex; align-items: center; gap: 3px; min-height: 36px; }
+.nfs-l {
+  flex: 1 1 0; text-align: center; font-family: var(--sans); font-weight: 800; font-size: 0.8125rem;
+  line-height: 24px; border-radius: 5px; opacity: 0.42;
+}
+.nfs-l.on { opacity: 1; font-size: 1.125rem; line-height: 34px; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--ink); }
+.nfs-a { background: oklch(0.50 0.13 150); color: #fff; }
+.nfs-b { background: oklch(0.70 0.15 130); color: oklch(0.22 0.04 130); }
+.nfs-c { background: oklch(0.86 0.16 95); color: oklch(0.25 0.04 90); }
+.nfs-d { background: oklch(0.72 0.16 60); color: oklch(0.22 0.04 60); }
+.nfs-e { background: oklch(0.56 0.19 35); color: #fff; }
+.nfs-nova {
+  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px;
+  font-family: var(--sans); font-weight: 800; font-size: 1.125rem;
+}
+.nfs-n1 { background: oklch(0.50 0.13 150); color: #fff; }
+.nfs-n2 { background: oklch(0.86 0.16 95); color: oklch(0.25 0.04 90); }
+.nfs-n3 { background: oklch(0.72 0.16 60); color: oklch(0.22 0.04 60); }
+.nfs-n4 { background: oklch(0.56 0.19 35); color: #fff; }
+.nfs-k { font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
+.nfs-sub { font-size: 0.8125rem; line-height: 1.35; color: var(--muted-2); }
+.nfs-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.nfs-tag {
+  font-size: 0.8125rem; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted-2); background: var(--card);
+}
+.nfs-lv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.nfs-lvi {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px;
+  border-radius: 10px; font-size: 0.8125rem; color: var(--ink); text-align: center;
+}
+.nfs-lvi b { font-size: 0.875rem; }
+.nfs-lvk { color: var(--muted-2); }
+.lv-low { background: color-mix(in oklab, oklch(0.62 0.12 150) 22%, var(--card)); }
+.lv-moderate { background: color-mix(in oklab, oklch(0.80 0.15 85) 30%, var(--card)); }
+.lv-high { background: color-mix(in oklab, oklch(0.60 0.18 35) 26%, var(--card)); }
+.nfs-lvc { margin-top: 4px; }
+.nfs-ingr { margin-top: 10px; border-top: 1px solid var(--line-soft); }
+.nfs-ingr > summary {
+  min-height: 44px; display: flex; align-items: center; cursor: pointer;
+  font-size: 0.9375rem; font-weight: 600; color: var(--ink);
+}
+.nfs-ingr p { margin: 0 0 8px; font-size: 0.875rem; line-height: 1.5; color: var(--ink); }
+.nfs-ingr mark { background: color-mix(in oklab, oklch(0.70 0.14 50) 30%, var(--card)); color: inherit; padding: 0 2px; border-radius: 3px; }
+.nfs-src { margin-top: 12px; font-size: 0.8125rem; line-height: 1.4; color: var(--muted-2); }
+/* a link in a line of text: a thumb tall, the line unmoved */
+.nfs-src a { color: var(--ochre-text); display: inline-block; padding: 13px 0; margin: -13px 0; }
+/* The food's own page (src/foodsheet.js) draws the same panel, read-only:
+   its rows are .mfs-nr too, so the list's spacing and grey names are undone
+   inside it */
+.nfl-read { margin-top: 4px; }
+.nfl .mfs-nr { justify-content: flex-start; gap: 6px; padding: 0; border-bottom: 1px solid var(--ink); font-size: 0.9375rem; }
+.nfl .mfs-nr span { color: var(--ink); }
+.nfl .mfs-nr span em { font-style: normal; font-weight: 800; }
+.nfl .mfs-nr.sub { padding-left: 16px; }
+.nfl .mfs-nr b { font-weight: 400; }
+.nfl .mfs-nr i.nfl-dv { font-style: normal; }
+.nfl-read .nfl-serv { min-height: 34px; justify-content: space-between; }
+.nfl-read .nfl-cal { border-bottom: 5px solid var(--ink); padding: 2px 0; align-items: flex-end; justify-content: space-between; }
+.nfl-read .nfl-cal span { font-size: 1.75rem; font-weight: 900; line-height: 1.1; }
+.nfl-read .nfl-cal b { font-size: 2rem; font-weight: 900; line-height: 1.1; }
 /* the same line on the food's own page */
 .mfs-alg { font-size: 0.875rem; margin-top: 6px; }
 .mfs-alg span { font-size: 0.8125rem; color: var(--muted); }

@@ -330,6 +330,15 @@
       };
       // what the packet declared, off the scan that made it (src/camera.js); not a nutrient, so not in macro
       if (Array.isArray(f.alg) && f.alg.length) rec.alg = f.alg.map(String).slice(0, 8);
+      // and its grades, the same way (Nutri-Score a–e, NOVA 1–4)
+      if (/^[a-e]$/.test(String(f.ns || ''))) rec.ns = String(f.ns);
+      if (Number(f.nova) >= 1 && Number(f.nova) <= 4) rec.nova = Math.round(Number(f.nova));
+      // the rest of its label, per serving, for its own page (src/foodsheet.js); never counted by the day
+      if (f.lab && typeof f.lab === 'object') {
+        var lab = {};
+        ['sat', 'chol', 'sug', 'ca', 'fe', 'k'].forEach(function (k3) { if (Number(f.lab[k3]) >= 0 && f.lab[k3] !== null && f.lab[k3] !== '') lab[k3] = Number(f.lab[k3]); });
+        if (Object.keys(lab).length) rec.lab = lab;
+      }
       MFOODS.push(rec);
       BY_ID[rec.id] = rec;
     });
@@ -3084,6 +3093,7 @@
   function renderMacros() { return MYDAY.renderMacros(); }
   function mDayPick(open) { return MYDAY.mDayPick(open); }
   function mMealSheetParts(sk) { return MYDAY.mMealSheetParts(sk); }
+  function mMealNowHTML(sk, add) { return MYDAY.mMealNowHTML(sk, add); }
 
   /* src/gauges.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -3265,13 +3275,17 @@
 
   /* src/camera.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var CAMERA = window.HiveParts.camera({ S: S, mBarcodeLookup: mBarcodeLookup, mDecodeFrame: mDecodeFrame, mLookSay: mLookSay, mLookupRows: mLookupRows, LIVE: LIVE });
+  var CAMERA = window.HiveParts.camera({ S: S, mBarcodeLookup: mBarcodeLookup, mDecodeFrame: mDecodeFrame, mLookSay: mLookSay, mLookupRows: mLookupRows, mMealNowHTML: mMealNowHTML, LIVE: LIVE });
   function mScanStop() { return CAMERA.mScanStop(); }
   function mScanStart() { return CAMERA.mScanStart(); }
   function mScanGot(code, typed) { return CAMERA.mScanGot(code, typed); }
   function mNewFoodHTML() { return CAMERA.mNewFoodHTML(); }
   function mNfRefresh() { return CAMERA.mNfRefresh(); }
   function mNfFill(got) { return CAMERA.mNfFill(got); }
+  function mNfSize(i) { return CAMERA.mNfSize(i); }
+  function mNfAmount(d) { return CAMERA.mNfAmount(d); }
+  function mNfAt(pre, i) { return CAMERA.mNfAt(pre, i); }
+  function mNfSized(pre) { return CAMERA.mNfSized(pre); }
 
   /* src/plandays.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
@@ -3728,7 +3742,7 @@
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mopen', 'data-mtray', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
-    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-scan',
+    'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-nfsize', 'data-nfamt', 'data-scan',
     'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
@@ -6605,6 +6619,12 @@
         return;
       }
 
+      // the form's size and amount, changed in place: the name being typed stays as it is
+      var nfz = e.target.closest('[data-nfsize]');
+      if (nfz && S.newFood) { mNfSize(Number(nfz.dataset.nfsize)); return; }
+      var nfa = e.target.closest('[data-nfamt]');
+      if (nfa && S.newFood) { mNfAmount(Number(nfa.dataset.nfamt)); return; }
+
       var nfp = e.target.closest('[data-nfpick]');
       if (nfp && (S.newFood || S.macroPick)) {
         var got = MLOOKUP[Number(nfp.dataset.nfpick)];
@@ -6613,7 +6633,7 @@
            packet's numbers the answer to a question nobody asked. */
         if (got && S.macroPick && !$('nfName')) {
           mScanStop();
-          S.newFood = { slot: S.macroPick.slot, pre: got, alg: got.alg || [], back: 1 };
+          S.newFood = { slot: S.macroPick.slot, pre: got, alg: got.alg || [], back: 1, size: 0, n: 1 };
           renderModal();
           return;
         }
@@ -6722,6 +6742,23 @@
         if (nval('nfNa') !== '') allF[fkey].na = nnum('nfNa');
         if (nval('nfFib') !== '') allF[fkey].fib = Math.max(0, Math.round((Number($('nfFib').value) || 0) * 10) / 10);
         if (S.newFood.alg && S.newFood.alg.length) allF[fkey].alg = S.newFood.alg.slice(0, 8);
+        /* The two grades too, a letter and a number, so the food's own page
+           can say them again. Not the ingredients or the traffic lights:
+           those are long, or per 100 g, and every saved food rides in the
+           one household document that syncs. */
+        var noff = (S.newFood.pre && S.newFood.pre.off) || {};
+        if (noff.ns) allF[fkey].ns = noff.ns;
+        if (noff.nova) allF[fkey].nova = noff.nova;
+        /* A food looked up with its sizes is saved as the size picked, and
+           goes on the plate as the servings asked for; the rest of its label
+           (saturated fat, cholesterol, sugars, calcium, iron, potassium)
+           rides along per serving for its own page. */
+        var nsized = mNfSized(S.newFood.pre), nx = nsized ? (S.newFood.n || 1) : 1;
+        if (nsized) {
+          var nat2 = mNfAt(S.newFood.pre, S.newFood.size || 0), nlab = {};
+          ['sat', 'chol', 'sug', 'ca', 'fe', 'k'].forEach(function (k2) { if (typeof nat2[k2] === 'number') nlab[k2] = nat2[k2]; });
+          if (Object.keys(nlab).length) allF[fkey].lab = nlab;
+        }
         mWriteMyFoods(allF);
         mBuildFoods();
         /* Named from inside a meal's sheet, so it goes on that meal, the way
@@ -6730,7 +6767,7 @@
           var nk = mViewKey(), nsk = S.macroPick.slot, nid = 'f:my:' + fkey, nat = -1, nfe = mAddsEaten(nk, nsk);
           mEditDay(nk, function (day) {
             var list = (day[nsk] = day[nsk] || []);
-            list.push({ id: nid, x: 1, eaten: nfe });
+            list.push({ id: nid, x: nx, eaten: nfe });
             nat = list.length - 1;
           });
           S.mpBasket[nid] = 1;
@@ -6745,7 +6782,7 @@
         var nslot = S.newFood.slot;
         var nate = mAddsEaten(mViewKey(), nslot);
         mEditDay(mViewKey(), function (day) {
-          (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: 1, eaten: nate });
+          (day[nslot] = day[nslot] || []).push({ id: 'f:my:' + fkey, x: nx, eaten: nate });
         });
         S.newFood = null;
         close();

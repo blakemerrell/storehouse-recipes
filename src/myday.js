@@ -667,5 +667,18 @@
     syncShrunk();
   }
 
-  return { renderMacros: renderMacros, mDayPick: mDayPick, mMealSheetParts: mMealSheetParts };
+  /* A meal's pills with a food added that is not on it yet: the "How
+     much?" form's "Dinner, with this" (src/camera.js), drawn by the same
+     capsHTML as the meal sheet's own so the two read alike. `add` is what
+     the food would put on the plate, in the day's own 4-4-9 calories. */
+  function mMealNowHTML(sk, add) {
+    var k = mViewKey(), day = mDay(k), targets = mDayTargets(k), slots = mReadSlots();
+    var M = mMealModel(k, sk, '', true, day, targets, slots);
+    if (!M || !M.aim) return '';
+    var sub = {};
+    ['kcal', 'p', 'f', 'c'].forEach(function (m) { sub[m] = (M.sub[m] || 0) + ((add && add[m]) || 0); });
+    return '<div class="mcaps">' + capsHTML(sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>';
+  }
+
+  return { renderMacros: renderMacros, mDayPick: mDayPick, mMealSheetParts: mMealSheetParts, mMealNowHTML: mMealNowHTML };
 };
