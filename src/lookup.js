@@ -100,7 +100,7 @@
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
       encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags,' +
       'nutriscore_grade,nova_group,nova_groups_markers,nutrient_levels,ingredients_analysis_tags,' +
-      'additives_tags,ingredients_text,ingredients_text_en,data_quality_errors_tags' +
+      'additives_tags,ingredients_text,ingredients_text_en,data_quality_errors_tags,image_front_small_url' +
       '&app_name=' + encodeURIComponent('Hive and Hearth') +
       '&app_version=' + encodeURIComponent(BUILD);
     return fetch(url).then(function (r) {
@@ -243,6 +243,12 @@
     if (tags.length) out.tags = tags;
     if (adds.length > 1) out.adds = adds.slice(0, 12);
     if (ingr) out.ingr = ingr;
+    /* The front of the packet, so you can see the scan found the right
+       thing (Blake picked the photo, mockup D, 2026-10-07). Only from Open
+       Food Facts' own image server, which is the one host the page's policy
+       lets an image come from; anything else in the field is ignored. */
+    var img = String(p.image_front_small_url || '');
+    if (/^https:\/\/images\.openfoodfacts\.org\/[^\s"'<>()\\]+$/.test(img)) out.img = img;
     /* What made it NOVA 4, in Open Food Facts' own markers: an ingredient,
        an additive or the kind of food. Said in words, so the line can say
        why and the ingredients can be marked where the words appear. */

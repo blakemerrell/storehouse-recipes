@@ -241,6 +241,7 @@
         '</div>' +
         (pre && pre.note
           ? '<div class="mt-cap">From ' + esc(pre.note) + '</div>' : '') +
+        '<div id="nfOffPic">' + mOffPicHTML(pre && pre.off) + '</div>' +
         '<div class="mtl-row"><span class="mtl-lab">Called</span>' +
           '<span class="mtl-val"><input type="text" id="nfName" ' +
             'placeholder="Chicken tamale" aria-label="What it is called" value="' +
@@ -338,6 +339,22 @@
      traffic lights, the panel, and the ingredients under it. A packet the
      USDA answered for has none of it, and the form is as it was. Each grade
      is said in words beside its colours, so neither is colour alone. */
+  /* The packet's photo, credited as its licence asks. With no signal it
+     cannot load, and a broken image says nothing useful, so it goes
+     (mNfPhotoWatch); nothing about the food depends on it. */
+  function mOffPicHTML(o) {
+    if (!o || !o.img || navigator.onLine === false) return '';
+    return '<figure class="nfp"><img src="' + esc(o.img) + '" alt="The front of the packet" decoding="async">' +
+      '<figcaption>Photo: Open Food Facts contributors, CC BY-SA</figcaption></figure>';
+  }
+  function mNfPhotoWatch() {
+    var img = document.querySelector('.nfp img');
+    if (!img || img.getAttribute('data-watched')) return;
+    img.setAttribute('data-watched', '1');
+    var gone = function () { var f = img.closest('.nfp'); if (f) f.hidden = true; };
+    if (img.complete && !img.naturalWidth && img.src) gone();
+    img.addEventListener('error', gone);
+  }
   var NOVA_WORD = { 1: 'Unprocessed or minimally processed', 2: 'Processed culinary ingredient',
     3: 'Processed', 4: 'Ultra-processed' };
   function mOffTopHTML(o) {
@@ -409,6 +426,7 @@
      at the save; it is said here, under the figure it replaces. */
   function mNfRefresh() {
     if (!$('nfKcal')) return;
+    mNfPhotoWatch();
     var num = function (id) { var v = Number(($(id) || {}).value); return isFinite(v) && v > 0 ? v : 0; };
     var cells = document.querySelectorAll('.nfl [data-dv]');
     for (var i = 0; i < cells.length; i++) {
@@ -448,6 +466,7 @@
     put('nfNa', got.na); put('nfFib', got.fib);
     if (S.newFood) { S.newFood.alg = got.alg || []; S.newFood.pre = got; }
     if ($('nfAlg')) $('nfAlg').innerHTML = mAlgHTML(got.alg);
+    if ($('nfOffPic')) $('nfOffPic').innerHTML = mOffPicHTML(got.off);
     if ($('nfOffTop')) $('nfOffTop').innerHTML = mOffTopHTML(got.off);
     if ($('nfOffMid')) $('nfOffMid').innerHTML = mOffMidHTML(got.off);
     if ($('nfOffEnd')) $('nfOffEnd').innerHTML = mOffEndHTML(got.off);

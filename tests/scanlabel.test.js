@@ -161,7 +161,10 @@ module.exports = {
       ingredients_analysis_tags: ['en:palm-oil-free', 'en:non-vegan', 'en:non-vegetarian'],
       additives_tags: ['en:e500ii'],
       ingredients_text: 'Prepared white beans, water, high fructose corn syrup, salt, <b>pork</b>, baking soda.',
-      nova_groups_markers: { 3: [['ingredients', 'en:salt']], 4: [['ingredients', 'en:high-fructose-corn-syrup'], ['additives', 'en:e500ii']] } });
+      nova_groups_markers: { 3: [['ingredients', 'en:salt']], 4: [['ingredients', 'en:high-fructose-corn-syrup'], ['additives', 'en:e500ii']] },
+      image_front_small_url: 'https://images.openfoodfacts.org/images/products/007/874/237/0859/front_en.3.200.jpg' });
+    // a one-pixel PNG standing in for the photo, so nothing leaves the machine
+    const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
     let g = await open(() => BEANS);
     await ask(g, '0078742370842');
     await g.click('[data-nfpick="0"]');
@@ -170,9 +173,20 @@ module.exports = {
     t.ok('a packet with no grades, tags or ingredients in its record shows none of them', bare === '', bare);
     await g.context().close();
     g = await open(() => FULL);
+    await g.context().route(/images\.openfoodfacts\.org/, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }));
     await ask(g, '0078742370859');
     await g.click('[data-nfpick="0"]');
     await g.waitForTimeout(250);
+    /* Loaded, not merely drawn: the page's own policy is enforced here, so
+       an image host it did not admit would leave the picture empty. */
+    const pic = await g.evaluate(() => {
+      const f = document.querySelector('.nfp'), i = f && f.querySelector('img');
+      return f ? { shown: !f.hidden, src: i.getAttribute('src'), alt: i.alt, loaded: i.naturalWidth > 0,
+        credit: f.querySelector('figcaption').textContent } : null;
+    });
+    t.ok('the packet\u2019s photo from Open Food Facts is shown, loaded under the page\u2019s policy, and credited as its licence asks',
+      !!pic && pic.shown && pic.loaded && /front_en\.3\.200\.jpg$/.test(pic.src) && pic.alt === 'The front of the packet' &&
+        /Open Food Facts contributors, CC BY-SA/.test(pic.credit), JSON.stringify(pic));
     const more = await g.evaluate(() => {
       const q = (s) => document.querySelector(s);
       return { ns: (q('.nfs-ns') || {}).getAttribute && q('.nfs-ns').getAttribute('aria-label'), on: (q('.nfs-l.on') || {}).textContent,
@@ -237,14 +251,26 @@ module.exports = {
     // ---- what is not known is not said --------------------------------------
     const UNK = JSON.parse(JSON.stringify(BEANS));
     Object.assign(UNK.product, { nutriscore_grade: 'unknown', nova_group: '', additives_tags: [],
-      ingredients_analysis_tags: ['en:palm-oil-content-unknown', 'en:vegan-status-unknown', 'en:vegetarian-status-unknown'] });
+      ingredients_analysis_tags: ['en:palm-oil-content-unknown', 'en:vegan-status-unknown', 'en:vegetarian-status-unknown'],
+      image_front_small_url: 'https://elsewhere.example/front.jpg' });
     const k = await open(() => UNK);
     await ask(k, '0078742370842');
     await k.click('[data-nfpick="0"]');
     await k.waitForTimeout(250);
     const unk = await k.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
     t.ok('an ungraded packet gets no grade, an unknown status no tag, and no ingredient list no claim of "no additives"', unk === '', unk);
+    t.ok('and a photo from anywhere but Open Food Facts\u2019 image server is not shown', await k.evaluate(() => !document.querySelector('.nfp')));
     await k.context().close();
+
+    // a photo that cannot load (no signal, or gone) is taken away rather than left broken
+    const nopic = await open(() => FULL);
+    await nopic.context().route(/images\.openfoodfacts\.org/, (r) => r.abort());
+    await ask(nopic, '0078742370859');
+    await nopic.click('[data-nfpick="0"]');
+    await nopic.waitForTimeout(400);
+    t.ok('a packet photo that cannot load is taken away, not left as a broken picture',
+      await nopic.evaluate(() => { const f = document.querySelector('.nfp'); return !!f && f.hidden; }));
+    await nopic.context().close();
 
     // ---- typed in by hand: an empty panel claims nothing ---------------------
     const h = await open(() => ({ status: 0 }));

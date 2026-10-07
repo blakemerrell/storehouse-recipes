@@ -2443,6 +2443,14 @@ select { max-width: 280px; }
   margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--hint);
   font-size: 0.875rem; line-height: 1.45; color: var(--ink);
 }
+/* The packet's photo over the form (src/camera.js), on white because
+   packet photos are, and credited under it */
+.nfp { display: flex; align-items: center; gap: 12px; margin: 10px 0 0; }
+.nfp img {
+  width: 96px; height: 96px; flex: none; object-fit: contain; border-radius: 10px;
+  border: 1px solid var(--line); background: #fff;
+}
+.nfp figcaption { font-size: 0.8125rem; line-height: 1.4; color: var(--muted-2); }
 /* What Open Food Facts adds beyond the label (src/camera.js): the two
    grades, its tags, the traffic lights and the ingredients. Each grade has
    its word beside its colour, so the colours can be the official ones
