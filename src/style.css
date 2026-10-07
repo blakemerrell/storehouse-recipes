@@ -7904,6 +7904,32 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 /* the day bar: three tools and the one primary, one row */
 .mday-acts { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.55fr); }
 .mday-acts #macroFill { grid-column: auto; min-height: 48px; font-size: 0.9375rem; padding: 4px 8px; }
+/* Drawn like the trays above it and the meal sheet's Balance and Done
+   (Blake, 2026-10-07: "The buttons at the bottom. They feel out of character
+   for this page"). The trays redesign of 2026-10-04 left the bar alone, so
+   its tools still wore the app-wide outlined shape: a 36px box with 8px
+   corners and a 1.5px rule, drawn inside the 44px button, with 14px of
+   padding a side that left "Rebalance" touching its own edges. Fill beside
+   them was drawn 44px tall, so one row of four buttons stood at two heights
+   and none had a tray's corners. Now all four are one 50px shape, the
+   tray's 12px corner and 1px rule, the drawings in the ochre of a meal's
+   tick; Fill stays the one dark button, as Done is in the sheet. */
+.mday-acts { gap: 6px; }
+.mday-acts .mday-tool:not(#u#u), .mday-acts #macroFill:not(#u#u) { min-height: 50px; border-radius: 12px; }
+/* 13px at 500, not the shared shape's 14px at 600: at that size "Rebalance"
+   measured 72px in a 59px box on a 320px phone and 68px on a 360px one, and
+   ran out past both its edges. */
+.mday-acts .mday-tool:not(#u#u) { padding: 2px 3px; gap: 3px; font-size: 0.8125rem; font-weight: 500; letter-spacing: -0.005em; }
+.mday-acts .mday-tool:not(#u#u)::after { top: 0; bottom: 0; border-radius: 12px; border-width: 1px; background: var(--card); }
+.mday-acts .mday-tool .mday-ic { width: 18px; height: 18px; color: var(--ochre-text); }
+.mday-acts .mday-tool:disabled .mday-ic { color: inherit; }
+/* A 320px phone has 288px for the row. The tools share it by the length of
+   their word, Rebalance the longest, and Fill drops to 14px so "Complete" in
+   "Complete the day" still fits a line. */
+@media (max-width: 359px) {
+  .mday-acts { gap: 4px; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
+  .mday-acts #macroFill:not(#u#u) { padding: 4px 6px; font-size: 0.875rem; }
+}
 
 /* the meal sheet */
 .sheet.msheet { padding-top: 0; --msh-top: 120px; }
