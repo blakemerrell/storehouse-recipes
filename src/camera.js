@@ -1,7 +1,9 @@
 /* The camera held over a packet: started and stopped, the native
  * BarcodeDetector where a browser has one and the frame reader where it
  * does not (mScanStart, mScanStop); a code got, from the lens or typed
- * (mScanGot); and the form for a food nobody has heard of (mNewFoodHTML).
+ * (mScanGot); and the form for a food nobody has heard of, drawn as a
+ * Nutrition Facts panel that sums itself as you type (mNewFoodHTML,
+ * mNfRefresh, mNfFill).
  * The longer account is with the code.
  *
  * A part of app.js (Nourish) in a file of its own. app.js calls
@@ -161,19 +163,40 @@
     });
   }
 
+  /* The form, drawn as the panel on the packet (Blake, 2026-10-07: "a
+     better food label card when I do a scan"). It was six ledger lines —
+     Called, One of them is, Calories, Protein, Fat, Carbs — which read as a
+     form to fill rather than a food, and dropped the sodium and fiber every
+     lookup had brought back with it.
+   *
+     Now it is a Nutrition Facts panel in the packet's own order and words
+     (Total Fat, Sodium, Total Carbohydrate, Dietary Fiber, Protein: the
+     American spelling because it is the American label, copied from one),
+     so the eye goes down the packet and down the form together. Each figure
+     is still a box you can type in; the label is how it looks, not a
+     picture of one. The % Daily Value is the FDA's, worked out as you type
+     (mNfRefresh), because a USDA answer arrives with no packet in hand to
+     read it off. */
+  var NF_DV = { nfF: 78, nfNa: 2300, nfC: 275, nfFib: 28 };
   function mNewFoodHTML() {
     /* Arriving with the numbers already known — off a barcode or a food
        table — or arriving empty, which is the same form either way. */
     var pre = (S.newFood && S.newFood.pre) || null;
+    var val = function (v) { return v || v === 0 ? ' value="' + esc(String(v)) + '"' : ''; };
     /* The words on the left are the box's label, for= and all, so the
-       numbers are read out as Calories and Protein rather than as four
-       unnamed boxes; a tap on the word puts the caret in the box too. */
-    var box = function (id, label, unit, ph, v) {
-      return '<div class="mtl-row"><label class="mtl-lab" for="' + id + '">' + label + '</label>' +
-        '<span class="mtl-val"><input type="number" id="' + id + '" min="0" max="9999" ' +
-        'step="1" inputmode="numeric" placeholder="' + (ph || '') + '"' +
-        (v || v === 0 ? ' value="' + esc(String(v)) + '"' : '') + '>' +
-        (unit ? '<span class="mtl-u">' + unit + '</span>' : '') + '</span></div>';
+       numbers are read out as Calories and Protein rather than as unnamed
+       boxes; a tap on the word puts the caret in the box too. */
+    var row = function (id, label, unit, ph, v, sub) {
+      var dec = id === 'nfFib';
+      /* Sodium and fiber are often missing from a lookup, and an example
+         figure in grey in an empty box reads as the food's own. */
+      return '<div class="nfl-row' + (sub ? ' sub' : '') + '">' +
+        '<label for="' + id + '">' + label + '</label>' +
+        '<input type="number" id="' + id + '" min="0" max="9999" step="' + (dec ? '0.1' : '1') + '" ' +
+          'inputmode="' + (dec ? 'decimal' : 'numeric') + '"' + (ph ? ' placeholder="' + ph + '"' : '') + val(v) + '>' +
+        '<span class="nfl-u">' + unit + '</span>' +
+        (NF_DV[id] ? '<span class="nfl-dv" data-dv="' + id + '"></span>' : '') +
+      '</div>';
     };
     return '<div class="scrim no-print" data-close="1">' +
       '<div class="sheet mt-sheet" role="dialog" aria-modal="true" aria-label="Add a food">' +
@@ -187,14 +210,25 @@
           '<span class="mtl-val"><input type="text" id="nfName" ' +
             'placeholder="Chicken tamale" aria-label="What it is called" value="' +
             esc((pre && pre.name) || '') + '"></span></div>' +
-        '<div class="mtl-row"><span class="mtl-lab">One of them is</span>' +
-          '<span class="mtl-val"><input type="text" id="nfUnit" ' +
-            'placeholder="tamale" aria-label="What one of them is called" value="' +
-            esc((pre && pre.unit) || '') + '"></span></div>' +
-        box('nfKcal', 'Calories', 'kcal', '250', pre && pre.kcal) +
-        box('nfP', 'Protein', 'g', '10', pre && pre.p) +
-        box('nfF', 'Fat', 'g', '12', pre && pre.f) +
-        box('nfC', 'Carbs', 'g', '25', pre && pre.c) +
+        '<div class="nfl-alg" id="nfAlg">' + mAlgHTML((S.newFood && S.newFood.alg) || []) + '</div>' +
+        '<div class="nfl" role="group" aria-labelledby="nflH">' +
+          '<div class="nfl-h" id="nflH">Nutrition Facts</div>' +
+          '<div class="nfl-serv"><label for="nfUnit">Serving size</label>' +
+            '<input type="text" id="nfUnit" placeholder="1 tamale"' + val(pre && pre.unit) + '></div>' +
+          '<div class="nfl-aps">Amount per serving</div>' +
+          '<div class="nfl-cal"><label for="nfKcal">Calories</label>' +
+            '<input type="number" id="nfKcal" min="0" max="9999" step="1" inputmode="numeric" placeholder="250"' +
+              val(pre && pre.kcal) + '></div>' +
+          '<div class="nfl-dvh">% Daily Value*</div>' +
+          row('nfF', 'Total Fat', 'g', '12', pre && pre.f) +
+          row('nfNa', 'Sodium', 'mg', '', pre && pre.na) +
+          row('nfC', 'Total Carbohydrate', 'g', '25', pre && pre.c) +
+          row('nfFib', 'Dietary Fiber', 'g', '', pre && pre.fib, true) +
+          row('nfP', 'Protein', 'g', '10', pre && pre.p) +
+          '<div class="nfl-foot">* The % Daily Value tells you how much a nutrient in a serving ' +
+            'contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.</div>' +
+        '</div>' +
+        '<div class="mt-cap" id="nfCounts"></div>' +
         '<div class="mt-cap" id="nfNote"></div>' +
         '<div class="sync-row">' +
           '<button class="btn-primary" data-nf="save">Add it to the day</button>' +
@@ -203,5 +237,54 @@
       '</div></div>';
   }
 
-  return { mScanStop: mScanStop, mScanStart: mScanStart, mScanGot: mScanGot, mNewFoodHTML: mNewFoodHTML };
+  /* What the packet declares, said once above the panel where a label puts
+     it. Only ever what Open Food Facts lists, and said as theirs: it is
+     written by volunteers, and an empty list there means nobody has typed
+     the allergens in, not that there are none — so no list says nothing at
+     all rather than "no allergens". */
+  function mAlgHTML(alg) {
+    if (!alg || !alg.length) return '';
+    return '<b>Contains</b> ' + esc(alg.join(', ')) +
+      '<span class="nfl-alg-src"> as Open Food Facts lists it. The packet has the last word.</span>';
+  }
+
+  /* The panel's sums, redrawn as the boxes change: each % Daily Value, and
+     what the day will count. The day counts protein and carbs at four a
+     gram and fat at nine (the long note at the save in app.js), so a
+     packet's 110 kcal can go onto the day as 125 — beans with 6 g of fiber,
+     which the label counts at less than four. That used to happen silently
+     at the save; it is said here, under the figure it replaces. */
+  function mNfRefresh() {
+    if (!$('nfKcal')) return;
+    var num = function (id) { var v = Number(($(id) || {}).value); return isFinite(v) && v > 0 ? v : 0; };
+    var cells = document.querySelectorAll('.nfl [data-dv]');
+    for (var i = 0; i < cells.length; i++) {
+      var id = cells[i].getAttribute('data-dv'), raw = String(($(id) || {}).value || '').trim();
+      cells[i].textContent = raw === '' ? '' : Math.round(num(id) / NF_DV[id] * 100) + '%';
+    }
+    var say = $('nfCounts');
+    if (!say) return;
+    var p = Math.round(num('nfP')), f = Math.round(num('nfF')), c = Math.round(num('nfC'));
+    var typed = Math.round(num('nfKcal')), counts = 4 * p + 4 * c + 9 * f, fib = num('nfFib');
+    say.textContent = (p || f || c) && typed && Math.abs(counts - typed) >= 5
+      ? 'The day counts ' + counts + ' kcal, not ' + typed + ': protein and carbs at 4 a gram, fat at 9' +
+        (fib && counts > typed ? ', where the label counts its ' + (Math.round(fib * 10) / 10) + ' g of fiber at less.' : '.')
+      : '';
+  }
+
+  /* A looked-up row poured into the form already open, rather than opening
+     a second one over it. */
+  function mNfFill(got) {
+    if (!$('nfName') || !got) return;
+    var put = function (id, v) { if ($(id)) $(id).value = v || v === 0 ? v : ''; };
+    put('nfName', got.name); put('nfUnit', got.unit); put('nfKcal', got.kcal);
+    put('nfP', got.p); put('nfF', got.f); put('nfC', got.c);
+    put('nfNa', got.na); put('nfFib', got.fib);
+    if (S.newFood) S.newFood.alg = got.alg || [];
+    if ($('nfAlg')) $('nfAlg').innerHTML = mAlgHTML(got.alg);
+    mNfRefresh();
+  }
+
+  return { mScanStop: mScanStop, mScanStart: mScanStart, mScanGot: mScanGot, mNewFoodHTML: mNewFoodHTML,
+    mNfRefresh: mNfRefresh, mNfFill: mNfFill };
 };

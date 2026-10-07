@@ -18,6 +18,7 @@
   var BUILD = app.BUILD;
   var S = app.S;
   var mFoodSearch = app.mFoodSearch;
+  var mUsdaBarcode = app.mUsdaBarcode;
   var mQueryKind = app.mQueryKind;
   var LIVE = app.LIVE;
 
@@ -28,7 +29,22 @@
   }
   function $(id) { return document.getElementById(id); }
 
+  /* A barcode, asked of Open Food Facts and then, if it does not know the
+     packet or knows it without a nutrition table, of the USDA's packaged
+     foods (mUsdaBarcode). Neither knowing it is said as that. A USDA that
+     cannot be reached, or has no key here, leaves Open Food Facts' answer
+     standing: "did not answer" is never upgraded to "does not exist". */
   function mBarcodeLookup(code) {
+    return mOffLookup(code).catch(function (err) {
+      var why = err && err.message;
+      if (why !== 'none' && why !== 'nonutrition') throw err;
+      return mUsdaBarcode(code).catch(function (u) {
+        if (u && u.message === 'none' && why === 'none') throw new Error('nowhere');
+        throw err;
+      });
+    });
+  }
+  function mOffLookup(code) {
     /* Open Food Facts asks callers to say who they are. A browser cannot set
        its own User-Agent, so their documented alternative is to name the app
        in the query — which costs nothing and is the difference between
@@ -41,7 +57,7 @@
        service and is not part of this API, which is why the searching here
        is the USDA's job and the barcodes are theirs. */
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
-      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size' +
+      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags' +
       '&app_name=' + encodeURIComponent('Hive and Hearth') +
       '&app_version=' + encodeURIComponent(BUILD);
     return fetch(url).then(function (r) {
@@ -74,13 +90,38 @@
       var known = [e.v, pr2.v, fa.v, ca.v].some(function (v) { return typeof v === 'number'; });
       if (!known) throw new Error('nonutrition');
       var num2 = function (v) { return typeof v === 'number' ? Math.round(v) : 0; };
+      /* Sodium and fiber on the same basis as the rest, from the same reply:
+         they were always in it, and thrown away. Open Food Facts keeps sodium
+         in grams, and sometimes only salt, which is sodium times 2.5. One the
+         packet does not give stays null, so the form leaves its box empty
+         rather than printing a 0 nobody read off a label. */
+      var na = per('sodium').v, sa = per('salt').v, fb = per('fiber').v;
+      var naMg = typeof na === 'number' ? na * 1000 : typeof sa === 'number' ? sa / 2.5 * 1000 : null;
       return [{
         name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
         unit: e.serving ? (p.serving_size || 'serving') : '100 g',
         kcal: num2(e.v), p: num2(pr2.v), f: num2(fa.v), c: num2(ca.v),
+        na: naMg === null ? null : Math.round(naMg), fib: typeof fb === 'number' ? Math.round(fb * 10) / 10 : null,
+        alg: mAllergens(p.allergens_tags),
         note: 'Open Food Facts'
       }];
     });
+  }
+
+  /* What the packet declares, in plain words. Open Food Facts tags them
+     "en:peanuts", "en:sesame-seeds"; a tag in another language is kept as
+     its word. A short list on purpose: this is the label's "Contains" line,
+     not a medical record, and twenty tags on a phone is a paragraph. */
+  var ALLERGEN_WORD = { nuts: 'tree nuts', soybeans: 'soy', 'sesame-seeds': 'sesame', crustaceans: 'shellfish',
+    'sulphur-dioxide-and-sulphites': 'sulphites' };
+  function mAllergens(tags) {
+    var out = [];
+    (Array.isArray(tags) ? tags : []).forEach(function (t) {
+      var w = String(t || '').replace(/^[a-z]{2}:/, '');
+      w = ALLERGEN_WORD[w] || w.replace(/-/g, ' ');
+      if (w && out.indexOf(w) < 0 && out.length < 8) out.push(w);
+    });
+    return out;
   }
 
   /* What a failed lookup says, in one place. It was written out three times
@@ -95,6 +136,7 @@
       ' Wait a minute, or type it in below.';
     if (why === 'nonutrition') return (code ? code + ' is in Open Food Facts, but' : 'That one is known, but') +
       ' with no nutrition table yet. Read it off the packet below.';
+    if (why === 'nowhere') return (code || 'That') + ' is not in Open Food Facts or the USDA\u2019s packaged foods. Type what it was below.';
     if (why === 'none') return (code || 'That') + ' is not in Open Food Facts. Type what it was below.';
     return (code ? 'Open Food Facts' : 'The food tables') + ' did not answer. Type it in below, or try again.';
   }
