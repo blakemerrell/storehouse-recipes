@@ -3,7 +3,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, openMeal, closeSheet } = require('./fixtures/nourish.js');
+const { nourish, addOn, openMeal, closeSheet, toSheet } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — food the storehouse does not stock',
@@ -312,7 +312,7 @@ module.exports = nourish({
       JSON.stringify(quietFolded));
     /* And opening one does not bring them back — the open card is plates and
        steppers, which is what it is for. */
-    await pillPg.click('#macroSlots .mtray-b');
+    await toSheet(pillPg, '');
     await pillPg.waitForTimeout(350);
     // the plates are in the sheet's tray, which opens shut
     if (await pillPg.isVisible('#modalRoot .msh-tray .msh-trn')) { await pillPg.click('#modalRoot .msh-trn'); await pillPg.waitForTimeout(250); }

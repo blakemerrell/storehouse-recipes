@@ -8,6 +8,7 @@
  * picker under them, where a tap puts a food straight on the meal. No basket,
  * no "Add N", no per-meal Add, no Open all. Mockup:
  * https://claude.ai/artifact/SseR1TPa4JAFNanYYsGP4k */
+const { toSheet } = require('./fixtures/nourish.js');
 const DAY = '2026-10-06';
 const LUNCH = ['chicken_breast', 'rice_cooked', 'broccoli', 'black_beans', 'salsa', 'avocado', 'olive_oil'];
 
@@ -74,12 +75,20 @@ module.exports = {
       day.bar.join() === 'macroRebal,macroSweep,macroCopy,macroFill', JSON.stringify(day.bar));
 
     /* ---- the sheet ---- */
-    await p.click('[data-mopen="l"]');
-    await p.waitForTimeout(500);
-    /* A meal with food on it opens on its foods, up in the page over the
-       search (Blake, 2026-10-08: "the foods that I have in my basket are
-       collapsed and it's really hard to edit them"), and the tray's strip of
-       chips steps out while they are there. */
+    /* From the day a meal with food on it opens in place, in its own tray
+       (2026-10-08, tests/daytray.test.js); its "+ Add food" is the way into
+       the sheet, which opens on its list, the foods tucked into the chips
+       along the bottom, one a food. */
+    await toSheet(p, 'l');
+    const tucked = await p.evaluate(() => ({ sheet: !!document.querySelector('#modalRoot .msheet'),
+      on: !!document.querySelector('#modalRoot .msh-on'), chips: document.querySelectorAll('#modalRoot .msh-tray .msh-chip').length }));
+    t.ok('"+ Add food" opens the sheet on its list, the foods tucked into the chips along the bottom, one a food',
+      tucked.sheet && !tucked.on && tucked.chips === 7, JSON.stringify(tucked));
+    /* The count puts them up in the page over the search (Blake,
+       2026-10-08: "the foods that I have in my basket are collapsed and
+       it's really hard to edit them"), and the strip steps out while they
+       are there. */
+    await openTray(p);
     const up = await p.evaluate(() => {
       const on = document.querySelector('#modalRoot .msh-on'), find = document.querySelector('#modalRoot .msh-find');
       const strip = document.querySelector('#modalRoot .msh-tray .msh-trc');
@@ -87,7 +96,7 @@ module.exports = {
         above: !!on && !!find && on.getBoundingClientRect().bottom <= find.getBoundingClientRect().top + 1,
         strip: !!strip && getComputedStyle(strip).display !== 'none' };
     });
-    t.ok('the sheet opens on its foods, one row a food, above the search; the tray’s chips step out',
+    t.ok('the count puts the foods up, one row a food, above the search; the tray’s chips step out',
       up.rows === 7 && up.above && !up.strip, JSON.stringify(up));
     await openTray(p);
     const sh = await p.evaluate(() => {
@@ -160,7 +169,7 @@ module.exports = {
       await p.evaluate(() => document.querySelector('[data-mopen="l"]').closest('.mtray').classList.contains('done')));
 
     /* ---- adding: one tap, straight onto the meal ---- */
-    await p.click('[data-mopen="d"]');
+    await toSheet(p, 'd');
     await p.waitForTimeout(500);
     await openTray(p);
     const n0 = (await mealOf(p, 'd')).length;
@@ -271,8 +280,7 @@ module.exports = {
     await p.waitForTimeout(800);
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(500);
-    await p.click('[data-mopen="d"]');
-    await p.waitForTimeout(400);
+    await toSheet(p, 'd');
     await openTray(p);
     const wi = (await mealOf(p, 'd')).findIndex((it) => it.id === 'f:whey');
     let whey = null;
@@ -301,7 +309,7 @@ module.exports = {
       await q.waitForTimeout(500);
       await q.click('.tab[data-view="macros"]');
       await q.waitForTimeout(400);
-      await q.click('[data-mopen="d"]');
+      await toSheet(q, 'd');
       await q.waitForTimeout(400);
       const out = await q.evaluate(() => {
         const caps = [...document.querySelectorAll('#modalRoot .msh-top .mcap')];
@@ -348,7 +356,7 @@ module.exports = {
       return { shown: shown, heard: hid ? hid.textContent.trim() : '', dashed: getComputedStyle(c).borderTopStyle === 'dashed' };
     }), scope);
     const onTray = await spentPills('.mtray:has([data-mopen="e"]) .mtray-caps');
-    await sp.click('[data-mopen="e"]');
+    await toSheet(sp, 'e');
     await sp.waitForTimeout(400);
     const onSheet = await spentPills('#modalRoot .msh-top');
     const quiet = (a) => a.length === 4 && a.every((x) => !/none|left/i.test(x.shown) && /—$/.test(x.shown) && x.heard === 'none left' && x.dashed);

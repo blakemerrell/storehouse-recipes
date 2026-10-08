@@ -7,7 +7,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, addOn, pickerList, closeSheet, openTray } = require('./fixtures/nourish.js');
+const { nourish, addOn, pickerList, closeSheet, openTray, toSheet } = require('./fixtures/nourish.js');
 
 /* Since 2026-10-04 the day is trays and a meal's plates, its scales and its
    ⋯ live in the meal's sheet (#modalRoot .msheet), opened by its tray — the
@@ -21,10 +21,7 @@ async function openMeal(pg, sk) {
     if (await pg.$('#modalRoot .msh-h [data-mdot="' + sk + '"], #modalRoot .msh-h [data-mmenu="' + sk + '"]')) return;
     await closeSheet(pg);
   }
-  await pg.evaluate((k) => {
-    const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
-    if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
-  }, sk);
+  await toSheet(pg, sk);
   await pg.waitForTimeout(300);
   await openTray(pg);
 }

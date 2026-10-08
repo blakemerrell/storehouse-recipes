@@ -15,6 +15,7 @@
  * next meal sheet pushed on top of that entry; Done stepped back onto it and
  * the popstate handler put the meatloaf up. An entry a previous load left
  * behind is the bottom of the stack now, whatever it carries. */
+const { toSheet } = require('./fixtures/nourish.js');
 const DAY = '2026-10-06';
 
 const SETUP = () => {
@@ -109,9 +110,12 @@ module.exports = {
     await p.mouse.click(food2.x, food2.y);
     await p.waitForTimeout(600);
     const meal = await open(p);
-    t.ok('and pressing it opens the meal', meal.meal && !meal.recipe, JSON.stringify(meal));
-    await p.click('#modalRoot .msh-done');
-    await p.waitForTimeout(600);
+    /* Since 2026-10-08 the meal opens in place, in its own tray on the day,
+       its foods dialled there; the sheet is "+ Add food" from it. */
+    const inPlace = await p.evaluate(() => !!document.querySelector('#macroSlots .mtray.open [data-mday="d"]'));
+    t.ok('and pressing it opens the meal, in its own tray on the day', inPlace && !meal.meal && !meal.recipe, JSON.stringify({ meal, inPlace }));
+    await p.click('#macroSlots [data-mday="d"]');
+    await p.waitForTimeout(400);
 
     /* The way back after a reload. Look at the meatloaf in Recipes, reload
        on it, open dinner's sheet and leave it, by Done and by back. Before,
@@ -128,8 +132,8 @@ module.exports = {
       await p.waitForTimeout(900);
       await p.click('.tab[data-view="macros"]');
       await p.waitForTimeout(500);
-      await p.click('[data-mopen="d"]');
-      await p.waitForTimeout(500);
+      await toSheet(p, 'd');
+      await p.waitForTimeout(250);
       const sheetUp = await open(p);
       if (how === 'Done') await p.click('#modalRoot .msh-done');
       else await p.goBack();
@@ -141,8 +145,8 @@ module.exports = {
     }
 
     // and a recipe opened in this life still comes back on back, as it always has
-    await p.click('[data-mopen="d"]');
-    await p.waitForTimeout(500);
+    await toSheet(p, 'd');
+    await p.waitForTimeout(250);
     await p.click('#modalRoot .msh-tray [data-mtray="1"]').catch(() => {});
     await p.waitForTimeout(300);
     const door = await p.$('#modalRoot .mrow .mitem-name[data-open="351"]');

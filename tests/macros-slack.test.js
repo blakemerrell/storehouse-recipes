@@ -4,7 +4,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, openMeal, closeSheet, openTray } = require('./fixtures/nourish.js');
+const { nourish, openPlan, openMeal, closeSheet, openTray, toSheet } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — salt, a meal\'s tray, and handing slack on',
@@ -703,7 +703,7 @@ module.exports = nourish({
     /* The bar's own button and the tray's door, measured on the day. */
     const reach = { coarse: await reachPage.evaluate(() => matchMedia('(pointer: coarse)').matches),
       bar: await box('.mday-acts button:not(#macroFill)'), seam: await box('#macroSlots .mtray .mtray-b') };
-    await reachPage.click('#macroSlots .mtray .mtray-b');
+    await toSheet(reachPage, '');
     await reachPage.waitForTimeout(400);
     await openTray(reachPage);
     Object.assign(reach, { key: await hit('#modalRoot .msheet .mrow [data-mstep$=":up"]'),

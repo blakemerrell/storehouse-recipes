@@ -5,6 +5,7 @@
  * "4 0.5 cup (113 g)"; multiplied out they are 2 cups, 452 g. And typing a
  * portion stood the number over its unit, "400" on one line and "g" below. */
 
+const { toSheet } = require('./fixtures/nourish.js');
 module.exports = {
   name: 'Portions',
   async run(t) {
@@ -36,7 +37,7 @@ module.exports = {
     await p.waitForTimeout(700);
     /* A meal's tray opens its sheet, the one place food is added
        (2026-10-04); the pick goes straight on the meal, whose row is above. */
-    await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b && b.click(); });
+    await toSheet(p, '');
     await p.waitForTimeout(500);
     await p.fill('#mpFind', 'cottage');
     await p.waitForTimeout(300);

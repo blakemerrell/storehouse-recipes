@@ -9,6 +9,7 @@
  * to 7px. Typing the 50 on the dial logged five kilos. The food's own page
  * offered the same "× 100 g". A unit said in grams is now a weight on both,
  * and the typed box keeps room for four digits whatever its unit says. */
+const { toSheet } = require('./fixtures/nourish.js');
 const SETUP = () => {
   localStorage.setItem('bsc.macroProfile', JSON.stringify({ sex: 'm', age: 43, ft: 5, inch: 11, lb: 192, act: 1.55, goal: 'cut1' }));
   localStorage.setItem('bsc.macroTargets', JSON.stringify({ p: 190, f: 70, c: 230 }));
@@ -36,7 +37,7 @@ module.exports = {
     await p.waitForTimeout(900);
     await p.click('.tab[data-view="macros"]');
     await p.waitForTimeout(500);
-    await p.click('[data-mopen="b"]');
+    await toSheet(p, 'b');
     await p.waitForTimeout(500);
     // a meal with food on it opens on its foods (2026-10-08); the tray's strip would be hidden
     if (!(await p.$('#modalRoot .msh-on'))) { await p.click('#modalRoot .msh-tray [data-mtray="1"]'); }

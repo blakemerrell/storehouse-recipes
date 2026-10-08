@@ -4,7 +4,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish } = require('./fixtures/nourish.js');
+const { nourish, toSheet } = require('./fixtures/nourish.js');
 
 /* Back to the day from a meal's sheet. While a meal's sheet is up (the
    trays and the meal sheet, 2026-10-04) the day's header — the day picker,
@@ -74,12 +74,9 @@ module.exports = nourish({
          where a plate's − and + are. */
       const openMeal = async (sk) => {
         await homeDay(pg);
-        await pg.evaluate((sk) => {
-          const a = document.querySelector('#macroSlots [data-mopen="' + sk + '"]');
-          a.scrollIntoView({ block: 'center' });
-          a.click();
-        }, sk);
-        await pg.waitForTimeout(400);
+        // a meal with food on it opens in place on the day (2026-10-08); "+ Add food" goes on into its sheet
+        await toSheet(pg, sk);
+        await pg.waitForTimeout(150);
         if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {
           await pg.click('#modalRoot .msh-tray .msh-trn');
           await pg.waitForTimeout(250);
@@ -648,7 +645,7 @@ module.exports = nourish({
          the ⋯ — and the verbs behind the ⋯ carry their drawing and a word.
          Adding food is the picker in the same sheet, its search box under
          the foods. Read on breakfast's sheet, its menu shown. */
-      await pg.evaluate(() => { const a = document.querySelector('#macroSlots [data-mopen="b"]'); a.scrollIntoView({ block: 'center' }); a.click(); });
+      await toSheet(pg, 'b');
       await pg.waitForTimeout(400);
       await pg.evaluate(() => { const b = document.querySelector('#modalRoot .msheet [data-mmenu]'); if (b) b.click(); });
       await pg.waitForTimeout(200);
@@ -669,7 +666,7 @@ module.exports = nourish({
       t.ok('Copy day says Copied under its icon, and keeps the icon', copied.w === 'Copied' && copied.svg, JSON.stringify(copied));
 
       /* The numbers filled in for you: warm, and about 5:1 on the box. */
-      await pg.evaluate(() => { const a = document.querySelector('#macroSlots [data-mopen="d"]'); a.scrollIntoView({ block: 'center' }); a.click(); });
+      await toSheet(pg, 'd');
       await pg.waitForTimeout(400);
       const ph = await pg.evaluate(() => {
         const inp = document.getElementById('mpFind');
@@ -962,7 +959,7 @@ module.exports = nourish({
       /* The meal's sheet, by its tray — the one way in to adding food. */
       const openAdd = async (sk) => {
         await homeDay(pg);
-        await pg.evaluate((sk) => { const a = document.querySelector('#macroSlots [data-mopen="' + sk + '"]'); a.scrollIntoView({ block: 'center' }); a.click(); }, sk);
+        await toSheet(pg, sk);
         await pg.waitForTimeout(400);
         // the plates in the tray along the sheet's bottom, opened (2026-10-05)
         if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {

@@ -30,6 +30,7 @@ function nameOf(el) {
   return '';
 }
 
+const { toSheet } = require('./fixtures/nourish.js');
 module.exports = {
   name: 'Keyboard, screen reader, touch and dark',
   async run(t) {
@@ -110,7 +111,7 @@ module.exports = {
     await p.keyboard.press('Escape');
     await p.waitForTimeout(150);
     /* A meal's tray is the one door to adding food (2026-10-04). */
-    await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); b.click(); });
+    await toSheet(p, '');
     await p.waitForTimeout(300);
     await p.evaluate(() => { const b = document.querySelector('[data-mpnew]'); b.scrollIntoView({ block: 'center' }); b.click(); });
     await p.waitForTimeout(200);
@@ -342,7 +343,7 @@ module.exports = {
        the menu is opened the way a thumb would before they are measured.
        Balance and Done moved down to the tray along the bottom on 2026-10-05
        (the ⚖ and × left the head), and are measured there. */
-    await q.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); if (b) b.click(); });
+    await toSheet(q, '');
     await q.waitForTimeout(300);
     await q.evaluate(() => { const b = document.querySelector('#modalRoot [data-mmenu][aria-expanded="false"]'); if (b) b.click(); });
     await q.waitForTimeout(250);

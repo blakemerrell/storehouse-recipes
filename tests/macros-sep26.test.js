@@ -4,18 +4,15 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, pickerList, pickRecipe, closeSheet, storedDay, weighIn, todayOn } = require('./fixtures/nourish.js');
+const { nourish, pickerList, pickRecipe, closeSheet, storedDay, weighIn, todayOn, toSheet } = require('./fixtures/nourish.js');
 
 /* A dish onto the nth meal of the day, the way a thumb adds one since the
    trays (Blake, 2026-10-04): the meal's tray opens its sheet, the first
    recipe in the list goes on the meal at a tap, and × goes home to the day. */
 async function addInto(pg, n) {
-  await pg.evaluate((i) => {
-    const a = document.querySelectorAll('#macroSlots [data-mopen]')[i];
-    a.scrollIntoView({ block: 'center' });
-    a.click();
-  }, n);
-  await pg.waitForTimeout(250);
+  // the nth meal, into its sheet: a meal with food on it opens in place first (2026-10-08)
+  const key = await pg.evaluate((i) => document.querySelectorAll('#macroSlots [data-mopen]:not([data-madd])')[i].dataset.mopen, n);
+  await toSheet(pg, key);
   await pickerList(pg);
   await pickRecipe(pg);
   await closeSheet(pg);

@@ -16,6 +16,7 @@
  * and every food in cups and spoons before grams.
  *
  * Mockup: https://claude.ai/artifact/TQTp3xjDsvsEabnWYfFF7y */
+const { toSheet } = require('./fixtures/nourish.js');
 const DAY = '2026-10-06';
 
 const SETUP = (opt) => {
@@ -43,7 +44,7 @@ async function sheet(t, opt) {
   await p.waitForTimeout(900);
   await p.click('.tab[data-view="macros"]');
   await p.waitForTimeout(600);
-  await p.click('[data-mopen="l"]');
+  await toSheet(p, 'l');
   await p.waitForTimeout(500);
   return { p, errs };
 }

@@ -102,7 +102,8 @@ module.exports = {
     await p.click('#macroSlots [data-mfmenu="l:2"]');
     await p.waitForTimeout(200);
     const menu = await p.evaluate(() => [...document.querySelectorAll('#macroSlots .mrow-menu .mfood-mi')].map((b) => b.textContent.trim()));
-    await p.click(tray('l') + ' .mtray-caps');
+    // a tap on a row's small print: the header would fold the tray as well
+    await p.click(tray('l') + ' .mrow .mrow-m');
     await p.waitForTimeout(200);
     t.ok('⋯ on a food in the tray holds the sheet’s verbs, and closes on a tap elsewhere',
       menu.join('|') === 'Lock the amount|Swap|Pin to Lunch|Favourite|Remove' && !(await p.$('#macroSlots .mrow-menu')), JSON.stringify(menu));

@@ -5,7 +5,7 @@
  *
  * Split by topic: later sections are in tests/macros-*.test.js, and the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openWeigh, openPlan, pickerList, openTray } = require('./fixtures/nourish.js');
+const { nourish, openWeigh, openPlan, pickerList, openTray, toSheet } = require('./fixtures/nourish.js');
 
 /* The day is trays and a meal opens as its sheet (trays and the meal sheet,
    Blake 2026-10-04). The sheet stands over the day's header, the weigh card
@@ -32,10 +32,8 @@ async function openMeal(pg, sk) {
   });
   if (open === sk) { await openTray(pg); return; }
   if (open) await toDay(pg);
-  await pg.evaluate((k) => {
-    const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
-    if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
-  }, sk);
+  // a meal with food on it opens in place on the day (2026-10-08); "+ Add food" goes on into its sheet
+  await toSheet(pg, sk);
   await pg.waitForTimeout(300);
   await openTray(pg);
 }
@@ -671,8 +669,8 @@ module.exports = nourish({
       JSON.stringify(await sOf()) === JSON.stringify(sWas) && await p.evaluate(() => !document.querySelector('#modalRoot .msheet')),
       JSON.stringify(sWas));
     /* The day is trays (2026-10-04): a meal shows its foods as lines on its
-       tray, and its tray opens it again — on the sheet's own tray along the
-       bottom, shut to a chip a food (2026-10-05). */
+       tray, and its tray opens it again — in place, its foods dialled in the
+       tray itself, since 2026-10-08. */
     t.ok('the tray shows what is on the meal, and opens it again',
       await p.evaluate(async () => {
         const b = document.querySelector('#macroSlots [data-mopen="s"]');
@@ -680,7 +678,7 @@ module.exports = nourish({
         if (!tray || tray.querySelectorAll('.mtray-f').length !== 2) return false;
         b.click();
         await new Promise((r) => setTimeout(r, 300));
-        return document.querySelectorAll('#modalRoot .msheet .msh-tray .msh-chip').length === 2;
+        return document.querySelectorAll('#macroSlots .mtray.open .mrow').length === 2;
       }), await p.evaluate(() => {
         const b = document.querySelector('#macroSlots [data-mopen="s"]');
         const tr = b && b.closest('.mtray');
