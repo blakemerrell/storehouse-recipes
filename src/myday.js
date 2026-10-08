@@ -213,7 +213,7 @@
      The handlers are the sheet's (mDayClick answers both), so a step here
      is a step there. Eaten is a record, as in the sheet: the keys go quiet
      and a tap on the amount hands them back. */
-  function mLineOpenHTML(M, r, it, i, kitchen, ml, weight) {
+  function mLineOpenHTML(M, r, it, i) {
     var sk = M.sk, tag = sk + ':' + i, name = esc(r.name);
     var pinned = M.pins.some(function (p) { return p.id === it.id; });
     var spent = it.eaten && S.mEdit !== tag;
@@ -224,10 +224,7 @@
       : '<button class="mstep-x mitem-amt ' + (spent ? 'mstep-wake" data-medit="' : 'mstep-type" data-mtype="') + tag + '" aria-label="' +
           name + ', ' + esc(mDialText(r, it.x)) + '. ' + (spent ? 'Correct it' : 'Type an amount') + '">' + esc(mDialText(r, it.x)) + '</button>';
     return '<div class="mfl-x no-print">' +
-        /* A cup's mL leads the small print: beside the cup on the line it
-           took the name's room, and under the dial it pushed the dial off its
-           row on a 390 phone. */
-        '<div class="mfl-mac">' + (ml ? esc(ml) + ' &middot; ' : '') + '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
+        '<div class="mfl-mac"><span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
         '<div class="mfl-ctl">' +
           '<span class="mfl-ics">' +
             '<button class="mfl-ic" data-mdel="' + tag + '" aria-label="Remove ' + name + '">' + I_BIN + '</button>' +
@@ -656,8 +653,8 @@
        *
          The kitchen's words first and the weight after, as before (Blake,
          2026-10-05: "If I just want to eyeball it I can... The grams is there
-         for sure if I want to weigh it"); a cup's mL moved under the open
-         dial, because beside the cup it left a long name four letters. The
+         for sure if I want to weigh it"), a cup's mL small under the cup: on
+         a line of its own beside it, it left a long name four letters. The
          name is the door to the food, or to the recipe (2026-10-06: "I need
          easy links to the recipes when I click on the recipe names"); the
          head and the pills are still the door to the meal, where food is
@@ -681,12 +678,13 @@
             door + '<span class="mfl-nm">' + name + '</span></button>' +
             '<button class="mfl-amt" data-mamt="' + esc(k + '|' + tag) + '" aria-expanded="' + open + '" aria-label="' + name + ', ' +
               esc(kitchen ? kitchen + ', ' + weight : weight) + (it.l ? ', locked' : '') + '. ' + (open ? 'Close' : 'Change it') + '">' +
-              '<b class="mtray-fm">' + (it.l ? LOCK_SM : '') + esc(kitchen) + '</b><em class="num">' + esc(weight) + '</em></button>' +
+              '<span class="mtray-fm"><b>' + (it.l ? LOCK_SM : '') + esc(kitchen) + '</b>' + (ml ? '<small><i> &middot; </i>' + ml + '</small>' : '') + '</span>' +
+              '<em class="num">' + esc(weight) + '</em></button>' +
             '<input class="mitem-ate" type="checkbox" data-meat="' + esc(tag) + '" aria-label="Eaten, ' + name + '"' +
               (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') + '>' +
           '</div>';
         return '<div class="mtray-f' + (r.food ? '' : ' mtray-go') + (it.eaten ? ' eaten' : '') + (it.l ? ' held' : '') + (open ? ' open' : '') + '">' +
-          line + (open ? mLineOpenHTML(M, r, it, i, kitchen, ml, weight) : '') + '</div>';
+          line + (open ? mLineOpenHTML(M, r, it, i) : '') + '</div>';
       }).join('');
       /* The door is still the whole tray, but no longer by holding it all:
          a recipe's line is a button of its own now, and a button cannot sit

@@ -60,7 +60,7 @@ module.exports = {
         caps: lunch.querySelectorAll('.mtray-caps .mcap').length,
         measured: lines.filter((l) => /(cups?|tbsp|whole|lb)/.test(l)).length,
         tick: !!lunch.querySelector('.mday-dot[data-mdot="l"]'),
-        controls: lunch.querySelectorAll('button').length,
+        controls: lunch.querySelectorAll('button').length, ticks: lunch.querySelectorAll('input.mitem-ate[data-meat]').length,
         add: !!document.getElementById('macroAdd'), openAll: !!document.getElementById('macroOpenAll'),
         bar: [...document.querySelectorAll('.mday-acts button')].filter((b) => b.offsetParent).map((b) => b.id) };
     });
@@ -69,7 +69,10 @@ module.exports = {
     t.ok('a tray: the tick, the meal\u2019s four pills, and its foods as lines ending in grams', day.tick && day.lines.length === 7 &&
       day.grams && day.caps === 4, JSON.stringify(day));
     t.ok('each food in the kitchen\u2019s words before its weight (Blake: "if I just want to eyeball it I can")', day.measured === 7, JSON.stringify(day.lines));
-    t.ok('and nothing else to press on it: the tick and the tray itself', day.controls === 2, JSON.stringify(day));
+    /* Since 2026-10-08 each food is a line of its own (tests/daylines.test.js):
+       its name, the line itself and its own tick. */
+    t.ok('and nothing else to press on it: the tick, the tray itself, and each food’s name, line and tick',
+      day.controls === 2 + 2 * day.lines.length && day.ticks === day.lines.length, JSON.stringify(day));
     t.ok('the bar is Rebalance, Sweep, Copy day and the one primary: no Add food, no Open all', !day.add && !day.openAll &&
       day.bar.join() === 'macroRebal,macroSweep,macroCopy,macroFill', JSON.stringify(day.bar));
 

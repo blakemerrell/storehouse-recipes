@@ -174,34 +174,31 @@ module.exports = nourish({
        (tests/daylines.test.js): a press on a food is the food's. The door
        still does not reach the tray's left edge and should not: the dot
        lives out there, and pressing the dot marks the meal eaten. */
+    /* Each line is probed in view, one at a time, with the day's card given
+       a moment to fold as it does under a scrolling thumb: unfolded, it would
+       sit over the line, and the bar along the bottom covers what is under
+       it. */
+    const doorOk = await fold.evaluate(() => {
+      const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
+      if (!b) return false;
+      const tray = b.closest('.mtray');
+      return b.getBoundingClientRect().width >= tray.getBoundingClientRect().width * 0.7 && !!b.querySelector('.mtray-n') &&
+        !!b.querySelector('.mtray-caps') && tray.querySelectorAll('.mtray-f').length > 0;
+    });
+    const firstTray = '#macroSlots .mtray:has(.mtray-b[data-mopen])';
+    const presses = [];
+    for (let i = 0; i < await fold.evaluate((s) => document.querySelector(s).querySelectorAll('.mtray-f').length, firstTray); i++) {
+      await fold.evaluate((a) => document.querySelector(a[0]).querySelectorAll('.mtray-f')[a[1]].scrollIntoView({ block: 'center', behavior: 'instant' }), [firstTray, i]);
+      await fold.waitForTimeout(300);
+      presses.push(await fold.evaluate((a) => {
+        const f = document.querySelector(a[0]).querySelectorAll('.mtray-f')[a[1]];
+        const g = f.getBoundingClientRect();
+        const hit = document.elementFromPoint(g.right - 60, g.top + g.height / 2);
+        return { own: !!hit && hit.closest('.mtray-f') === f, hit: hit ? hit.className : 'none' };
+      }, [firstTray, i]));
+    }
     t.ok('and the door carries the meal’s name and its calories, each food under it a line of its own',
-      await fold.evaluate(() => {
-        const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
-        if (!b) return false;
-        const tray = b.closest('.mtray');
-        const row = tray.getBoundingClientRect();
-        const r = b.getBoundingClientRect();
-        const foods = [...tray.querySelectorAll('.mtray-f')];
-        return r.width >= row.width * 0.7 && !!b.querySelector('.mtray-n') &&
-          !!b.querySelector('.mtray-caps') && foods.length > 0 &&
-          foods.every((f) => {
-            const g = f.getBoundingClientRect();
-            const hit = document.elementFromPoint(g.right - 60, g.top + g.height / 2);
-            return !!hit && hit.closest('.mtray-f') === f;
-          });
-      }),
-      await fold.evaluate(() => {
-        const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
-        const tray = b.closest('.mtray');
-        const row = tray.getBoundingClientRect();
-        return 'door ' + Math.round(b.getBoundingClientRect().width) + 'px of tray ' +
-          Math.round(row.width) + 'px, lines ' + tray.querySelectorAll('.mtray-f').length +
-          ', presses on them ' + [...tray.querySelectorAll('.mtray-f')].map((f) => {
-            const g = f.getBoundingClientRect();
-            const hit = document.elementFromPoint(g.right - 60, g.top + g.height / 2);
-            return hit ? hit.className : 'none';
-          }).join(',');
-      }));
+      doorOk && presses.length > 0 && presses.every((x) => x.own), JSON.stringify({ doorOk, presses }));
     /* And the tray carries nothing else to press: the door, the meal's tick,
        and each food's name (the door to the food or the recipe), its line
        (which opens it) and its own tick. */
@@ -216,15 +213,15 @@ module.exports = nourish({
         .map((h) => [...h.querySelectorAll('button, input')].map((b) => b.className.split(' ')[0]).join('+'))
         .join(' | ')));
     /* Nothing on the tray wraps but a long name: the meal's name is one line,
-       its pills one row, and each food's measure and grams one line, on a
-       line a thumb tall. */
+       its pills one row, and each food's measure and grams one line (a cup's
+       mL sits under the cup by design), on a line a thumb tall. */
     t.ok('and nothing on a tray wraps but a long food name, and each food’s line is a thumb tall',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')].every((c) => {
         const caps = [...c.querySelectorAll('.mtray-caps .mcap')].map((x) => x.getBoundingClientRect());
         return c.querySelector('.mtray-n').getBoundingClientRect().height <= 22 &&
           caps.every((r) => Math.abs(r.top - caps[0].top) <= 1 && r.height <= 30) &&
           [...c.querySelectorAll('.mtray-f:not(.mtray-none)')].every((f) => f.querySelector('.mfl-r').getBoundingClientRect().height >= 44 &&
-            f.querySelector('.mfl-amt .mtray-fm').getBoundingClientRect().height <= 24 &&
+            f.querySelector('.mfl-amt .mtray-fm b').getBoundingClientRect().height <= 24 &&
             f.querySelector('.mfl-amt em').getBoundingClientRect().height <= 24);
       })),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]

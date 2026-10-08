@@ -7887,15 +7887,34 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
   display: grid; grid-template-columns: auto 3.6em; column-gap: 8px; align-items: baseline; align-content: center;
   min-height: 44px; border: 0; background: none; padding: 0; margin: 0; font: inherit; color: var(--ink); text-align: right; cursor: pointer;
 }
-.mfl-amt .mtray-fm { display: inline-flex; align-items: center; justify-self: end; gap: 3px; font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
+/* the cup, and its mL small under it; the dot between them is for words read aloud or copied */
+.mfl-amt .mtray-fm { display: flex; flex-direction: column; align-items: flex-end; justify-self: end; line-height: 1.15; white-space: nowrap; }
+.mfl-amt .mtray-fm b { display: inline-flex; align-items: center; gap: 3px; font-size: 0.875rem; font-weight: 600; }
+.mfl-amt .mtray-fm small { font-size: 0.8125rem; color: var(--note); }
+.mfl-amt .mtray-fm small i { display: none; }
 .mfl-amt .mtray-fm .mcard-lk { width: 11px; height: 11px; color: var(--ochre-text); }
 .mfl-amt em { font-style: normal; font-size: 0.8125rem; color: var(--note); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.mfl-r .mitem-ate { margin: 0; justify-self: end; }
+/* The tick: the plate's own 30px box, drawn inside a 44px target that
+   spills 7px past its column each way, so the line keeps its room and a
+   thumb still gets a thumb's worth ("every control on the day is a thumb
+   wide", tests/macros-ux.test.js). The box is ::before; ::after stays the
+   tick's own mark. */
+#macroSlots .mfl-r .mitem-ate {
+  position: relative; width: 44px; height: 44px; margin: -7px; justify-self: end;
+  border: 0; border-radius: 0; background: none;
+}
+#macroSlots .mfl-r .mitem-ate::before {
+  content: ''; position: absolute; left: 7px; top: 7px; width: 30px; height: 30px; box-sizing: border-box;
+  border: 1px solid var(--line-firm); border-radius: 4px; background: var(--card);
+}
+#macroSlots .mfl-r .mitem-ate::after { position: relative; }
+#macroSlots .mfl-r .mitem-ate:checked { background: none; }
+#macroSlots .mfl-r .mitem-ate:checked::before { background: var(--green); border-color: var(--green); }
 /* Open: the line keeps its place, tinted the width of the card, and its
    controls come up under it. */
 .mtray-f.open { background: var(--hint); margin-right: -12px; padding-right: 12px; box-shadow: inset 3px 0 0 var(--ochre); }
 .mtray-f.open::before, .mtray-f.open + .mtray-f::before { border-top-color: transparent; }
-.mtray-f.open .mtray-fm { color: var(--ochre-text); }
+.mtray-f.open .mtray-fm b { color: var(--ochre-text); }
 .mfl-x { display: grid; gap: 8px; padding: 0 0 12px 10px; }
 .mfl-mac { margin-top: -4px; padding-left: 36px; font-size: 0.8125rem; line-height: 1.35; color: var(--note); }
 .mfl-mac .mitem-mac { font-size: inherit; }
