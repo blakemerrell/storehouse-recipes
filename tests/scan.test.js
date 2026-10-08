@@ -68,10 +68,17 @@ module.exports = {
     const asked = await a.evaluate(() => window.__cam.asked);
     t.ok('a barcode typed in does not ask for the camera at all', asked === 0, 'asked ' + asked);
     t.ok('and no camera is left running', (await live(a)) === 0);
-    // one basis for every figure
-    const row = await a.evaluate(() => (document.querySelector('#nfResults .mpick-row') || {}).textContent || '');
+    /* One answer opens its label straight away (Blake, 2026-10-08: "a scan
+       needs to show me exactly what it scanned right away"), with one basis
+       for every figure. */
+    const card = await a.evaluate(() => {
+      const v = (id) => (document.getElementById(id) || {}).value;
+      return { name: v('nfName'), unit: v('nfUnit'), kcal: v('nfKcal'), p: v('nfP'), c: v('nfC'),
+        rows: document.querySelectorAll('#nfResults [data-nfpick]').length };
+    });
+    t.ok('one answer to a scan opens its label at once: no row to tap first', /Mixed label$/.test(card.name || '') && card.rows === 0, JSON.stringify(card));
     t.ok('a packet giving calories per serving and protein per 100 g comes back all per 100 g',
-      /100 g · 400 kcal/.test(row) && /10P/.test(row) && /66C/.test(row) && !/serving/.test(row), row);
+      /100 g/.test(card.unit) && card.kcal === '400' && card.p === '10' && card.c === '66', JSON.stringify(card));
     await a.context().close();
 
     // ---- leaving scan before permission comes back --------------------------
@@ -89,13 +96,13 @@ module.exports = {
     const c = await open({ detector: true });
     await c.evaluate(() => { window.__cam.delay = 30; });
     await c.click('[data-mpmode="scan"]');
-    await c.waitForFunction(() => document.getElementById('nfResults') &&
-      /Mixed label/.test(document.getElementById('nfResults').textContent), null, { timeout: 5000 });
+    await c.waitForFunction(() => document.getElementById('nfName') &&
+      /Mixed label/.test(document.getElementById('nfName').value), null, { timeout: 5000 });
     t.ok('a scan that finds its barcode lets go of the camera', (await live(c)) === 0);
     await c.evaluate(() => window.Store.toggleFav(3));   // anything that redraws the app
     await c.waitForTimeout(300);
     const redrawn = await c.evaluate(() => ({ asked: window.__cam.asked,
-      res: (document.getElementById('nfResults') || {}).textContent || '' }));
+      res: (document.getElementById('nfName') || {}).value || '' }));
     t.ok('and a redraw from elsewhere neither reopens it nor wipes the result being read',
       redrawn.asked === 1 && /Mixed label/.test(redrawn.res) && (await live(c)) === 0, JSON.stringify(redrawn));
     await c.context().close();
@@ -110,8 +117,14 @@ module.exports = {
     await d.fill('#nfFind', '22222222');
     await d.click('[data-nf="code"]');
     await d.waitForTimeout(1100);
-    const last = await d.evaluate(() => (document.getElementById('nfResults') || {}).textContent || '');
+    const last = await d.evaluate(() => ((document.getElementById('nfName') || {}).value || '') + ' | ' +
+      ((document.getElementById('nfResults') || {}).textContent || ''));
     t.ok('a slow answer to the first number does not land over the second', /Quick second/.test(last) && !/Slow first/.test(last), last);
+    // back from its label to the meal, and to the lens again for a number nobody answers
+    await d.click('[data-nf="cancel"]');
+    await d.waitForTimeout(300);
+    await d.click('[data-mpmode="scan"]');
+    await d.waitForTimeout(100);
     await d.fill('#nfFind', '99999999');
     await d.click('[data-nf="code"]');
     await d.waitForTimeout(500);

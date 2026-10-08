@@ -3186,6 +3186,7 @@
   function mpMatches(r, qs) { return PICKBANDS.mpMatches(r, qs); }
   function mpKnownIds() { return PICKBANDS.mpKnownIds(); }
   function mpNamedHTML(shown) { return PICKBANDS.mpNamedHTML(shown); }
+  function mpFavsHTML(shown) { return PICKBANDS.mpFavsHTML(shown); }
   function mpPinsHTML(shown) { return PICKBANDS.mpPinsHTML(shown); }
   function mpElseHTML(shown) { return PICKBANDS.mpElseHTML(shown); }
   function mpFitsHTML(skip) { return PICKBANDS.mpFitsHTML(skip); }
@@ -3225,7 +3226,7 @@
 
   /* src/pickhome.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var PICKHOME = window.HiveParts.pickhome({ S: S, keepingFocus: keepingFocus, mDay: mDay, mDayTargets: mDayTargets, mQueryKind: mQueryKind, mQueryTopHTML: mQueryTopHTML, mViewKey: mViewKey, mpComboHTML: mpComboHTML, mpElseHTML: mpElseHTML, mpFitsHTML: mpFitsHTML, mpKnownIds: mpKnownIds, mpLastXs: mpLastXs, mpNamedHTML: mpNamedHTML, mpPinsHTML: mpPinsHTML, mpQ: mpQ, mpRecentHTML: mpRecentHTML, mpShelvesHTML: mpShelvesHTML, LIVE: LIVE });
+  var PICKHOME = window.HiveParts.pickhome({ S: S, keepingFocus: keepingFocus, mDay: mDay, mDayTargets: mDayTargets, mQueryKind: mQueryKind, mQueryTopHTML: mQueryTopHTML, mViewKey: mViewKey, mpComboHTML: mpComboHTML, mpElseHTML: mpElseHTML, mpFitsHTML: mpFitsHTML, mpKnownIds: mpKnownIds, mpLastXs: mpLastXs, mpFavsHTML: mpFavsHTML, mpNamedHTML: mpNamedHTML, mpPinsHTML: mpPinsHTML, mpQ: mpQ, mpRecentHTML: mpRecentHTML, mpShelvesHTML: mpShelvesHTML, LIVE: LIVE });
   function mpHomeBodyHTML() { return PICKHOME.mpHomeBodyHTML(); }
   function refreshMacroPicker() { return PICKHOME.refreshMacroPicker(); }
 
@@ -3275,7 +3276,7 @@
 
   /* src/camera.js, handed what it reads of the app's and kept under its own
      names here, as declarations, so they answer from anywhere in this file. */
-  var CAMERA = window.HiveParts.camera({ S: S, mBarcodeLookup: mBarcodeLookup, mDecodeFrame: mDecodeFrame, mLookSay: mLookSay, mLookupRows: mLookupRows, mMealNowHTML: mMealNowHTML, LIVE: LIVE });
+  var CAMERA = window.HiveParts.camera({ S: S, mBarcodeLookup: mBarcodeLookup, mDecodeFrame: mDecodeFrame, mLookSay: mLookSay, mLookupRows: mLookupRows, mMealNowHTML: mMealNowHTML, renderModal: renderModal, LIVE: LIVE });
   function mScanStop() { return CAMERA.mScanStop(); }
   function mScanStart() { return CAMERA.mScanStart(); }
   function mScanGot(code, typed) { return CAMERA.mScanGot(code, typed); }

@@ -27,6 +27,7 @@
   var mpFitsHTML = app.mpFitsHTML;
   var mpKnownIds = app.mpKnownIds;
   var mpLastXs = app.mpLastXs;
+  var mpFavsHTML = app.mpFavsHTML;
   var mpNamedHTML = app.mpNamedHTML;
   var mpPinsHTML = app.mpPinsHTML;
   var mpQ = app.mpQ;
@@ -106,20 +107,32 @@
        the one screen where somebody eating to a number wants it most. */
     LIVE.MP_KNOWN = mpKnownIds();
     LIVE.MP_LASTX = mpLastXs();
-    var named = mpNamedHTML(shown);
+    /* A typed word asks your own things first: what you starred, this
+       meal's pins, what you ate lately, then the foods the app keeps, and
+       only after all of the app's answers the USDA's. Each band claims its
+       rows in `shown` in that order, so a starred food you also ate
+       yesterday is listed once, under Favorites. With nothing typed the
+       favorites, the named foods and the USDA box are all empty, and the
+       resting list is what it was. */
+    var favs = mpFavsHTML(shown);
     var pins = mpPinsHTML(shown);
     var recent = mpRecentHTML(shown);
+    var named = mpNamedHTML(shown);
     var closers = mpComboHTML(shown);
     var fits = mpFitsHTML(shown);
-    /* The USDA's answers come straight after the foods in the app that the
-       words found, not under every recipe: Blake picked the search list in
-       mockup I (2026-10-07), and "chicken breast" had put the one USDA row
-       below twenty-two recipes. The box is drawn here empty and filled when
-       the USDA answers, so the rows under it move down when the answer
-       lands; under the foods they move far less than a screen of recipes
-       would have hidden it. */
+    /* The USDA's answers last, under everything the app itself knows.
+       Blake, 2026-10-08: "the USDA search is mostly what I see and it's
+       almost all junk ... finally USDA food at the very bottom." They had
+       gone straight under the Foods band the day before (mockup I), because
+       "chicken breast" put the one USDA row below twenty-two recipes; but
+       the USDA sends ten or more rows for a word, mostly brands and odd
+       preparations, and right under the Foods band they pushed your own
+       recents and favorites off the screen. The box is still drawn empty
+       and filled when the answer lands, and being last, nothing moves when
+       it does. A barcode is not this box: a scan opens what it found
+       straight away (camera.js, mScanGot). */
     var look = mpLookFootHTML();
-    var body = named + look + pins + recent + fits + closers + mpElseHTML(shown);
+    var body = favs + pins + recent + named + fits + closers + mpElseHTML(shown);
     /* Judged on the ROWS, not on the string. A barcode with nothing behind it
        draws a band and no rows, and so does a shelf crossed with a lens that
        has nothing in it — and the Fits band now keeps its divider either way,
@@ -134,8 +147,9 @@
           ? 'Nothing here in this lens.'
           : 'Nothing to offer for this meal yet.') + '</div>';
     }
+    // the USDA's box after the app's own "nothing matches", not above it
     return mQueryTopHTML(S.mpQuery, mDay(mViewKey()), mDayTargets(mViewKey()),
-      { k: S.macroPick.slot, w: S.macroPick.w }) + body;
+      { k: S.macroPick.slot, w: S.macroPick.w }) + body + look;
   }
 
   /* Rebuilds ONLY the list, never the sheet.

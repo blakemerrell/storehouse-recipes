@@ -58,15 +58,30 @@ module.exports = {
       await p.waitForTimeout(500);
       return p;
     }
+    /* A scan with one answer opens its label at once (2026-10-08: "a scan
+       needs to show me exactly what it scanned right away"); two that
+       disagree, or none, stay in the results under the lens. Either way
+       this says what is on screen: the label's name, calories and source
+       line, or the results' words. */
     async function ask(p, code) {
       await p.fill('#mpFind', code);
       await p.waitForTimeout(150);
       await p.click('[data-nfcode]');
       await p.waitForFunction(() => {
+        if (document.getElementById('nfName')) return true;
         const r = document.getElementById('nfResults');
         return r && /\S/.test(r.textContent) && !/Looking/.test(r.textContent);
       }, null, { timeout: 5000 });
-      return p.evaluate(() => document.getElementById('nfResults').textContent);
+      return p.evaluate(() => {
+        const nm = document.getElementById('nfName');
+        if (!nm) return document.getElementById('nfResults').textContent;
+        return 'LABEL ' + nm.value + ' · ' + document.getElementById('nfKcal').value + ' kcal · ' +
+          ((document.querySelector('.mt-sheet .mt-cap') || {}).textContent || '');
+      });
+    }
+    // the label, if a scan has not already opened it
+    async function take(p) {
+      if (!(await p.$('#nfName'))) await p.click('[data-nfpick="0"]');
     }
     const panel = (p) => p.evaluate(() => {
       const v = (id) => (document.getElementById(id) || {}).value;
@@ -81,8 +96,8 @@ module.exports = {
     // ---- a packet Open Food Facts knows, with all of its label --------------
     const a = await open(() => BEANS);
     const row = await ask(a, '0078742370842');
-    t.ok('a scanned packet is offered with the figures off its label', /Great Value Pork & Beans/.test(row) && /110 kcal/.test(row), row);
-    await a.click('[data-nfpick="0"]');
+    t.ok('a scanned packet opens straight onto its label, the figures off the packet', /^LABEL /.test(row) && /Great Value Pork & Beans/.test(row) && /110 kcal/.test(row), row);
+    await take(a);
     await a.waitForTimeout(250);
     let got = await panel(a);
     t.ok('taking it opens the form drawn as a Nutrition Facts panel, the label’s order and words',
@@ -142,7 +157,7 @@ module.exports = {
       await a.click('#macroSlots .mtray-b');
       await a.waitForTimeout(400);
       await ask(a, '0078742370842');
-      await a.click('[data-nfpick="0"]');
+      await take(a);
       await a.waitForTimeout(300);
       await a.screenshot({ path: process.env.SHOT + '/label-light.png', fullPage: false });
       await a.evaluate(() => document.querySelector('.scrim').scrollTo(0, 400));
@@ -170,7 +185,7 @@ module.exports = {
     const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
     let g = await open(() => BEANS);
     await ask(g, '0078742370842');
-    await g.click('[data-nfpick="0"]');
+    await take(g);
     await g.waitForTimeout(250);
     const bare = await g.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).innerHTML).join(''));
     t.ok('a packet with no grades, tags or ingredients in its record shows none of them', bare === '', bare);
@@ -178,7 +193,7 @@ module.exports = {
     g = await open(() => FULL);
     await g.context().route(/images\.openfoodfacts\.org/, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }));
     await ask(g, '0078742370859');
-    await g.click('[data-nfpick="0"]');
+    await take(g);
     await g.waitForTimeout(250);
     /* Loaded, not merely drawn: the page's own policy is enforced here, so
        an image host it did not admit would leave the picture empty. */
@@ -240,7 +255,7 @@ module.exports = {
       await g.click('#macroSlots .mtray-b');
       await g.waitForTimeout(400);
       await ask(g, '0078742370859');
-      await g.click('[data-nfpick="0"]');
+      await take(g);
       await g.waitForTimeout(300);
       await g.screenshot({ path: process.env.SHOT + '/off-1.png' });
       await g.evaluate(() => { document.querySelector('.nfs-ingr').open = true; document.querySelector('.scrim').scrollTo(0, 700); });
@@ -258,7 +273,7 @@ module.exports = {
       image_front_small_url: 'https://elsewhere.example/front.jpg' });
     const k = await open(() => UNK);
     await ask(k, '0078742370842');
-    await k.click('[data-nfpick="0"]');
+    await take(k);
     await k.waitForTimeout(250);
     const unk = await k.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
     t.ok('an ungraded packet gets no grade, an unknown status no tag, and no ingredient list no claim of "no additives"', unk === '', unk);
@@ -269,7 +284,7 @@ module.exports = {
     const nopic = await open(() => FULL);
     await nopic.context().route(/images\.openfoodfacts\.org/, (r) => r.abort());
     await ask(nopic, '0078742370859');
-    await nopic.click('[data-nfpick="0"]');
+    await take(nopic);
     await nopic.waitForTimeout(400);
     t.ok('a packet photo that cannot load is taken away, not left as a broken picture',
       await nopic.evaluate(() => { const f = document.querySelector('.nfp'); return !!f && f.hidden; }));
@@ -303,7 +318,7 @@ module.exports = {
         JSON.parse(u.usdaAsked[0]).query === '044444444444', pb + ' / ' + u.usdaAsked.join());
     t.ok('and only the packet with that barcode is taken, not the first that came back',
       !/Other/i.test(pb) && /188 kcal/.test(pb), pb);
-    await u.click('[data-nfpick="0"]');
+    await take(u);
     await u.waitForTimeout(250);
     got = await panel(u);
     t.ok('per its own serving, the label’s words and weight, sodium and fiber with it',
@@ -337,7 +352,7 @@ module.exports = {
     t.ok('a barcode both know and agree on comes back once, as Open Food Facts\u2019 answer, the USDA asked alongside',
       (agRows.match(/Pork & Beans/gi) || []).length === 1 && /Open Food Facts/.test(agRows) && !/Two different/.test(agRows) &&
         ag.usdaAsked.length === 1, agRows);
-    await ag.click('[data-nfpick="0"]');
+    await take(ag);
     await ag.waitForTimeout(250);
     got = await panel(ag);
     const agCap = await ag.evaluate(() => (document.querySelector('.mt-sheet .mt-cap') || {}).textContent || '');
@@ -363,7 +378,7 @@ module.exports = {
       /Two different answers/.test(clash.note) && /106 kcal per 100 g/.test(clash.note) && /say 625/.test(clash.note) &&
         clash.rows.length === 2 && /Creamy Peanut Butter/.test(clash.rows[0]) && /Yellowfin Tuna/.test(clash.rows[1]), JSON.stringify(clash));
     t.ok('and Open Food Facts\u2019 own checks faulting its figures is said too', /own checks fault its figures/.test(clash.note), clash.note);
-    await cl.click('[data-nfpick="0"]');
+    await take(cl);
     await cl.waitForTimeout(250);
     got = await panel(cl);
     const clOff = await cl.evaluate(() => ['nfOffTop', 'nfOffMid', 'nfOffEnd', 'nfOffSrc'].map((id) => document.getElementById(id).textContent).join(''));
@@ -399,8 +414,21 @@ module.exports = {
     await sp.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
     await sp.click('#macroSlots .mtray-b');
     await sp.waitForTimeout(400);
+    await sp.evaluate(() => window.Store.toggleFav('f:chicken_breast'));     // a food you starred
     await sp.fill('#mpFind', 'chicken breast');
     await sp.waitForSelector('#nfResults [data-nfpick]', { timeout: 8000 });
+    /* Blake, 2026-10-08: "what I'd rather see are the foods that are in my
+       favorites. Recents in my pantry and then finally USDA food at the very
+       bottom." */
+    const order = await sp.evaluate(() => {
+      const list = document.getElementById('mpList'), box = document.getElementById('nfResults');
+      const mine = [...list.querySelectorAll('.mt-div, [data-mpick]')].filter((e) => !box.contains(e));
+      const fav = list.querySelector('.mt-div');
+      return { first: fav ? fav.textContent.trim() : '', favRow: (fav && fav.nextElementSibling ? fav.nextElementSibling.textContent : '').replace(/\s+/g, ' '),
+        rows: mine.length, after: mine.filter((e) => box.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING).length };
+    });
+    t.ok('a word typed lists what you starred first', /^Favorites/.test(order.first) && /Chicken breast/i.test(order.favRow), JSON.stringify(order));
+    t.ok('and the USDA\u2019s answers last, under every row the app itself has', order.rows > 2 && order.after === 0, JSON.stringify(order));
     /* Blake, 2026-10-07, searching "bread": the USDA's rows "popped up in a
        different way than the rest of the foods on the list". They are the
        app's own row now, with only the word in front to say where from. */
