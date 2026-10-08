@@ -142,15 +142,43 @@ module.exports = {
     t.ok('the bin takes the food off the meal, and no line is left open',
       (await mealOf(p, 'l')).length === 2 && !(await p.$('#macroSlots .mtray-f.open')));
 
-    /* ---- the doors: the name to the food, the head to the meal ---- */
+    /* ---- the doors: the name to the food, the head to collapse, the pills to the meal ---- */
     await p.click(line('l', 1) + ' .mtray-fn');
     await p.waitForTimeout(500);
     t.ok('a food’s name opens the food, the page search opens', !!(await p.$('#mfsAmt')) && !(await p.$('#modalRoot .msheet')));
     await p.goBack();
     await p.waitForTimeout(500);
+
+    /* tapping the meal header collapses it to just food items (Blake, 2026-10-08) */
     await p.click(card('l') + ' .mtray-n');
+    await p.waitForTimeout(300);
+    const compact = await p.evaluate((sel) => {
+      const ls = [...document.querySelectorAll(sel + ' .mtray-f')];
+      return ls.map((l) => ({
+        name: (l.querySelector('.mtray-fn') || {}).textContent,
+        hasAmt: !!l.querySelector('.mfl-amt'),
+        hasTick: !!l.querySelector('input.mitem-ate'),
+        compact: l.classList.contains('mtray-f-compact'),
+        h: Math.round(l.getBoundingClientRect().height)
+      }));
+    }, card('l'));
+    t.ok('tapping the meal header collapses the foods into just the food items: names only, quiet and compact',
+      compact.length === 2 && compact.every((l) => !l.hasAmt && !l.hasTick && l.compact && l.h < 34),
+      JSON.stringify(compact));
+
+    /* tapping again expands back to full food lines */
+    await p.click(card('l') + ' .mtray-n');
+    await p.waitForTimeout(300);
+    const reExpanded = await p.evaluate((sel) => {
+      const ls = [...document.querySelectorAll(sel + ' .mtray-f')];
+      return ls.every((l) => !!l.querySelector('.mfl-amt') && !!l.querySelector('input.mitem-ate'));
+    }, card('l'));
+    t.ok('tapping the header again expands back to full food lines with portions and ticks', reExpanded);
+
+    /* the meal’s pills open the meal sheet, where food is added */
+    await p.click(card('l') + ' .mtray-caps');
     await p.waitForTimeout(500);
-    t.ok('and the card’s head still opens the meal’s sheet, where food is added', !!(await p.$('#modalRoot .msheet')));
+    t.ok('and the meal’s pills open the meal sheet, where food is added', !!(await p.$('#modalRoot .msheet')));
     await p.click('#modalRoot .msh-done');
     await p.waitForTimeout(400);
 

@@ -7849,7 +7849,21 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-b:focus-visible { outline: none; }
 .mtray-b:focus-visible::after { outline: 2px solid var(--ochre); outline-offset: -2px; }
 .mtray-b:hover .mtray-n { color: var(--ink); }
-.mtray-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 20px; }
+.mtray-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 20px; position: relative; z-index: 1; }
+.mtray-fold {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mtray-fold .mfold-cue {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 0.75rem; line-height: 1;
+  background: var(--paper-soft); color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.mtray-fold[aria-expanded="true"] .mfold-cue { transform: rotate(180deg); }
+.mtray-fold:hover .mtray-n { color: var(--ink); }
+.mtray-fold:hover .mfold-cue { color: var(--ink); background: var(--line-firm); }
 .mtray-n { font-size: 0.78125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
 .mtray-k { font-size: 0.8125rem; color: var(--note); white-space: nowrap; }
 .mtray-k b { font-weight: 700; color: var(--ink); }
@@ -7860,11 +7874,23 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
    tick, so a leaf sits in that column and every name starts where the meal's
    own name does; 46px is the tick's 44 and its 2 of margin. */
 .mtray-fs { position: relative; z-index: 1; display: flex; flex-direction: column; margin: 6px 0 0 -46px; }
+.mtray.collapsed .mtray-fs { margin-top: 4px; }
 /* "Nothing yet" takes the line a food would, so an empty tray is the height
    of a tray with one food on it; it is the door's, not a line of its own. */
 .mtray-fs .mtray-none { pointer-events: none; display: flex; align-items: center; min-height: 46px; padding-left: 46px; font-size: 0.84375rem; }
 .mtray-f { position: relative; }
 .mtray-f + .mtray-f::before { content: ''; position: absolute; top: 0; left: 46px; right: 0; border-top: 1px solid var(--line-soft); }
+.mtray-f-compact { min-height: 28px; }
+.mtray-f-compact + .mtray-f-compact::before { display: none; }
+.mtray-f-compact .mfl-r {
+  min-height: 28px; height: 28px; padding: 2px 0;
+  grid-template-columns: 38px minmax(0, 1fr);
+}
+.mtray-f-compact .mfl-lf { height: 28px; }
+.mtray-f-compact .mtray-fn {
+  min-height: 28px; height: 28px; line-height: 28px;
+  font-size: 0.84375rem;
+}
 .mfl-r {
   display: grid; grid-template-columns: 38px minmax(0, 1fr) auto 30px; align-items: center; column-gap: 8px;
   min-height: 46px; cursor: pointer; -webkit-tap-highlight-color: transparent;

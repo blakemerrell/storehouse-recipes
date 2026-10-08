@@ -5312,6 +5312,16 @@
     });
 
     function mDayClick(e) {
+      /* Tapping the meal header toggles between showing full food lines and
+         just the food items (Blake, 2026-10-08). */
+      var mfld = e.target.closest('[data-mfold]');
+      if (mfld && mfld.dataset.mfold && mfld.dataset.mfold !== 'weigh') {
+        var sk = mfld.dataset.mfold;
+        S.mFold[sk] = !S.mFold[sk];
+        if (S.mFold[sk] && S.mAmt && S.mAmt.indexOf(sk + ':') >= 0) S.mAmt = '';
+        mRedraw();
+        return;
+      }
       /* A tray opens its meal's sheet: the one place food is added or
          changed (Blake, 2026-10-04: "ONE way to add and select food"). */
       var mop = e.target.closest('[data-mopen]');
