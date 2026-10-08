@@ -308,11 +308,20 @@
      side, neither of them the amount. Multiplied out, it is "2 cups". */
   function mLabelServing(r) {
     if (!r || !r.food) return null;
-    var m = /^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+([^()]+?)\s*(?:\(\s*(\d+(?:\.\d+)?)\s*g\s*\))?\s*$/i.exec(String(r.unit || ''));
+    /* The aside in brackets is the serving's weight when it is grams,
+       "2 Tbsp (32 g)", and otherwise only words: a scanned can of soda says
+       "1 can (335 ml)". That one used to miss this pattern altogether, and
+       the plate read "1 1 can (335 ml)" (Blake's Snacks, 2026-10-08): the
+       count put in front of a unit that already had one. */
+    var m = /^\s*(\d+(?:\.\d+)?|\d+\/\d+)\s+([^()]+?)\s*(?:\(([^()]*)\))?\s*$/i.exec(String(r.unit || ''));
     if (!m) return null;
     var q = m[1].indexOf('/') > 0 ? Number(m[1].split('/')[0]) / Number(m[1].split('/')[1]) : Number(m[1]);
     if (!(q > 0)) return null;
-    var noun = m[2].trim();
+    var gm = /^\s*(\d+(?:\.\d+)?)\s*g\s*$/i.exec(m[3] || '');
+    /* "1 order, NS as to size" is the USDA saying it does not know the
+       size; the noun is the order. Kept, it filled a dial too narrow for it
+       and showed ", NS as t" (Blake's french fries, the same day). */
+    var noun = m[2].replace(/,?\s*\bNS as to\b.*$/i, '').trim() || m[2].trim();
     /* A serving already said in grams weighs what it says. The USDA quotes a
        food with no household measure per "100 g", and so does Open Food
        Facts for a product with no serving size (src/foodsearch.js,
@@ -320,8 +329,8 @@
        showed "50 g" and then asked for multiples of 100 g once tapped, in a
        box squeezed to one digit. Blake typed the 5 he could see: five
        hundred grams of butter replacement. */
-    if (!m[3] && /^(g|grams?)$/i.test(noun)) return { q: q, noun: noun, g: q };
-    return { q: q, noun: noun, g: m[3] ? Number(m[3]) : 0 };
+    if (!gm && /^(g|grams?)$/i.test(noun)) return { q: q, noun: noun, g: q };
+    return { q: q, noun: noun, g: gm ? Number(gm[1]) : 0 };
   }
   function mPortion(r, x) {
     var unit = mUnitWord(r);

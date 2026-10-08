@@ -5451,12 +5451,22 @@
         mRedraw();
         return;
       }
-      /* A food's amount opens its panel; one panel at a time. */
+      /* A food's line on the day opens under itself; one at a time. */
       var amt = e.target.closest('[data-mamt]');
       if (amt) {
         S.mAmt = S.mAmt === amt.dataset.mamt ? '' : amt.dataset.mamt;
         S.mType = null;
         keepingFocus(renderMacros);
+        return;
+      }
+      /* The whole line is the handle, not just the amount at its end: a thumb
+         lands where the line is, and the line's only other doors are its name
+         and its tick. The amount stays the button, so a keyboard and a screen
+         reader have the one control to find. */
+      var fl = e.target.closest('.mfl-r');
+      if (fl && !e.target.closest('button, input')) {
+        var fla = fl.querySelector('[data-mamt]');
+        if (fla) fla.click();
         return;
       }
       /* Swap marks the plate; the next food tapped in the list below takes
@@ -5588,6 +5598,8 @@
       var del = e.target.closest('[data-mdel]');
       if (del) {
         S.mMenu = '';
+        // the plates after it move up a place, so no line is left open on the wrong one
+        S.mAmt = '';
         var dp = del.dataset.mdel.split(':');
         mEditDay(mViewKey(), function (day) {
           (day[dp[0]] || []).splice(Number(dp[1]), 1);

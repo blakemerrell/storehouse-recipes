@@ -5,8 +5,8 @@
  * names." The day's tray was one button, so a recipe's name on it could only
  * open the meal; the recipe was two taps and an opened tray away, inside the
  * meal's sheet. A recipe's line on the day is now a door of its own, opening
- * the card scaled to the plate the way the sheet's own door does. A food's
- * line, and the rest of the tray, still open the meal.
+ * the card scaled to the plate the way the sheet's own door does. The tray's
+ * head still opens the meal (a food's line opens in place since 2026-10-08).
  *
  * And, from the same report: "After I try and exit the food picker it shows
  * this recipe card." The card he sent was the meatloaf at 1x, which only a
@@ -54,22 +54,23 @@ module.exports = {
 
     const lines = await p.evaluate(() => {
       const tr = document.querySelector('[data-mopen="d"]').closest('.mtray');
-      return [...tr.querySelectorAll('.mtray-f')].map((f) => ({
-        tag: f.tagName, open: f.dataset.open || '', mx: f.dataset.mx || '',
-        name: (f.querySelector('.mtray-fn') || {}).textContent || '',
-        deco: getComputedStyle(f.querySelector('.mtray-fn')).textDecorationLine,
-        color: getComputedStyle(f.querySelector('.mtray-fn')).color,
-        h: f.getBoundingClientRect().height,
-      }));
+      return [...tr.querySelectorAll('.mtray-f')].map((f) => {
+        const n = f.querySelector('.mtray-fn');
+        return { tag: n.tagName, open: n.dataset.open || '', mx: n.dataset.mx || '', food: n.dataset.mfood || '',
+          name: n.textContent || '', deco: getComputedStyle(n).textDecorationLine, color: getComputedStyle(n).color,
+          h: n.getBoundingClientRect().height };
+      });
     });
     const rec = lines.find((l) => /Meatloaf/.test(l.name));
     const food = lines.find((l) => /yogurt/i.test(l.name));
-    t.ok('on the day, a recipe’s line is a door to the recipe, with the plate’s servings',
+    t.ok('on the day, a recipe’s name is a door to the recipe, with the plate’s servings',
       !!rec && rec.tag === 'BUTTON' && rec.open === '351' && rec.mx === '3', JSON.stringify(lines));
-    t.ok('and a food’s line is not: it is part of the tray',
-      !!food && food.tag === 'SPAN' && !food.open, JSON.stringify(lines));
-    t.ok('the recipe’s name wears the link colour, never a line through or under it, and stays one line',
-      !!rec && !!food && rec.color !== food.color && rec.deco === 'none' && rec.h <= 24, JSON.stringify(lines));
+    /* Since 2026-10-08 each food is a line of its own (daylines.test.js): its
+       name opens the food the way a recipe's opens the recipe. */
+    t.ok('and a food’s name is a door to the food, not to the meal',
+      !!food && food.tag === 'BUTTON' && food.food === 'f:greek_yogurt' && !food.open, JSON.stringify(lines));
+    t.ok('the recipe’s name wears the link colour, never a line through or under it, and is a thumb’s height',
+      !!rec && !!food && rec.color !== food.color && rec.deco === 'none' && rec.h >= 44, JSON.stringify(lines));
 
     // a press on the recipe's name opens the recipe, scaled to make the plate
     await p.click('[data-mopen="d"] ~ .mtray-fs .mtray-go .mtray-fn');
@@ -83,33 +84,35 @@ module.exports = {
     const back = await open(p);
     t.ok('back from it is the day again, nothing open', !back.meal && !back.recipe, JSON.stringify(back));
 
-    // the rest of the tray is still the meal's door: the food's line, and the head
+    // the head is still the meal's door; a food's line is the line's own
     const at = await p.evaluate(() => {
       const tr = document.querySelector('[data-mopen="d"]').closest('.mtray');
       const f = [...tr.querySelectorAll('.mtray-f')].find((x) => /yogurt/i.test(x.textContent)).getBoundingClientRect();
-      const g = tr.querySelector('.mtray-go').getBoundingClientRect();
-      const hit = (x, y) => { const e = document.elementFromPoint(x, y); return e ? (e.closest('[data-mopen]') ? 'meal' : e.closest('[data-open]') ? 'recipe' : e.className) : 'none'; };
+      const g = tr.querySelector('.mtray-go .mtray-fn').getBoundingClientRect();
+      const h = tr.querySelector('.mtray-n').getBoundingClientRect();
+      const hit = (x, y) => {
+        const e = document.elementFromPoint(x, y);
+        return !e ? 'none' : e.closest('[data-mopen]') ? 'meal' : e.closest('[data-open]') ? 'recipe' : e.closest('[data-mfood]') ? 'food'
+          : e.closest('[data-mamt], .mfl-r') ? 'line' : e.className;
+      };
       return {
-        food: hit(f.left + f.width * 0.3, f.top + f.height / 2),
-        weight: hit(f.right - 4, f.top + f.height / 2),
+        head: hit(h.left + 10, h.top + h.height / 2),
+        food: hit(f.left + 60, f.top + 23),
+        weight: hit(f.right - 50, f.top + 23),
         recipe: hit(g.left + 20, g.top + g.height / 2),
-        // the recipe's reach runs past its line, but not into the next one's middle
-        above: hit(g.left + 20, g.top - 3),
-        nextMiddle: hit(f.left + 20, f.top + f.height / 2),
       };
     });
-    t.ok('a press on a food’s line still lands on the meal’s door, the recipe’s on the recipe',
-      at.food === 'meal' && at.weight === 'meal' && at.recipe === 'recipe' && at.above === 'recipe' && at.nextMiddle === 'meal',
-      JSON.stringify(at));
-    const food2 = await p.evaluate(() => {
-      const tr = document.querySelector('[data-mopen="d"]').closest('.mtray');
-      const f = [...tr.querySelectorAll('.mtray-f')].find((x) => /yogurt/i.test(x.textContent)).getBoundingClientRect();
-      return { x: f.left + f.width * 0.3, y: f.top + f.height / 2 };
-    });
-    await p.mouse.click(food2.x, food2.y);
+    t.ok('a press on the head lands on the meal’s door, on a food’s name on the food, on the rest of its line on the line',
+      at.head === 'meal' && at.food === 'food' && at.weight === 'line' && at.recipe === 'recipe', JSON.stringify(at));
+    await p.click('[data-mopen="d"] ~ .mtray-fs .mtray-f:nth-child(2) [data-mamt]');
+    await p.waitForTimeout(400);
+    const line = await p.evaluate(() => ({ sheet: !!document.querySelector('#modalRoot .msheet'),
+      open: [...document.querySelectorAll('#macroSlots .mtray-f.open .mtray-fn')].map((b) => b.textContent) }));
+    t.ok('and pressing the line opens it there on the day, not the meal', !line.sheet && /yogurt/i.test(line.open.join()), JSON.stringify(line));
+    await p.click('[data-mopen="d"]');
     await p.waitForTimeout(600);
     const meal = await open(p);
-    t.ok('and pressing it opens the meal', meal.meal && !meal.recipe, JSON.stringify(meal));
+    t.ok('while pressing the head opens the meal', meal.meal && !meal.recipe, JSON.stringify(meal));
     await p.click('#modalRoot .msh-done');
     await p.waitForTimeout(600);
 
