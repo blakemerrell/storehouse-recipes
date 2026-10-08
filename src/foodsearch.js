@@ -107,11 +107,14 @@
            one of the thing actually weighs — a tamale is 140 g, "1 item, any
            size". Offer the item rather than the hundred grams: nobody eats a
            hundred grams of tamale, they eat a tamale. */
+        /* A size the USDA names over one it shrugs at ("NS as to size"),
+           whatever their ranks; the shrug only when it is all there is. */
         var best = null;
         (f.foodMeasures || []).forEach(function (m) {
           var t = String(m.disseminationText || '');
           if (!m.gramWeight || /not specified/i.test(t)) return;
-          if (!best || (m.rank || 99) < (best.rank || 99)) best = m;
+          var ns = /\bNS\b/.test(t), bns = best && /\bNS\b/.test(String(best.disseminationText || ''));
+          if (!best || (bns && !ns) || (bns === ns && (m.rank || 99) < (best.rank || 99))) best = m;
         });
         /* The weight rides in the serving's own words, "1 cup, diced
            (165 g)", the way a label prints it, so the food it becomes dials
@@ -143,7 +146,8 @@
      labels (mLabelServing) can parse, which the plate then printed as
      "1 1 medium (…)". */
   function mUsdaMeasure(t) {
-    var s = String(t || '').replace(/\s*\([^)]*\)/g, '').trim();
+    // its asides off, and its shrug: "1 order, NS as to size" is an order
+    var s = String(t || '').replace(/\s*\([^)]*\)/g, '').replace(/,?\s*\bNS as to\b.*$/i, '').trim();
     return /^\d/.test(s) ? s : '1 ' + (s || 'serving');
   }
   /* Every size the USDA weighs a food in, not only the first (2026-10-07):

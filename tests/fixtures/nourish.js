@@ -94,15 +94,32 @@ async function revealPlanFields(pg) {
     /* A meal's tray is the one door to adding food since 2026-10-04: a tap
        opens the meal's sheet, with the picker inside it. The first meal on
        the day that is not skipped. */
-    await pg.evaluate(() => {
-      const b = document.querySelector('#macroSlots .mtray-b');
-      if (b) b.scrollIntoView({ block: 'center' });
-    });
-    await pg.waitForTimeout(150);
-    await pg.click('#macroSlots .mtray-b');
-    await pg.waitForTimeout(250);
-    // the meal's rows are in its tray, which opens shut
+    await toSheet(pg, '');
+    // the meal's rows, up in the sheet
     await openTray(pg);
+  }
+
+  /* Into a meal's sheet from the day, the way a thumb goes. Since
+     2026-10-08 a meal with food on it opens in place, in its own tray on
+     the day, and its "+ Add food" goes on into the sheet; an empty meal's
+     tray opens the sheet at once. A tray already open goes straight to its
+     "+ Add food", since a tap on its header would fold it. `k` is the
+     meal's key, or '' for the first tray on the day. */
+  async function toSheet(pg, k) {
+    for (let i = 0; i < 3 && !(await pg.$('#modalRoot .msheet')); i++) {
+      const hit = await pg.evaluate((key) => {
+        const door = document.querySelector(key ? '#macroSlots [data-mopen="' + key + '"]' : '#macroSlots .mtray-b');
+        const tray = door && door.closest('.mtray');
+        const add = tray && tray.classList.contains('open') ? tray.querySelector('.mtray-add') : null;
+        const b = add || door;
+        if (!b) return false;
+        b.scrollIntoView({ block: 'center' });
+        b.click();
+        return true;
+      }, k || '');
+      if (!hit) return;
+      await pg.waitForTimeout(250);
+    }
   }
 
   /* A plate added to a meal whose time has come arrives eaten, and an eaten
@@ -137,11 +154,7 @@ async function revealPlanFields(pg) {
 
   /* One meal's sheet, by key: its tray's door. */
   async function openMeal(pg, sk) {
-    await pg.evaluate((k) => {
-      const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
-      if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
-    }, sk);
-    await pg.waitForTimeout(250);
+    await toSheet(pg, sk);
     await openTray(pg);
   }
 
@@ -193,12 +206,9 @@ async function revealPlanFields(pg) {
      meal's tray, the list, the first recipe (a tap puts it on the meal), and
      out again. */
   async function addTo(pg, nth) {
-    await pg.evaluate((n) => {
-      const a = document.querySelectorAll('#macroSlots [data-mopen]')[n];
-      a.scrollIntoView({ block: 'center' });
-      a.click();
-    }, nth);
-    await pg.waitForTimeout(250);
+    // the nth meal's door: an open tray's "+ Add food" carries data-mopen too
+    const key = await pg.evaluate((n) => document.querySelectorAll('#macroSlots [data-mopen]:not([data-madd])')[n].dataset.mopen, nth);
+    await toSheet(pg, key);
     await pickerList(pg);
     await pickRecipe(pg);
     await closeSheet(pg);
@@ -275,4 +285,4 @@ function nourish(def) {
   };
 }
 
-module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, openMeal, closeSheet, openTray, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };
+module.exports = { nourish, openWeigh, openPlan, revealPlanFields, addOn, asPlanned, openBasket, openMeal, closeSheet, openTray, toSheet, pickRecipe, pickerList, addTo, storedDay, weighIn, todayOn, openDay };

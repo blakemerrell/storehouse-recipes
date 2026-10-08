@@ -7971,74 +7971,74 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msheet .mcap { padding: 5px 4px; }
 
 /* a ⋯ opens a small list, over what is under it */
-.msheet .mfood-menu {
+:is(.msheet, .mtray-ed) .mfood-menu {
   position: absolute; right: 4px; z-index: 12; display: flex; flex-direction: column; gap: 0;
   min-width: 210px; padding: 4px; background: var(--card); border: 1px solid var(--line-firm);
   border-radius: 10px; box-shadow: var(--shadow-lg, 0 8px 28px rgba(43, 34, 26, 0.16));
 }
 .msheet .msh-menu { top: 46px; }
-.msheet .mrow-menu { top: 46px; }
-.msheet .mfood-mi {
+:is(.msheet, .mtray-ed) .mrow-menu { top: 46px; }
+:is(.msheet, .mtray-ed) .mfood-mi {
   min-height: 42px; width: 100%; border: 0; border-radius: 7px; background: none; padding: 0 12px;
   justify-content: flex-start; gap: 10px; font-size: 0.875rem; margin: 0;
 }
-.msheet .mfood-mi:hover { background: var(--hint); }
-.msheet .mfood-mi svg { width: 17px; height: 17px; flex: none; }
-.msheet .mfood-mi.mdel { color: var(--danger); margin-left: 0; }
+:is(.msheet, .mtray-ed) .mfood-mi:hover { background: var(--hint); }
+:is(.msheet, .mtray-ed) .mfood-mi svg { width: 17px; height: 17px; flex: none; }
+:is(.msheet, .mtray-ed) .mfood-mi.mdel { color: var(--danger); margin-left: 0; }
 
 /* a food: name and small print on the left, the dial, then ⋯ */
-.msheet .mrows { border-top: 0; padding: 0; }
-.msheet .mrow {
+:is(.msheet, .mtray-ed) .mrows { border-top: 0; padding: 0; }
+:is(.msheet, .mtray-ed) .mrow {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 40px; align-items: center; gap: 2px 4px;
   min-height: 54px; margin: 0; padding: 4px 0 4px 2px; border: 0; border-bottom: 1px solid var(--line-soft);
   border-radius: 0; background: none;
 }
-.msheet .mrow.fresh { background: var(--tint-green); }
-.msheet .mrow.moved { background: var(--hint); }
-.msheet .mrow.swapping { background: var(--hint); }
+:is(.msheet, .mtray-ed) .mrow.fresh { background: var(--tint-green); }
+:is(.msheet, .mtray-ed) .mrow.moved { background: var(--hint); }
+:is(.msheet, .mtray-ed) .mrow.swapping { background: var(--hint); }
 .mrow-swap { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; font-size: 0.8125rem; color: var(--ochre-text); }
 .mrow-swap button { min-height: 36px; }
 .mrow-n { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .mrow-n .mitem-nm { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.msheet .mrow .mitem-name {
+:is(.msheet, .mtray-ed) .mrow .mitem-name {
   display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; min-height: 26px;
   border: 0; background: none; padding: 0; font-family: var(--sans); font-size: 0.90625rem; color: var(--ink);
   text-align: left; cursor: pointer; text-decoration: none;
 }
 .mrow-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.msheet .mrow .mitem-name:hover .mrow-nm { text-decoration: underline; text-decoration-color: var(--line-firm); text-underline-offset: 3px; }
+:is(.msheet, .mtray-ed) .mrow .mitem-name:hover .mrow-nm { text-decoration: underline; text-decoration-color: var(--line-firm); text-underline-offset: 3px; }
 .mrow-mk { flex: none; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ochre-text); display: inline-flex; align-items: center; gap: 2px; }
 .mrow-mk.new { color: var(--green); }
 .mrow-mk .mcard-lk { width: 11px; height: 11px; }
 .mrow-m { display: block; font-size: 0.75rem; color: var(--note); line-height: 1.35; }
 .mrow-m .mitem-mac, .mrow-m .mitem-uom { font-size: inherit; }
 .mrow-m .mwhy { margin-left: 4px; vertical-align: middle; }
-.msheet .mrow .mrow-dial { display: flex; align-items: center; gap: 0; border: 0; background: none; border-radius: 0; padding: 0; min-width: 0; }
-.msheet .mrow .mrow-k {
+:is(.msheet, .mtray-ed) .mrow .mrow-dial { display: flex; align-items: center; gap: 0; border: 0; background: none; border-radius: 0; padding: 0; min-width: 0; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k {
   position: relative; width: 28px; height: 28px; min-width: 0; min-height: 0; border-radius: 50%; padding: 0;
   border: 1px solid var(--line-firm); background: var(--card); color: var(--label); display: grid; place-items: center; cursor: pointer;
 }
-.msheet .mrow .mrow-k::after { content: ''; position: absolute; inset: -8px -4px; }
-.msheet .mrow .mrow-k svg { width: 12px; height: 12px; }
-.msheet .mrow .mrow-k:disabled { opacity: 0.3; cursor: default; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k::after { content: ''; position: absolute; inset: -8px -4px; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k svg { width: 12px; height: 12px; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k:disabled { opacity: 0.3; cursor: default; }
 .mrow-g { width: 64px; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
-.msheet .mrow .mstep-x {
+:is(.msheet, .mtray-ed) .mrow .mstep-x {
   width: 100%; min-height: 28px; border: 0; background: none; padding: 2px 0 0; justify-content: center; text-align: center;
   font-family: var(--sans); font-size: 0.9375rem; font-weight: 600; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums;
 }
-.msheet .mrow .mrow-dial.spent .mstep-x { font-weight: 500; color: var(--label); }
+:is(.msheet, .mtray-ed) .mrow .mrow-dial.spent .mstep-x { font-weight: 500; color: var(--label); }
 /* The box keeps room for four digits whatever its unit says. It used to
    shrink to fit beside the unit, and "× 100 g" left it 7px: one digit,
    half seen. A unit too long to sit beside it goes under it instead. */
-.msheet .mrow .mitem-typing { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px; }
-.msheet .mrow .mitem-typing i { max-width: 100%; text-align: center; overflow-wrap: anywhere; }
-.msheet .mrow .mstep-in { width: 4.2ch; flex: none; font-size: 0.9375rem; text-align: center; padding: 2px 0; border: 1px solid var(--ochre); border-radius: 6px; background: var(--field); }
-.msheet .mrow .mitem-typing i { font-style: normal; font-size: 0.75rem; color: var(--note); }
+:is(.msheet, .mtray-ed) .mrow .mitem-typing { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px; }
+:is(.msheet, .mtray-ed) .mrow .mitem-typing i { max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+:is(.msheet, .mtray-ed) .mrow .mstep-in { width: 4.2ch; flex: none; font-size: 0.9375rem; text-align: center; padding: 2px 0; border: 1px solid var(--ochre); border-radius: 6px; background: var(--field); }
+:is(.msheet, .mtray-ed) .mrow .mitem-typing i { font-style: normal; font-size: 0.75rem; color: var(--note); }
 .mrow-g small { font-size: 0.6875rem; color: var(--ochre-text); min-height: 12px; }
-.msheet .mrow-more { width: 40px; height: 44px; border: 0; background: none; border-radius: 8px; padding: 0; margin: 0; display: grid; place-items: center; color: var(--note); cursor: pointer; }
-.msheet .mrow-more svg { width: 19px; height: 19px; }
-.msheet .mrow-more[aria-expanded="true"], .msheet .mrow-more:hover { background: var(--hint); }
-.msheet .mrow .mwhy-strip { grid-column: 1 / -1; margin: 4px 0 2px; }
+:is(.msheet, .mtray-ed) .mrow-more { width: 40px; height: 44px; border: 0; background: none; border-radius: 8px; padding: 0; margin: 0; display: grid; place-items: center; color: var(--note); cursor: pointer; }
+:is(.msheet, .mtray-ed) .mrow-more svg { width: 19px; height: 19px; }
+:is(.msheet, .mtray-ed) .mrow-more[aria-expanded="true"], :is(.msheet, .mtray-ed) .mrow-more:hover { background: var(--hint); }
+:is(.msheet, .mtray-ed) .mrow .mwhy-strip { grid-column: 1 / -1; margin: 4px 0 2px; }
 .mt-div-for { white-space: nowrap; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ochre-text); margin-left: 4px; }
 .msh-skipped { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 12px; text-align: center; color: var(--note); }
 
@@ -8088,6 +8088,31 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msh-on .msh-trh { padding: 6px 0 4px; }
 .msh-on .mrows { border-top: 1px solid var(--line-soft); }
 .msheet.mpq .msh-on { display: none; }
+
+/* ---- A meal opened in its own tray on the day (Blake, 2026-10-08) ----
+   "so I can see the meal macros and the day macros at the same time." The
+   rows are the sheet's, and so are their rules above (:is(.msheet,
+   .mtray-ed)); what is the tray's own is room for them. Open, the tray
+   wraps: the tick and the header on the first line, the rows under both at
+   the tray's full width, which is what a name, a dial and a ⋯ need on a
+   phone. Overflow shows so a last row's ⋯ menu is not cut off at the
+   tray's edge, and the door's reach (.mtray-b::after) is held to the
+   header, where a tap folds the tray, instead of lying over the dials. */
+#macroSlots .mtray.open { flex-wrap: wrap; overflow: visible; }
+#macroSlots .mtray.open .mtray-c { padding-bottom: 6px; }
+#macroSlots .mtray.open .mtray-b { position: relative; }
+.mtray-ed .mtray-k { margin-left: auto; }
+.mtray-chev { flex: none; align-self: center; display: inline-flex; margin-left: 8px; color: var(--note); }
+.mtray-chev svg { width: 16px; height: 16px; }
+.mtray-ed-body { flex: 1 0 100%; min-width: 0; padding: 0 10px 10px 12px; }
+.mtray-ed-body .mrows { border-top: 1px solid var(--line-soft); }
+.mtray-acts { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
+.mtray-acts .ghost svg { width: 15px; height: 15px; margin-right: 6px; flex: none; }
+/* The last two foods' ⋯ open upward: the tray is on the page, and below
+   it are the pinned bar and the bottom of the screen. */
+.mtray-ed .mrow:nth-child(n+3):nth-last-child(-n+2) .mrow-menu { top: auto; bottom: 46px; }
+/* "was ~65 g" under a dial is one line, not "was ~65" over "g" */
+:is(.msheet, .mtray-ed) .mrow .mrow-g small { white-space: nowrap; }
 .msheet:not(.mpq) .msh-tray.open .msh-trc { display: none; }
 .msh-acts { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; padding: 10px 12px 0; }
 .msh-bal {
@@ -8108,44 +8133,44 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 @media print { .msheet .msh-top, .msheet .msh-find { position: static; } }
 /* the small print stays small: the measure is words here, not a chip, and
    salt is a word in the line rather than a badge */
-.msheet .mrow .mrow-m { font-size: 0.75rem; }
-.msheet .mrow .mrow-m .mitem-uom { padding: 0; border: 0; background: none; font-weight: 400; color: var(--note); font-size: inherit; }
-.msheet .mrow .mrow-m .mitem-mac, .msheet .mrow .mrow-m .mitem-mac i { font-size: inherit; }
-.msheet .mrow .mrow-m .msalt { font-size: inherit; margin-left: 6px; vertical-align: baseline; }
-.msheet .mrow .mrow-m .msalt svg { display: none; }
-.msheet .mrow .mstep .mstep-type, .msheet .mrow .mstep .mstep-wake { text-decoration: none; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m { font-size: 0.75rem; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m .mitem-uom { padding: 0; border: 0; background: none; font-weight: 400; color: var(--note); font-size: inherit; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m .mitem-mac, :is(.msheet, .mtray-ed) .mrow .mrow-m .mitem-mac i { font-size: inherit; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m .msalt { font-size: inherit; margin-left: 6px; vertical-align: baseline; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m .msalt svg { display: none; }
+:is(.msheet, .mtray-ed) .mrow .mstep .mstep-type, :is(.msheet, .mtray-ed) .mrow .mstep .mstep-wake { text-decoration: none; }
 #modalRoot .msheet .msh-i { min-width: 44px; min-height: 44px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
 #modalRoot .msheet .msh-i:hover, #modalRoot .msheet .msh-i[aria-expanded="true"] { background: var(--hint); }
-#modalRoot .msheet .mfood-mi {
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi {
   display: flex; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left;
   width: 100%; height: auto; min-height: 42px; gap: 10px; padding: 0 12px; border: 0; border-radius: 7px; background: none;
 }
-#modalRoot .msheet .mfood-mi:hover { background: var(--hint); }
-#modalRoot .msheet .mfood-mi svg { width: 17px; height: 17px; flex: none; margin: 0; }
-.msheet .mrow .mrow-m .mitem-mac { white-space: normal; }
-#modalRoot .msheet .mfood-mi:not(.mdel) { color: var(--ink); }
-#modalRoot .msheet .mfood-mi.mdel { color: var(--danger); }
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi:hover { background: var(--hint); }
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi svg { width: 17px; height: 17px; flex: none; margin: 0; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m .mitem-mac { white-space: normal; }
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi:not(.mdel) { color: var(--ink); }
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi.mdel { color: var(--danger); }
 /* Spent: dashed and quiet, on the day's trays as in the sheet, now that the
    pill carries no words to say so (2026-10-06). */
 .mcap.spent { border-style: dashed; opacity: 0.8; }
 .mcap.spent .mcap-t { color: var(--muted); }
 /* thumb-sized: the menus' rows 44 tall, and − and + a 44 square each with
    the 28 px circle drawn inside it */
-#modalRoot .msheet .mfood-mi { min-height: 44px; }
-.msheet .mrow .mrow-k { width: 44px; height: 44px; border: 0; border-radius: 0; background: none; }
-.msheet .mrow .mrow-k::before {
+#modalRoot :is(.msheet, .mtray-ed) .mfood-mi { min-height: 44px; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k { width: 44px; height: 44px; border: 0; border-radius: 0; background: none; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k::before {
   content: ''; position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; box-sizing: border-box;
   border-radius: 50%; border: 1px solid var(--line-firm); background: var(--card);
 }
-.msheet .mrow .mrow-k::after { content: none; }
-.msheet .mrow .mrow-k svg { position: relative; }
-.msheet .mrow .mrow-g { width: 56px; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k::after { content: none; }
+:is(.msheet, .mtray-ed) .mrow .mrow-k svg { position: relative; }
+:is(.msheet, .mtray-ed) .mrow .mrow-g { width: 56px; }
 /* No type under 13 px (Blake, 2026-09-27), in the trays and the sheet too. */
 .mtray-n, .mtray-k, .mtray-f em, .mtray-sw, .msh-t small, .mrow-mk, .mrow-g small,
-.msheet .mrow .mrow-m, .msheet .mrow .mrow-m .msalt, .msheet .mrow .mitem-typing i { font-size: 0.8125rem; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m, :is(.msheet, .mtray-ed) .mrow .mrow-m .msalt, :is(.msheet, .mtray-ed) .mrow .mitem-typing i { font-size: 0.8125rem; }
 .mrow-mk { letter-spacing: 0.03em; }
 .mrow-g small { line-height: 1.1; }
 .msheet .mcap.mcap-max { border-color: var(--dial-over); }
 /* The small print wraps wherever it must: no piece of it is allowed to push
    the row sideways on the narrowest phone, whatever the system font. */
-.msheet .mrow .mrow-m, .msheet .mrow .mrow-m * { white-space: normal; overflow-wrap: anywhere; }
+:is(.msheet, .mtray-ed) .mrow .mrow-m, :is(.msheet, .mtray-ed) .mrow .mrow-m * { white-space: normal; overflow-wrap: anywhere; }

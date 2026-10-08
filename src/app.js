@@ -3744,7 +3744,7 @@
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
     'data-mopen', 'data-mtray', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-nfsize', 'data-nfamt', 'data-scan',
-    'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
+    'data-mmore', 'data-mday', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
   function focusKey(el) {
     if (!el || el === document.body || !el.getAttribute) return null;
@@ -5232,6 +5232,14 @@
        so duplicates of the same recipe stay two separate plates. */
     /* One redraw for a change to the day: the day behind, and the meal's
        sheet over it when one is open — it shows the same meal. */
+    /* A hand on a meal's own controls, in its sheet or in its tray opened
+       on the day: an amount set there is yours (Kept, so the re-fit works
+       around it), and what the re-fit moved says what it was. Anywhere
+       else, a dial is the plan's. */
+    function mHandOn(sk) {
+      return S.macroPick ? S.macroPick.slot === sk : S.mDayOpen === sk;
+    }
+
     function mRedraw() {
       keepingFocus(function () {
         renderMacros();
@@ -5277,7 +5285,15 @@
       return was;
     }
 
-    $('macroSlots').addEventListener('click', mDayClick);
+    /* An open ⋯ on a tray's food closes on any other tap in the day, the
+       way it does in the sheet (below). */
+    $('macroSlots').addEventListener('click', function (e) {
+      if (S.mMenu && !S.macroPick && !e.target.closest('.mfood-menu, [data-mfmenu], [data-mmenu]')) {
+        S.mMenu = '';
+        if (!e.target.closest('button, input, select')) { mRedraw(); return; }
+      }
+      mDayClick(e);
+    });
     /* The meal sheet carries the meal's own controls — its tick, Balance,
        the ⋯ menus and every food's dial — and they mean exactly what they
        meant on the day, so the same handler answers them there. An open ⋯
@@ -5312,13 +5328,28 @@
     });
 
     function mDayClick(e) {
-      /* A tray opens its meal's sheet: the one place food is added or
-         changed (Blake, 2026-10-04: "ONE way to add and select food"). */
+      /* A meal with food on it opens in its own tray on the day, its foods
+         dialled there under the day's pinned pills (myday.js; Blake,
+         2026-10-08: "so I can see the meal macros and the day macros at
+         the same time"). One open at a time; its header folds it. */
+      var mdy = e.target.closest('[data-mday]');
+      if (mdy) {
+        S.mDayOpen = S.mDayOpen === mdy.dataset.mday ? '' : mdy.dataset.mday;
+        S.mMenu = ''; S.mType = null; S.mEdit = null; S.mWhyOpen = ''; S.mMarks = null;
+        renderMacros();
+        return;
+      }
+      /* A tray opens its meal's sheet: the one place food is added
+         (Blake, 2026-10-04: "ONE way to add and select food"). From an
+         open tray's "+ Add food" it opens on the list, the foods tucked
+         into the chips along the bottom, since the ones on the meal are in
+         the tray behind it. */
       var mop = e.target.closest('[data-mopen]');
       if (mop) {
         rememberOpener();
         S.mEdit = null;
         mOpenPicker(mop.dataset.mopen, 'home');
+        if (mop.dataset.madd && S.mTrayOpen) { S.mTrayOpen = false; renderModal(); }
         return;
       }
       /* The name is a door to the recipe itself. It goes through openRecipe
@@ -5467,6 +5498,8 @@
         var sit = (mDay(mViewKey())[sq[0]] || [])[Number(sq[1])];
         S.mMenu = '';
         if (!sit) return;
+        // from a tray on the day: the replacement is picked in the meal's sheet
+        if (!S.macroPick) { rememberOpener(); mOpenPicker(sq[0], 'home'); }
         S.mpSwap = { slot: sq[0], i: Number(sq[1]), id: sit.id, n: (BY_ID[sit.id] || {}).name || '' };
         renderModal();
         var fnd = $('mpFind');
@@ -5527,10 +5560,10 @@
           /* Quarter-serving steps land on eighths, so fmtNum always has a
              glyph and never falls back to a decimal. */
           it.x = mDialStep(BY_ID[it.id], it.x, sp[2] === 'up' ? 1 : -1);
-          if (S.macroPick && S.macroPick.slot === sp[0]) it.l = 1;
+          if (mHandOn(sp[0])) it.l = 1;
         });
         var swas = mRefitMeal(mViewKey(), sp[0], Number(sp[1]));
-        if (S.macroPick && S.macroPick.slot === sp[0]) S.mMarks = { k: mViewKey(), sk: sp[0], was: swas, fresh: {}, snap: null };
+        if (mHandOn(sp[0])) S.mMarks = { k: mViewKey(), sk: sp[0], was: swas, fresh: {}, snap: null };
         mRedraw();
         return;
       }
@@ -5594,7 +5627,7 @@
         });
         mpForget(dp[0], Number(dp[1]));
         var dwas = mRefitMeal(mViewKey(), dp[0]);
-        if (S.macroPick && S.macroPick.slot === dp[0]) S.mMarks = { k: mViewKey(), sk: dp[0], was: dwas, fresh: {}, snap: null };
+        if (mHandOn(dp[0])) S.mMarks = { k: mViewKey(), sk: dp[0], was: dwas, fresh: {}, snap: null };
         mRedraw();
         return;
       }
@@ -5639,7 +5672,7 @@
         });
         if (freed) {
           var lwas = mRefitMeal(mViewKey(), lp[0]);
-          if (S.macroPick && S.macroPick.slot === lp[0]) S.mMarks = { k: mViewKey(), sk: lp[0], was: lwas, fresh: {}, snap: null };
+          if (mHandOn(lp[0])) S.mMarks = { k: mViewKey(), sk: lp[0], was: lwas, fresh: {}, snap: null };
         }
         S.mMenu = '';
         mRedraw();
@@ -5665,11 +5698,11 @@
         /* Nonsense is not a portion. An empty box, a stray letter or a nought
            leaves the plate exactly as it was rather than writing a zero and
            quietly taking the food off the day's arithmetic. */
-        if (nx !== null) { it.x = nx; if (S.macroPick && S.macroPick.slot === sp[0]) it.l = 1; typedOk = true; }
+        if (nx !== null) { it.x = nx; if (mHandOn(sp[0])) it.l = 1; typedOk = true; }
       });
       if (typedOk) {
         var twas = mRefitMeal(mViewKey(), sp[0], Number(sp[1]));
-        if (S.macroPick && S.macroPick.slot === sp[0]) S.mMarks = { k: mViewKey(), sk: sp[0], was: twas, fresh: {}, snap: null };
+        if (mHandOn(sp[0])) S.mMarks = { k: mViewKey(), sk: sp[0], was: twas, fresh: {}, snap: null };
       }
       S.mEdit = null;
       mRedraw();

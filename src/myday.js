@@ -630,27 +630,64 @@
         }
         return '<span class="mtray-f">' + inner + '</span>';
       }).join('');
+      /* A meal with food on it opens here, in its own tray, rather than in
+         a sheet over the day (Blake, 2026-10-08: "How am I supposed to see
+         how this meal and the daily macros at the same time? Maybe I just
+         need a way to go back having a tray on the main meal screen where I
+         can adjust the foods"). In the sheet the day's pills were under it;
+         here they stay pinned at the top of the page while the meal's own
+         pills move with every gram. The rows are the sheet's own
+         (foodRowHTML), dials, ⋯ and all, and the same handler answers them
+         (app.js, mDayClick). Adding is still the sheet's: "+ Add food" opens
+         it, and an empty meal, with nothing here to change, opens it at
+         once. A bygone meal off the plan opens its history there too. One
+         tray open at a time, so the day stays a list of meals. */
+      var inPlace = onPlan && items.length > 0;
+      var open = inPlace && S.mDayOpen === sk;
+      /* data-mopen names the meal a tray is the door of, as it always has;
+         one that opens in place carries data-mday too, which the handler
+         answers first (app.js, mDayClick). */
+      var door = 'data-mopen="' + esc(sk) + '"' + (inPlace ? ' data-mday="' + esc(sk) + '" aria-expanded="' + open + '"' : '');
+      var doorSay = (open ? 'Fold ' : inPlace ? 'Open ' + esc(name) + ' here to change its foods' : 'Open ') +
+        (open || !inPlace ? esc(name) : '') + (M.pillsSay ? ' — ' + esc(M.pillsSay) : '');
+      var body = '';
+      if (open) {
+        var mk = marksFor(k, sk, items);
+        var rows = items.map(function (it, i) {
+          var r = LIVE.BY_ID[it.id];
+          return r ? foodRowHTML(M, r, it, i, mk) : '';
+        }).join('');
+        body = '<div class="mtray-ed-body no-print">' +
+          '<div class="mrows mslot-items">' + rows + '</div>' +
+          '<div class="mtray-acts">' +
+            '<button class="ghost" data-mbal="' + esc(sk) + '" aria-label="Balance every food on ' + esc(name) + ', the amounts you set included">' +
+              mIcon('scales') + 'Balance</button>' +
+            '<button class="ghost mtray-add" data-mopen="' + esc(sk) + '" data-madd="1">' + I_PLUS + 'Add food</button>' +
+          '</div></div>';
+      }
       /* The door is still the whole tray, but no longer by holding it all:
          a recipe's line is a button of its own now, and a button cannot sit
          inside another. So the door holds the name and the pills, and
          reaches over the foods under it (.mtray-b::after, the length of
          .mtray-c); the recipe lines stand above that reach, and a tap
-         anywhere else still opens the meal. */
-      return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
+         anywhere else still opens the meal. Open, the door is only the
+         header, and a tap on it folds the tray. */
+      return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') +
+          (inPlace ? ' mtray-ed' : '') + (open ? ' open' : '') + '">' +
           M.dot +
           '<div class="mtray-c">' +
-          '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
-            (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
+          '<button class="mtray-b" ' + door + ' aria-label="' + doorSay + '">' +
             '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
-              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') + '</span>' +
+              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') +
+              (inPlace ? '<span class="mtray-chev" aria-hidden="true">' + (open ? I_UP : I_DOWN) + '</span>' : '') + '</span>' +
             /* The meal's pills, small: what it holds against its share, the
                way its sheet says it (Blake: "adding back the subtle pills
                that show me that meal's calories and macros"). An empty meal
                shows them too: 0 of its share is what it is for. */
             (M.aim ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
           '</button>' +
-          '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>' +
-          '</div>' +
+          (open ? '' : '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>') +
+          '</div>' + body +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
     };
     var html = slots.list.map(function (s) { return trayHTML(s.k, s.n, true); }).join('');
