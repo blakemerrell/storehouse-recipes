@@ -309,24 +309,30 @@
         ' Pick the one that matches the packet in your hand.</div>' : '') +
       list.map(function (x, i) {
       LIVE.MLOOKUP[i] = x;
-      /* A row from outside the app opens its label rather than going on the
-         meal, so it says so with a chevron where the app's own rows have a
-         +. Its salt is on it, in the recipes' words, and flagged past the
-         same third of a day; and what it is, and how many sizes it comes in,
-         ride under it in plain words. */
-      var na = typeof x.na === 'number' ? x.na : null;
-      var salt = na === null ? '' : na >= 800
-        ? ' <span class="msalt">' + na.toLocaleString() + ' mg salt</span>'
-        : ' &middot; ' + na.toLocaleString() + ' mg salt';
-      var tags = [x.src, x.sizes && x.sizes.length > 1 ? x.sizes.length + ' sizes' : ''].filter(Boolean);
-      return '<button class="mpick-row mlook-row" data-nfpick="' + i + '">' +
-        '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
-        '<span class="mp-fit">' + x.kcal + ' kcal &middot; ' + x.p + 'P &middot; ' + x.f +
-        'F &middot; ' + x.c + 'C per ' + esc(x.unit) + salt + '</span>' +
-        (tags.length ? '<span class="mlook-tags">' + tags.map(function (tg) {
-          return '<span class="mp-src">' + esc(tg) + '</span>';
-        }).join('') + '</span>' : '') +
-        '</span><svg class="mlook-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>';
+      /* The same row as the app's own foods (src/pickrow.js, mpRowHTML):
+         a + in a circle, the name, then grams first and the kitchen's word
+         for it, the calories and the coloured P, F and C, and the salt only
+         when it passes the same 800 mg the recipes flag. Where it comes from
+         is a word in front, the way "Recipe" and "Yours" are. Blake, on
+         2026-10-07, searching "bread": the USDA's rows "popped up in a
+         different way than the rest of the foods on the list". They had
+         their own layout, tags and a chevron; now only the word differs, and
+         a tap opens the label to say how much rather than adding at once. */
+      var z = x.sizes && x.sizes[0];
+      var amt = z && z.g ? Math.round(z.g) + ' g' + (/^\d+(?:[.,]\d+)?\s*g$/.test(z.t) ? '' : ' &middot; ' + esc(z.t))
+        : esc(x.unit);
+      var cell = function (v, m, lb) { return '<span class="mgc">' + v + '<i class="mb-' + m + '">' + lb + '</i></span>'; };
+      var na = typeof x.na === 'number' ? x.na : 0;
+      return '<div class="mpick-wrap">' +
+        '<button class="mpick-row" data-nfpick="' + i + '">' +
+          '<span class="mp-tick" aria-hidden="true">&#43;</span>' +
+          '<span class="mp-body"><span class="mp-name">' + esc(x.name) + '</span>' +
+            '<span class="mp-fit"><span class="mp-src">' + (/^Open Food Facts/.test(x.src || '') ? 'Open Food Facts' : 'USDA') +
+              '</span> ' + amt + ' &middot; ' + x.kcal + ' kcal &middot; ' + cell(x.p, 'p', 'P') + ' &middot; ' +
+              cell(x.f, 'f', 'F') + ' &middot; ' + cell(x.c, 'c', 'C') +
+              (na >= 800 ? ' <span class="mp-salt">' + na.toLocaleString() + ' mg salt</span>' : '') + '</span>' +
+          '</span>' +
+        '</button><span class="mp-side no-print"></span></div>';
     }).join('');
   }
 
@@ -362,8 +368,7 @@
     mFoodSearch(term, false).then(function (list) {
       if (mine !== LIVE.mLookSeq || !$('nfResults')) return;
       $('nfResults').innerHTML = list.length
-        ? '<div class="mt-div">From the USDA</div><div class="mlook-sub">Not in the app yet. Tap one for its label and its sizes.</div>' +
-          mLookupRows(list) : '';
+        ? '<div class="mt-div">From the USDA</div>' + mLookupRows(list) : '';
     }, function (err) {
       if (mine !== LIVE.mLookSeq || !$('nfResults')) return;
       $('nfResults').innerHTML = '<div class="mslot-empty">' + esc(mLookSay(err)) + '</div>' +

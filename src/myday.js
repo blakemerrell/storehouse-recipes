@@ -674,7 +674,7 @@
   function mMealNowHTML(sk, add) {
     var k = mViewKey(), day = mDay(k), targets = mDayTargets(k), slots = mReadSlots();
     var M = mMealModel(k, sk, '', true, day, targets, slots);
-    if (!M || !M.aim) return '';
+    if (!M || !M.aim || !(M.aim.kcal || M.aim.p || M.aim.f || M.aim.c)) return '';
     var sub = {};
     ['kcal', 'p', 'f', 'c'].forEach(function (m) { sub[m] = (M.sub[m] || 0) + ((add && add[m]) || 0); });
     return '<div class="mcaps">' + capsHTML(sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</div>';

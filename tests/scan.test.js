@@ -71,7 +71,7 @@ module.exports = {
     // one basis for every figure
     const row = await a.evaluate(() => (document.querySelector('#nfResults .mpick-row') || {}).textContent || '');
     t.ok('a packet giving calories per serving and protein per 100 g comes back all per 100 g',
-      /400 kcal/.test(row) && /10P/.test(row) && /66C/.test(row) && /per 100 g/.test(row), row);
+      /100 g · 400 kcal/.test(row) && /10P/.test(row) && /66C/.test(row) && !/serving/.test(row), row);
     await a.context().close();
 
     // ---- leaving scan before permission comes back --------------------------

@@ -2372,7 +2372,7 @@ select { max-width: 280px; }
 .nfl-dvh { text-align: right; font-size: 0.8125rem; font-weight: 700; padding: 3px 0; border-bottom: 1px solid var(--ink); }
 .nfl-row {
   display: flex; align-items: center; gap: 4px; min-height: 44px;
-  border-bottom: 1px solid var(--ink); font-size: 0.9375rem;
+  border-bottom: 1px solid var(--ink); font-size: 1rem;   /* the boxes' own 16px, so read and typed figures match */
 }
 .nfl-row label { font-weight: 800; }
 .nfl-row.sub { padding-left: 16px; }
@@ -2385,12 +2385,13 @@ select { max-width: 280px; }
   border-bottom: 1.5px dotted var(--line-firm); padding: 2px 2px;
 }
 .mt-sheet .nfl input:not([type="checkbox"]):focus { border-bottom: 2px solid var(--ochre); box-shadow: none; }
-.mt-sheet .nfl-row input { width: 5ch; }
+.mt-sheet .nfl-row input { width: 3ch; min-width: 2.4ch; text-align: left; padding: 2px 1px; font-weight: 400; }
+.nfl-row { cursor: text; }
 .mt-sheet .nfl-serv input { flex: 1 1 auto; min-width: 0; font-weight: 800; }
 .mt-sheet .nfl-cal input { width: 4.4ch; font-size: 2.25rem; font-weight: 900; line-height: 1.1; }
 /* The rest of a label, read rather than typed (src/camera.js): a row as
    tall as the panel's own, minerals under a heavy rule as a packet prints them */
-.nfl-ro { min-height: 34px; }
+.nfl-ro { min-height: 44px; }
 .nfl-ro > span:first-child { font-weight: 400; }
 .nfl-ro b { font-weight: 800; }
 .nfl-min { border-top: 8px solid var(--ink); }
@@ -2429,14 +2430,6 @@ select { max-width: 280px; }
 }
 .nfl-alg:empty { display: none; }
 .nfl-alg-src { display: block; font-size: 0.8125rem; color: var(--muted-2); }
-/* A USDA row in the search list (src/lookup.js): its tags under it in
-   plain words, and a chevron where the app's own rows have a + */
-.mlook-sub { font-size: 0.8125rem; color: var(--muted-2); margin: -2px 0 4px; }
-.mlook-row .mp-body { flex-direction: column; align-items: stretch; gap: 3px; }
-.mlook-row { min-height: 60px; }
-.mlook-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.mlook-tags .mp-src { margin-left: 0; padding: 2px 8px; border-radius: 999px; background: var(--hint); opacity: 1; letter-spacing: 0.02em; text-transform: none; color: var(--muted-2); }
-.mlook-go { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--icon-faint); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 /* Two sources, two answers for one barcode (src/lookup.js, mTwoAnswers):
    said above the two rows, before either is picked */
 .mlook-clash {
@@ -2511,7 +2504,7 @@ select { max-width: 280px; }
    its rows are .mfs-nr too, so the list's spacing and grey names are undone
    inside it */
 .nfl-read { margin-top: 4px; }
-.nfl .mfs-nr { justify-content: flex-start; gap: 6px; padding: 0; border-bottom: 1px solid var(--ink); font-size: 0.9375rem; }
+.nfl .mfs-nr { justify-content: flex-start; gap: 6px; padding: 0; border-bottom: 1px solid var(--ink); font-size: 1rem; }
 .nfl .mfs-nr span { color: var(--ink); }
 .nfl .mfs-nr span em { font-style: normal; font-weight: 800; }
 .nfl .mfs-nr.sub { padding-left: 16px; }
@@ -7911,6 +7904,32 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 /* the day bar: three tools and the one primary, one row */
 .mday-acts { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.55fr); }
 .mday-acts #macroFill { grid-column: auto; min-height: 48px; font-size: 0.9375rem; padding: 4px 8px; }
+/* Drawn like the trays above it and the meal sheet's Balance and Done
+   (Blake, 2026-10-07: "The buttons at the bottom. They feel out of character
+   for this page"). The trays redesign of 2026-10-04 left the bar alone, so
+   its tools still wore the app-wide outlined shape: a 36px box with 8px
+   corners and a 1.5px rule, drawn inside the 44px button, with 14px of
+   padding a side that left "Rebalance" touching its own edges. Fill beside
+   them was drawn 44px tall, so one row of four buttons stood at two heights
+   and none had a tray's corners. Now all four are one 50px shape, the
+   tray's 12px corner and 1px rule, the drawings in the ochre of a meal's
+   tick; Fill stays the one dark button, as Done is in the sheet. */
+.mday-acts { gap: 6px; }
+.mday-acts .mday-tool:not(#u#u), .mday-acts #macroFill:not(#u#u) { min-height: 50px; border-radius: 12px; }
+/* 13px at 500, not the shared shape's 14px at 600: at that size "Rebalance"
+   measured 72px in a 59px box on a 320px phone and 68px on a 360px one, and
+   ran out past both its edges. */
+.mday-acts .mday-tool:not(#u#u) { padding: 2px 3px; gap: 3px; font-size: 0.8125rem; font-weight: 500; letter-spacing: -0.005em; }
+.mday-acts .mday-tool:not(#u#u)::after { top: 0; bottom: 0; border-radius: 12px; border-width: 1px; background: var(--card); }
+.mday-acts .mday-tool .mday-ic { width: 18px; height: 18px; color: var(--ochre-text); }
+.mday-acts .mday-tool:disabled .mday-ic { color: inherit; }
+/* A 320px phone has 288px for the row. The tools share it by the length of
+   their word, Rebalance the longest, and Fill drops to 14px so "Complete" in
+   "Complete the day" still fits a line. */
+@media (max-width: 359px) {
+  .mday-acts { gap: 4px; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
+  .mday-acts #macroFill:not(#u#u) { padding: 4px 6px; font-size: 0.875rem; }
+}
 
 /* the meal sheet */
 .sheet.msheet { padding-top: 0; --msh-top: 120px; }

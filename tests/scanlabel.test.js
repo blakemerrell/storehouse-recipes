@@ -99,6 +99,9 @@ module.exports = {
     /* 4 × 6 + 4 × 23 + 9 × 1 = 125, where the can says 110: its fiber,
        counted at four by the day and at less by the label. Said, rather than
        swapped in silently at the save as it always was. */
+    const noTarget = await a.evaluate(() => ({ pills: document.getElementById('nfWith').innerHTML, h: document.getElementById('nfWithH').hidden }));
+    t.ok('with no targets set, the meal\u2019s pills are left out rather than drawn against nothing ("69/0")',
+      noTarget.pills === '' && noTarget.h === true, JSON.stringify(noTarget));
     t.ok('and what the day will count, when it is not what the label says, with why',
       /counts 125 kcal, not 110/.test(got.counts) && /6 g of fiber/.test(got.counts), got.counts);
     await a.fill('#nfNa', '460');
@@ -296,7 +299,7 @@ module.exports = {
     const u = await open(() => ({ status: 0, status_verbose: 'product not found' }), PB);
     const pb = await ask(u, '044444444444');
     t.ok('a barcode Open Food Facts has never seen is asked of the USDA’s packaged foods',
-      /Jif Creamy Peanut Butter/.test(pb) && /USDA packaged foods/.test(pb) && u.usdaAsked.length === 1 &&
+      /Jif Creamy Peanut Butter/.test(pb) && /USDA/.test(pb) && u.usdaAsked.length === 1 &&
         JSON.parse(u.usdaAsked[0]).query === '044444444444', pb + ' / ' + u.usdaAsked.join());
     t.ok('and only the packet with that barcode is taken, not the first that came back',
       !/Other/i.test(pb) && /188 kcal/.test(pb), pb);
@@ -397,7 +400,20 @@ module.exports = {
     await sp.click('#macroSlots .mtray-b');
     await sp.waitForTimeout(400);
     await sp.fill('#mpFind', 'chicken breast');
-    await sp.waitForFunction(() => /Not in the app yet/.test((document.getElementById('nfResults') || {}).textContent || ''), null, { timeout: 8000 });
+    await sp.waitForSelector('#nfResults [data-nfpick]', { timeout: 8000 });
+    /* Blake, 2026-10-07, searching "bread": the USDA's rows "popped up in a
+       different way than the rest of the foods on the list". They are the
+       app's own row now, with only the word in front to say where from. */
+    const rowLook = await sp.evaluate(() => {
+      const mine = document.querySelector('#mpList .mpick-wrap .mpick-row[data-mpick]');
+      const usda = document.querySelector('#nfResults .mpick-wrap .mpick-row[data-nfpick]');
+      const parts = (r) => r ? ['.mp-tick', '.mp-name', '.mp-fit', '.mgc .mb-p', '.mgc .mb-f', '.mgc .mb-c'].map((q) => !!r.querySelector(q)) : null;
+      return { mine: parts(mine), usda: parts(usda), fit: usda && usda.querySelector('.mp-fit').textContent.replace(/\s+/g, ' ').trim(),
+        sub: !!document.querySelector('#nfResults .mlook-sub, #nfResults .mlook-tags, #nfResults svg') };
+    });
+    t.ok('a USDA result is drawn as the app\u2019s own food rows are: the +, the name, grams first and the coloured macros',
+      JSON.stringify(rowLook.usda) === JSON.stringify(rowLook.mine) && rowLook.usda.every(Boolean) && !rowLook.sub &&
+        /^USDA 165 g · 1 cup, cooked, diced · 333 kcal · 35P · 15F · 12C$/.test(rowLook.fit), JSON.stringify(rowLook));
     await sp.click('#nfResults [data-nfpick="0"]');
     await sp.waitForTimeout(300);
     const card = () => sp.evaluate(() => {
@@ -417,6 +433,15 @@ module.exports = {
       cd.unit === '1 cup, cooked, diced (165 g)' && cd.kcal === '333' && cd.p === '35' && cd.f === '15' && cd.c === '12' &&
         cd.na === '749' && cd.sat === '3.5' && cd.chol === '129' && cd.cholDv === '43%' && cd.sug === '10' && cd.ca === '20' &&
         cd.fe === '0.9' && cd.k === '462' && cd.kDv === '10%', JSON.stringify(cd));
+    const look = await sp.evaluate(() => {
+      const inp = document.getElementById('nfF'), lab = inp.closest('.nfl-row').querySelector('label');
+      return { gap: inp.getBoundingClientRect().left - lab.getBoundingClientRect().right, w: inp.getBoundingClientRect().width,
+        btn: document.querySelector('[data-nf="save"]').textContent };
+    });
+    t.ok('each typed figure sits just after its name, as the read rows\u2019 do, and the button names the meal',
+      look.gap < 12 && look.w < 44 && /^Add to Breakfast$/.test(look.btn), JSON.stringify(look));
+    await sp.evaluate(() => { document.getElementById('nfC').blur(); document.getElementById('nfC').closest('.nfl-row').querySelector('.nfl-dv').click(); });
+    t.ok('and a tap anywhere on a row puts the caret in its box', await sp.evaluate(() => document.activeElement && document.activeElement.id === 'nfC'));
     t.ok('with how much, and the meal\u2019s own pills with it on, and its salt against a day\u2019s',
       cd.n === '1' && cd.g === '165 g' && cd.pills.length === 4 && /749 mg of sodium: 33% of a day/.test(cd.salt), JSON.stringify(cd));
     await sp.click('[data-nfsize="1"]');

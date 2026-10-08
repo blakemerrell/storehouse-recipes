@@ -6619,6 +6619,14 @@
         return;
       }
 
+      /* A row of the label is the thing to tap, not only its box: the boxes
+         are as narrow as their figures now (camera.js, mNfRefresh), and the
+         row is a thumb tall. */
+      var nlr = e.target.closest('.nfl-row');
+      if (nlr && S.newFood && !e.target.closest('input, label')) {
+        var nli = nlr.querySelector('input');
+        if (nli) { nli.focus(); return; }
+      }
       // the form's size and amount, changed in place: the name being typed stays as it is
       var nfz = e.target.closest('[data-nfsize]');
       if (nfz && S.newFood) { mNfSize(Number(nfz.dataset.nfsize)); return; }
