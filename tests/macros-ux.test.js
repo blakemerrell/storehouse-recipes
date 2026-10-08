@@ -80,7 +80,7 @@ module.exports = nourish({
           a.click();
         }, sk);
         await pg.waitForTimeout(400);
-        if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+        if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {
           await pg.click('#modalRoot .msh-tray .msh-trn');
           await pg.waitForTimeout(250);
         }
@@ -337,9 +337,10 @@ module.exports = nourish({
       await search('oat vanilla');
       t.ok('in either order', (await rows()).some((r) => r.name === oatMash));
       await search('egg');
-      const eggs = await foodsBand();
+      // starred, it leads the whole list now, under Favorites (2026-10-08), not only the Foods band
+      const eggs = (await rows()).map((r) => r.id);
       t.ok('"egg" puts the starred Eggs first, above Eggplant',
-        eggs[0] === 'f:egg' && eggs.indexOf('f:eggplant') > 0, JSON.stringify(eggs));
+        eggs[0] === 'f:egg' && eggs.indexOf('f:eggplant') > 0, JSON.stringify(eggs.slice(0, 8)));
       await search('yoghurt');
       t.ok('"yoghurt" finds yogurt', (await rows()).some((r) => /yogurt/i.test(r.name)), JSON.stringify((await rows()).slice(0, 4)));
       await search('chiken');
@@ -380,6 +381,9 @@ module.exports = nourish({
       await openMeal('d');
       await search('egg');
       await pg.click('#mpList .mpick-row[data-mpick="f:egg"]');
+      await pg.waitForTimeout(300);
+      // a word in the search keeps the meal's foods down in the tray's chips; a chip brings them up to dial
+      await pg.click('#modalRoot .msh-tray .msh-chip');
       await pg.waitForTimeout(300);
       const eggAt = async () => ((await stored(WED)).d || []).findIndex((it) => it.id === 'f:egg');
       const ei = await eggAt();
@@ -961,7 +965,7 @@ module.exports = nourish({
         await pg.evaluate((sk) => { const a = document.querySelector('#macroSlots [data-mopen="' + sk + '"]'); a.scrollIntoView({ block: 'center' }); a.click(); }, sk);
         await pg.waitForTimeout(400);
         // the plates in the tray along the sheet's bottom, opened (2026-10-05)
-        if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+        if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {
           await pg.click('#modalRoot .msh-tray .msh-trn');
           await pg.waitForTimeout(250);
         }

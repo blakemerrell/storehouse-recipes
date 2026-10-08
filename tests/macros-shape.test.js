@@ -25,7 +25,8 @@ const home = async (pg) => {
 /* A meal's sheet open, by its key or by its place on the day, with the tray
    along its bottom open on the plates (2026-10-05: shut, it is a row of chips). */
 const openTray = async (pg) => {
-  if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+  // pressed whenever it shows: the tray shut, or a word in the search (2026-10-08)
+  if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {
     await pg.click('#modalRoot .msh-tray .msh-trn');
     await pg.waitForTimeout(250);
   }

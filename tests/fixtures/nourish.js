@@ -161,8 +161,12 @@ async function revealPlanFields(pg) {
 
   /* The meal's tray, opened on its rows: shut, it shows the foods as chips,
      and the dials, the ⋯ and the typed amounts are in the rows. */
+  /* The meal's foods up in the page, to dial: since 2026-10-08 a meal with
+     food on it opens on them, and a word in the search puts them down to the
+     tray's chips, where the count is what brings them back. So the count is
+     pressed whenever it is showing. */
   async function openTray(pg) {
-    if (await pg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) {
+    if (await pg.isVisible('#modalRoot .msh-tray .msh-trn')) {
       await pg.click('#modalRoot .msh-tray .msh-trn');
       await pg.waitForTimeout(250);
     }

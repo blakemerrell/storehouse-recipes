@@ -29,7 +29,8 @@ const SETUP = (lunch) => {
 };
 // the meal's rows live in its tray along the bottom (2026-10-05), which opens shut
 const openTray = async (p) => {
-  if (await p.$('#modalRoot .msh-tray:not(.open) .msh-trn')) { await p.click('#modalRoot .msh-tray .msh-trn'); await p.waitForTimeout(250); }
+  // pressed whenever it shows: the tray shut, or a word in the search (2026-10-08)
+  if (await p.isVisible('#modalRoot .msh-tray .msh-trn')) { await p.click('#modalRoot .msh-tray .msh-trn'); await p.waitForTimeout(250); }
 };
 const mealOf = (p, sk) => p.evaluate((a) => JSON.parse(localStorage.getItem('bsc.macroDays'))[a[0]][a[1]] || [], [DAY, sk]);
 
