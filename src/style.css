@@ -8076,9 +8076,19 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .msh-trt b { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
 .msh-trt small { font-size: 0.8125rem; color: var(--note); }
 .msh-trh .msh-i[aria-expanded="true"] { background: none; }
-.msh-trrows { max-height: 45vh; overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--line-soft); padding: 0 8px 0 12px; }
-.msh-tray .mrow-menu { top: auto; bottom: 46px; }
-.msh-tray.menuing .msh-trrows { max-height: none; overflow: visible; }
+/* The meal's foods up in the page, under the pills and over the search
+   (Blake, 2026-10-08: "the foods that I have in my basket are collapsed and
+   it's really hard to edit them"). In the page rather than in a box of
+   their own that scrolls, so a phone can lift the row being typed into
+   clear of its keyboard; a food's ⋯ opens downward as anywhere else. While
+   they are up and nothing is typed the tray's strip of chips would say the
+   same thing twice, so it steps out and the tray is Balance and Done; a
+   word in the search swaps them back (.mpq). */
+.msh-on { margin: 4px 0 10px; border-bottom: 1px solid var(--line-firm); }
+.msh-on .msh-trh { padding: 6px 0 4px; }
+.msh-on .mrows { border-top: 1px solid var(--line-soft); }
+.msheet.mpq .msh-on { display: none; }
+.msheet:not(.mpq) .msh-tray.open .msh-trc { display: none; }
 .msh-acts { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; padding: 10px 12px 0; }
 .msh-bal {
   min-height: 50px; margin: 0; border-radius: 11px; border: 1px solid var(--line-firm); background: var(--card); color: var(--ink);

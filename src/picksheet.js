@@ -92,7 +92,12 @@
     S.mpSwap = null;
     S.mMenu = '';
     S.mType = null;
-    S.mTrayOpen = false;           // the tray opens shut: the list gets the screen
+    /* A meal with food on it opens on its foods, up in the page and ready
+       to dial (myday.js, sheetOnHTML): tapping lunch on the day is most
+       often to change what is on it. Blake, 2026-10-08: "the foods that I
+       have in my basket are collapsed and it's really hard to edit them."
+       An empty meal opens on the list, since adding is all there is to do. */
+    S.mTrayOpen = (mDay(mViewKey())[S.macroPick.slot] || []).length > 0;
     pushSheet({ m: 1 });
     renderModal();
   }
@@ -121,9 +126,13 @@
   function macroPickerHTML() {
     var sk = S.macroPick.slot;
     var P = mMealSheetParts(sk);
+    /* .mpq while a word is in the search: the foods up in the page step
+       aside for the results, and the tray's chips stand in for them
+       (style.css). The input handler (app.js) keeps it in step as you type,
+       without a redraw. */
     var wrap = function (inner) {
       return '<div class="scrim no-print" data-close="1">' +
-        '<div class="sheet mp-sheet msheet" role="dialog" aria-modal="true" aria-label="' + esc(P.name) + '">' +
+        '<div class="sheet mp-sheet msheet' + (String(S.mpQuery || '').trim() ? ' mpq' : '') + '" role="dialog" aria-modal="true" aria-label="' + esc(P.name) + '">' +
         '<div class="msh-top">' + P.head + (P.stick || '') + '</div>' + inner + '</div></div>';
     };
     if (P.skipped) return wrap(P.body);
@@ -151,6 +160,8 @@
        should be an error. */
     var body = mpHomeBodyHTML();
     return wrap(
+      // the meal's foods, when they are up: under the pills, over the search
+      (P.on || '') +
       /* The camera sits INSIDE the field rather than beside it. As a flex
          sibling it drops onto its own row on every phone. */
       '<div class="mp-stick msh-find">' +

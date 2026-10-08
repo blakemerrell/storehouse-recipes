@@ -38,7 +38,8 @@ module.exports = {
     await p.waitForTimeout(500);
     await p.click('[data-mopen="b"]');
     await p.waitForTimeout(500);
-    await p.click('#modalRoot .msh-tray [data-mtray="1"]');
+    // a meal with food on it opens on its foods (2026-10-08); the tray's strip would be hidden
+    if (!(await p.$('#modalRoot .msh-on'))) { await p.click('#modalRoot .msh-tray [data-mtray="1"]'); }
     await p.waitForTimeout(400);
 
     const dial = await p.evaluate((rowSrc) => {

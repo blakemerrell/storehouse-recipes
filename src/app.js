@@ -3932,6 +3932,16 @@
          lookup result still to be read beneath it. */
       var already = prev && prev.querySelector('#scanRoot');
       if (!(S.mpMode === 'scan' && already)) {
+        /* The list holds still when the meal's foods above it change. They
+           are up in the page now (myday.js, sheetOnHTML), so a food added
+           from the list grows them by a row and a removed one shrinks them,
+           and putting the scroll back where it was would slide the list
+           under your thumb by that much. iPhones do not anchor the scroll
+           themselves, and the sheet is a new element each draw anyway; so
+           the list's top is measured before and put back after. At the top
+           of the sheet there is nothing to hold. */
+        var oldList = keepScroll && prev.querySelector('#mpList');
+        var listAt = oldList ? oldList.getBoundingClientRect().top : null;
         root.innerHTML = macroPickerHTML();
         document.body.style.overflow = 'hidden';
         /* The second pin (search and shelves) sits under the first (the
@@ -3939,6 +3949,8 @@
         var mtop = root.querySelector('.msh-top'), msht = root.querySelector('.msheet');
         if (mtop && msht) msht.style.setProperty('--msh-top', mtop.offsetHeight + 'px');
         if (keepScroll) root.querySelector('.scrim').scrollTop = keepScroll;
+        var newList = listAt !== null && root.querySelector('#mpList');
+        if (newList) root.querySelector('.scrim').scrollTop += newList.getBoundingClientRect().top - listAt;
         // Scan is a way in, not a button inside one: choosing it opens the lens
         if (S.mpMode === 'scan' && !mCamDone && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           mScanStart();
@@ -5282,7 +5294,20 @@
       }
       /* The tray along the bottom opens and shuts in place. */
       var trb = e.target.closest('[data-mtray]');
-      if (trb) { S.mTrayOpen = trb.dataset.mtray === '1'; S.mMenu = ''; S.mType = null; renderModal(); return; }
+      if (trb) {
+        S.mTrayOpen = trb.dataset.mtray === '1'; S.mMenu = ''; S.mType = null;
+        /* Up means up in the page (myday.js, sheetOnHTML), above the search,
+           so the word that was hiding them goes, and the sheet goes back to
+           its top where they are. renderModal reads the box back into
+           S.mpQuery, so the box is emptied as well as the state. */
+        if (S.mTrayOpen) {
+          S.mpQuery = '';
+          if ($('mpFind')) $('mpFind').value = '';
+        }
+        renderModal();
+        if (S.mTrayOpen) { var tsc = document.querySelector('#modalRoot .scrim'); if (tsc) tsc.scrollTop = 0; }
+        return;
+      }
       if (e.target.closest('.msh-top, .mrows, .msh-tray, .msh-skipped')) mDayClick(e);
     });
 
@@ -7433,6 +7458,11 @@
       if (S.newFood && e.target.closest && e.target.closest('.nfl')) mNfRefresh();
       if (S.macroPick && e.target.id === 'mpFind') {
         S.mpQuery = e.target.value;
+        /* A word sends the meal's foods, if they are up in the page, down
+           to the tray's chips, and an emptied box brings them back: a class,
+           not a redraw, which would take the box being typed in with it. */
+        var mqs = e.target.closest('.msheet');
+        if (mqs) mqs.classList.toggle('mpq', !!S.mpQuery.trim());
         refreshMacroPicker();
         mpLookSoon();
       }

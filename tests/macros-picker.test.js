@@ -906,7 +906,8 @@ module.exports = nourish({
     t.ok('an empty meal’s tray opens to a sheet with something to do on it',
       await deadFold.evaluate(() => {
         const sc = document.querySelector('#modalRoot .msheet');
-        return !!sc && !!sc.querySelector('.mscreen-empty') && !!sc.querySelector('#mpFind') &&
+        // it says so in the tray along the bottom ("Tap a food above to put it here")
+        return !!sc && !!sc.querySelector('.msh-tray .msh-none') && !!sc.querySelector('#mpFind') &&
           sc.querySelectorAll('#mpList [data-mpick]').length > 0;
       }));
 
