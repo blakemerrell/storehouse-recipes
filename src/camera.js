@@ -23,6 +23,7 @@
   var mLookSay = app.mLookSay;
   var mLookupRows = app.mLookupRows;
   var mMealNowHTML = app.mMealNowHTML;
+  var renderModal = app.renderModal;
   var LIVE = app.LIVE;
 
   function esc(s) {
@@ -155,6 +156,22 @@
     var mine = ++LIVE.mLookSeq;
     mBarcodeLookup(String(code).replace(/\D/g, '')).then(function (list) {
       if (mine !== LIVE.mLookSeq) return;
+      /* One answer is the packet in your hand, so its label opens straight
+         away. Blake, 2026-10-08: "a scan needs to show me exactly what it
+         scanned right away" — it used to land as a row under the lens, the
+         same row a search draws, to be tapped before anything said what it
+         was. Two answers that disagree (src/lookup.js, mTwoAnswers) stay two
+         rows under their note, because which is right is yours to say
+         (mockup E). The sheet goes back to its list underneath, so Back on
+         the label returns to the meal rather than to a lens that has
+         already been put away. */
+      if (list.length === 1 && !list.clash && S.macroPick && !S.newFood) {
+        var got = list[0];
+        S.mpMode = 'home';
+        S.newFood = { slot: S.macroPick.slot, pre: got, alg: got.alg || [], back: 1, size: 0, n: 1 };
+        renderModal();
+        return;
+      }
       if ($('nfResults')) $('nfResults').innerHTML = mLookupRows(list);
     }, function (err) {
       if (mine !== LIVE.mLookSeq) return;

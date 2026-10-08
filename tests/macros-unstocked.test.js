@@ -315,7 +315,7 @@ module.exports = nourish({
     await pillPg.click('#macroSlots .mtray-b');
     await pillPg.waitForTimeout(350);
     // the plates are in the sheet's tray, which opens shut
-    if (await pillPg.$('#modalRoot .msh-tray:not(.open) .msh-trn')) { await pillPg.click('#modalRoot .msh-trn'); await pillPg.waitForTimeout(250); }
+    if (await pillPg.isVisible('#modalRoot .msh-tray .msh-trn')) { await pillPg.click('#modalRoot .msh-trn'); await pillPg.waitForTimeout(250); }
     const quietOpen = await pillPg.evaluate(() => {
       const card = document.querySelector('#modalRoot .msheet');
       if (!card) return null;

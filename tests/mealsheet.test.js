@@ -29,7 +29,8 @@ const SETUP = (lunch) => {
 };
 // the meal's rows live in its tray along the bottom (2026-10-05), which opens shut
 const openTray = async (p) => {
-  if (await p.$('#modalRoot .msh-tray:not(.open) .msh-trn')) { await p.click('#modalRoot .msh-tray .msh-trn'); await p.waitForTimeout(250); }
+  // pressed whenever it shows: the tray shut, or a word in the search (2026-10-08)
+  if (await p.isVisible('#modalRoot .msh-tray .msh-trn')) { await p.click('#modalRoot .msh-tray .msh-trn'); await p.waitForTimeout(250); }
 };
 const mealOf = (p, sk) => p.evaluate((a) => JSON.parse(localStorage.getItem('bsc.macroDays'))[a[0]][a[1]] || [], [DAY, sk]);
 
@@ -75,9 +76,19 @@ module.exports = {
     /* ---- the sheet ---- */
     await p.click('[data-mopen="l"]');
     await p.waitForTimeout(500);
-    const shut = await p.evaluate(() => ({ chips: document.querySelectorAll('#modalRoot .msh-tray .msh-chip').length,
-      rows: document.querySelectorAll('#modalRoot .mrows .mrow').length }));
-    t.ok('the sheet opens with its foods in the tray along the bottom, shut: one chip a food', shut.chips === 7 && shut.rows === 0, JSON.stringify(shut));
+    /* A meal with food on it opens on its foods, up in the page over the
+       search (Blake, 2026-10-08: "the foods that I have in my basket are
+       collapsed and it's really hard to edit them"), and the tray's strip of
+       chips steps out while they are there. */
+    const up = await p.evaluate(() => {
+      const on = document.querySelector('#modalRoot .msh-on'), find = document.querySelector('#modalRoot .msh-find');
+      const strip = document.querySelector('#modalRoot .msh-tray .msh-trc');
+      return { rows: on ? on.querySelectorAll('.mrow').length : 0,
+        above: !!on && !!find && on.getBoundingClientRect().bottom <= find.getBoundingClientRect().top + 1,
+        strip: !!strip && getComputedStyle(strip).display !== 'none' };
+    });
+    t.ok('the sheet opens on its foods, one row a food, above the search; the tray’s chips step out',
+      up.rows === 7 && up.above && !up.strip, JSON.stringify(up));
     await openTray(p);
     const sh = await p.evaluate(() => {
       const s = document.querySelector('#modalRoot .msheet');
@@ -205,6 +216,41 @@ module.exports = {
     const trayAt = await p.evaluate(() => Math.round(innerHeight - document.querySelector('#modalRoot .msh-tray').getBoundingClientRect().bottom));
     t.ok('and the tray stays pinned along the bottom, Balance and Done under the thumb', Math.abs(trayAt) <= 2 &&
       !!(await p.$('#modalRoot .msh-tray .msh-bal')) && !!(await p.$('#modalRoot .msh-tray .msh-done')), String(trayAt));
+
+    /* A word in the search sends the foods down to the tray's chips, so the
+       results get the screen (Blake, 2026-10-05: the foods "at the bottom" while
+       picking); a chip brings them back up, the word gone. */
+    await p.fill('#mpFind', 'egg');
+    await p.waitForTimeout(300);
+    const typing = await p.evaluate(() => ({ on: getComputedStyle(document.querySelector('#modalRoot .msh-on')).display !== 'none',
+      strip: getComputedStyle(document.querySelector('#modalRoot .msh-tray .msh-trc')).display !== 'none',
+      chips: document.querySelectorAll('#modalRoot .msh-tray .msh-chip').length,
+      rows: document.querySelectorAll('#modalRoot .msh-on .mrow').length }));
+    t.ok('a word in the search puts the foods away to the tray\u2019s chips, one a food', !typing.on && typing.strip && typing.rows > 0 &&
+      typing.chips === typing.rows, JSON.stringify(typing));
+    await p.click('#modalRoot .msh-tray .msh-chip');
+    await p.waitForTimeout(300);
+    const back = await p.evaluate(() => {
+      const on = document.querySelector('#modalRoot .msh-on');
+      return { on: !!on && getComputedStyle(on).display !== 'none', q: document.getElementById('mpFind').value,
+        top: document.querySelector('#modalRoot .scrim').scrollTop };
+    });
+    t.ok('and a chip brings them back up, the word cleared, the sheet at its top', back.on && back.q === '' && back.top === 0, JSON.stringify(back));
+
+    /* With the foods up in the page a food added from the list lands above
+       it, and the list must not slide under the thumb that added it. */
+    // a row not already put on this visit, which a second tap would take back off
+    const fresh = '#mpList .mpick-wrap:not(.in) [data-mpick]';
+    await p.evaluate((sel) => document.querySelector(sel).scrollIntoView({ block: 'center' }), fresh);
+    await p.waitForTimeout(200);
+    const listAt = () => p.evaluate(() => ({ y: Math.round(document.getElementById('mpList').getBoundingClientRect().top),
+      n: document.querySelectorAll('#modalRoot .msh-on .mrow').length, s: document.querySelector('#modalRoot .scrim').scrollTop }));
+    const at0 = await listAt();
+    await p.locator(fresh).first().click();
+    await p.waitForTimeout(400);
+    const at1 = await listAt();
+    t.ok('a food added from the list goes up with the others, and the list holds still under the thumb',
+      at0.s > 0 && at1.n === at0.n + 1 && Math.abs(at1.y - at0.y) <= 1, JSON.stringify({ at0, at1 }));
 
     /* a recipe's name opens the recipe; back lands on the meal's sheet */
     await p.evaluate(() => { const s = document.querySelector('#modalRoot .scrim'); s.scrollTop = 0; });

@@ -1,10 +1,10 @@
 /* The picker's bands: the query every band asks (mpQ), the shelf rail and
  * the lens with its sorts (mpShelvesHTML), what a typed word matches and
  * where it ranks (mpMatches), what you already reach for (mpKnownIds), and
- * the bands themselves: the thing you named, your pins, everything else
- * the query finds, what closes the day from this meal's own pool, and what
- * you ate lately (mpNamedHTML, mpPinsHTML, mpElseHTML, mpFitsHTML,
- * mpRecentHTML). The longer account is with the code.
+ * the bands themselves: the thing you named, what you starred, your pins,
+ * everything else the query finds, what closes the day from this meal's own
+ * pool, and what you ate lately (mpNamedHTML, mpFavsHTML, mpPinsHTML,
+ * mpElseHTML, mpFitsHTML, mpRecentHTML). The longer account is with the code.
  *
  * A part of app.js (Nourish) in a file of its own. app.js calls
  * HiveParts.pickbands(app) once, as it starts, and keeps what it gives
@@ -291,6 +291,36 @@
     if (!rows.length) return '';
     rows.forEach(function (r) { shown[r.id] = 1; });
     return '<div class="mt-div">Foods</div>' + rows.map(function (r) {
+      return mpRowHTML(r, mDefaultX(r));
+    }).join('');
+  }
+
+  /* What you starred, first, when you have typed something.
+   *
+     Blake, 2026-10-08: typing a food, "the USDA search is mostly what I see
+     and it's almost all junk and what I'd rather see are the foods that are
+     in my favorites. Recents in my pantry and then finally USDA food at the
+     very bottom." The star only ever lifted a row inside the Foods band
+     (mpHitRank's first group), so a starred recipe sat in Everything else
+     under a screen of other things. Foods and recipes both, ranked by the
+     word. Only with a query: the resting list already opens on what you
+     reach for. */
+  function mpFavsHTML(shown) {
+    var q = mpQ();
+    if (!q || !S.macroPick) return '';
+    var hits = [];
+    var look = function (r, i) {
+      if (shown[r.id] || !mIsFav(r) || !mpMatches(r, q)) return;
+      var rk = mpHitRank(r, q);
+      if (rk >= 0) hits.push({ r: r, rk: rk, i: i });
+    };
+    LIVE.MFOODS.forEach(look);
+    LIVE.RECIPES.forEach(function (r, i) { look(r, LIVE.MFOODS.length + i); });
+    hits.sort(function (a, b) { return a.rk - b.rk || a.i - b.i; });
+    var rows = hits.slice(0, 6).map(function (h) { return h.r; });
+    if (!rows.length) return '';
+    rows.forEach(function (r) { shown[r.id] = 1; });
+    return '<div class="mt-div">Favorites</div>' + rows.map(function (r) {
       return mpRowHTML(r, mDefaultX(r));
     }).join('');
   }
@@ -599,5 +629,5 @@
     }).join('');
   }
 
-  return { mpQ: mpQ, mpShelvesHTML: mpShelvesHTML, mpMatches: mpMatches, mpKnownIds: mpKnownIds, mpNamedHTML: mpNamedHTML, mpPinsHTML: mpPinsHTML, mpElseHTML: mpElseHTML, mpFitsHTML: mpFitsHTML, mpRecentHTML: mpRecentHTML };
+  return { mpQ: mpQ, mpShelvesHTML: mpShelvesHTML, mpMatches: mpMatches, mpKnownIds: mpKnownIds, mpNamedHTML: mpNamedHTML, mpFavsHTML: mpFavsHTML, mpPinsHTML: mpPinsHTML, mpElseHTML: mpElseHTML, mpFitsHTML: mpFitsHTML, mpRecentHTML: mpRecentHTML };
 };

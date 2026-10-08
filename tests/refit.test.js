@@ -67,7 +67,7 @@ const pills = (p) => p.evaluate(() => {
   });
   return out;
 });
-const gramsOf = (p) => p.evaluate(() => [...document.querySelectorAll('#modalRoot .msh-tray .mrow')].map((r) => ({
+const gramsOf = (p) => p.evaluate(() => [...document.querySelectorAll('#modalRoot .msh-on .mrow')].map((r) => ({
   name: r.querySelector('.mrow-nm').textContent, g: Number(r.querySelector('.mstep-x').textContent.replace(/[^\d]/g, '')),
   held: r.classList.contains('held'), was: (r.querySelector('.mrow-g small') || {}).textContent || '' })));
 
@@ -115,10 +115,10 @@ module.exports = {
     await p.click('#modalRoot .msh-trn');
     await p.waitForTimeout(300);
     let rows = await gramsOf(p);
-    t.ok('the tray opens on the rows with their dials', rows.length === 3 && rows.every((r) => r.g > 0), JSON.stringify(rows));
+    t.ok('the tray’s count puts the rows up in the page, with their dials', rows.length === 3 && rows.every((r) => r.g > 0), JSON.stringify(rows));
     t.ok('no food past a plateful', rows.every((r) => r.g <= 400), JSON.stringify(rows));
 
-    await p.click('#modalRoot .msh-tray [data-mstep="l:1:up"]');
+    await p.click('#modalRoot .msh-on [data-mstep="l:1:up"]');
     await p.waitForTimeout(300);
     rows = await gramsOf(p);
     t.ok('− or + on a food makes it yours: it is Kept', rows[1].held, JSON.stringify(rows));
@@ -149,7 +149,7 @@ module.exports = {
     await p.click('#modalRoot .msh-trn');
     await p.waitForTimeout(300);
     const yBefore = (await gramsOf(p))[1].g;
-    await p.click('#modalRoot .msh-tray [data-mtype="l:0"]');
+    await p.click('#modalRoot .msh-on [data-mtype="l:0"]');
     await p.waitForTimeout(200);
     await p.fill('#modalRoot [data-mtypein="l:0"]', '100');
     await p.keyboard.press('Enter');

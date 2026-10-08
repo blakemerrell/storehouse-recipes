@@ -184,13 +184,15 @@ module.exports = nourish({
         dash: !!c.querySelector('.mslot-empty'),
         emDash: /\u2014/.test((items || {}).textContent || ''),
         caps: !!c.querySelector('.msh-top .mcaps'),
-        kids: items ? [...items.children].map((k) => k.className) : [],
+        rows: items ? items.children.length : 0,
+        // the one line is the tray's, along the bottom: an empty meal opens on the list (2026-10-08)
+        none: (c.querySelector('.msh-tray .msh-none') || {}).textContent || '',
         find: !!c.querySelector('#mpFind'),
       };
     });
     t.ok('and holds nothing but its pills, one line, and the picker',
       !!emptyOpen && !emptyOpen.dash && !emptyOpen.emDash && emptyOpen.caps &&
-        emptyOpen.kids.length === 1 && /mscreen-empty/.test(emptyOpen.kids[0]) && emptyOpen.find,
+        emptyOpen.rows === 0 && /^Tap a food above/.test(emptyOpen.none) && emptyOpen.find,
       JSON.stringify(emptyOpen));
     await trimPg.context().close();
 

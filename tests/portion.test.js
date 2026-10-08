@@ -46,7 +46,7 @@ module.exports = {
     });
     await p.waitForTimeout(500);
     // its row is in the tray along the sheet's bottom since 2026-10-05, shut to a chip until opened
-    await p.evaluate(() => { const b = document.querySelector('#modalRoot .msh-tray:not(.open) .msh-trn'); b && b.click(); });
+    await p.evaluate(() => { const b = document.querySelector('#modalRoot .msh-tray .msh-trn'); if (b && b.offsetParent) b.click(); });
     await p.waitForTimeout(300);
     await p.evaluate(() => { const b = document.querySelector('#modalRoot .mstep-type'); b && b.click(); });
     await p.waitForTimeout(300);
