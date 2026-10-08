@@ -5,7 +5,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, toSheet } = require('./fixtures/nourish.js');
+const { nourish } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — two phones: skips, mornings, merges and pushes',
@@ -37,7 +37,7 @@ module.exports = nourish({
     /* Skip lives in the meal's ⋯ menu, in the meal's sheet (trays and the
        meal sheet, 2026-10-04): the empty lunch's tray is opened and its menu
        pressed before Skip is there. */
-    await toSheet(wire, 'l');
+    await wire.click('[data-mopen="l"]');
     await wire.waitForTimeout(250);
     await wire.click('#modalRoot [data-mmenu="l"]');
     await wire.waitForTimeout(250);

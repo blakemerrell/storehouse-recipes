@@ -7,7 +7,7 @@
  * runner refuses the USDA in every fresh page, and a route added after that
  * one is the one Playwright asks first, so a test can answer it instead. */
 
-const { openTray, toSheet } = require('./fixtures/nourish.js');
+const { openTray } = require('./fixtures/nourish.js');
 
 const OFF = /world\.openfoodfacts\.org/;
 const USDA = /api\.nal\.usda\.gov/;
@@ -53,7 +53,8 @@ module.exports = {
       await p.reload();
       await p.click('.tab[data-view="macros"]');
       await p.waitForTimeout(250);
-      await toSheet(p, '');
+      await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+      await p.click('#macroSlots .mtray-b');
       await p.waitForTimeout(500);
       return p;
     }
@@ -152,7 +153,8 @@ module.exports = {
       await a.waitForTimeout(150);
       await a.keyboard.press('Escape');
       await a.waitForTimeout(150);
-      await toSheet(a, '');
+      await a.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+      await a.click('#macroSlots .mtray-b');
       await a.waitForTimeout(400);
       await ask(a, '0078742370842');
       await take(a);
@@ -249,7 +251,8 @@ module.exports = {
       await g.waitForTimeout(150);
       await g.keyboard.press('Escape');
       await g.waitForTimeout(150);
-      await toSheet(g, '');
+      await g.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+      await g.click('#macroSlots .mtray-b');
       await g.waitForTimeout(400);
       await ask(g, '0078742370859');
       await take(g);
@@ -408,7 +411,8 @@ module.exports = {
     await sp.reload();
     await sp.click('.tab[data-view="macros"]');
     await sp.waitForTimeout(250);
-    await toSheet(sp, '');
+    await sp.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); b.scrollIntoView({ block: 'center' }); });
+    await sp.click('#macroSlots .mtray-b');
     await sp.waitForTimeout(400);
     await sp.evaluate(() => window.Store.toggleFav('f:chicken_breast'));     // a food you starred
     await sp.fill('#mpFind', 'chicken breast');

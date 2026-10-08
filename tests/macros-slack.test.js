@@ -4,7 +4,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, openMeal, closeSheet, openTray, toSheet } = require('./fixtures/nourish.js');
+const { nourish, openPlan, openMeal, closeSheet, openTray } = require('./fixtures/nourish.js');
 
 module.exports = nourish({
   name: 'Macros — salt, a meal\'s tray, and handing slack on',
@@ -159,38 +159,35 @@ module.exports = nourish({
     await fold.click('#macroFill');
     await fold.waitForTimeout(600);
     /* Every meal, an empty one too, is a tray with the same door into it,
-       and no plate's own controls are on the day — they live in the sheet. */
-    t.ok('every meal arrives as a tray with its door, an empty one too, and no plate controls on the day',
+       and no plate's keys are on the day until its line is opened
+       (tests/daylines.test.js). */
+    t.ok('every meal arrives as a tray with its door, an empty one too, and no plate’s keys on the day until one is opened',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mslot')].every((s) =>
         s.classList.contains('mtray') &&
         s.querySelectorAll('.mtray-b[data-mopen]').length === 1)) &&
-        await fold.evaluate(() => document.querySelectorAll('#macroSlots .mstep, #macroSlots .mrow, #macroSlots [data-mfmenu]').length === 0),
+        await fold.evaluate(() => document.querySelectorAll('#macroSlots .mstep, #macroSlots .mrow, #macroSlots [data-mfmenu], #macroSlots [data-mstep]').length === 0),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mslot')].map((s) =>
         (s.querySelector('.mtray-n') || {}).textContent + ':' + s.className +
         (s.querySelector('.mtray-b[data-mopen]') ? ' door' : ' none')).join(' | ')));
-    /* The door is the tray: the name, its calories against its share, and
-       the foods it holds. It does not reach the tray's left edge and should
-       not: the dot lives out there, and pressing the dot marks the meal
-       eaten.
-     *
-       Since 2026-10-06 it holds the name and the pills, and reaches over the
-       foods rather than containing them: a recipe's line became a door to
-       the recipe (tests/doors.test.js), and a button cannot sit inside
-       another. So a food's line is asked where a press on it lands. */
-    t.ok('and the door is the tray, carrying the meal’s name, its calories and its foods',
+    /* The door holds the name and the pills. Since 2026-10-08 each food under
+       it is a line of its own that stands above the door's reach
+       (tests/daylines.test.js): a press on a food is the food's. The door
+       still does not reach the tray's left edge and should not: the dot
+       lives out there, and pressing the dot marks the meal eaten. */
+    t.ok('and the door carries the meal’s name and its calories, each food under it a line of its own',
       await fold.evaluate(() => {
         const b = document.querySelector('#macroSlots .mtray-b[data-mopen]');
         if (!b) return false;
         const tray = b.closest('.mtray');
         const row = tray.getBoundingClientRect();
         const r = b.getBoundingClientRect();
-        const foods = [...tray.querySelectorAll('.mtray-f:not(.mtray-go)')];
+        const foods = [...tray.querySelectorAll('.mtray-f')];
         return r.width >= row.width * 0.7 && !!b.querySelector('.mtray-n') &&
-          !!b.querySelector('.mtray-caps') && tray.querySelectorAll('.mtray-f').length > 0 &&
+          !!b.querySelector('.mtray-caps') && foods.length > 0 &&
           foods.every((f) => {
             const g = f.getBoundingClientRect();
-            const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
-            return !!hit && hit.closest('[data-mopen]') === b;
+            const hit = document.elementFromPoint(g.right - 60, g.top + g.height / 2);
+            return !!hit && hit.closest('.mtray-f') === f;
           });
       }),
       await fold.evaluate(() => {
@@ -199,37 +196,40 @@ module.exports = nourish({
         const row = tray.getBoundingClientRect();
         return 'door ' + Math.round(b.getBoundingClientRect().width) + 'px of tray ' +
           Math.round(row.width) + 'px, lines ' + tray.querySelectorAll('.mtray-f').length +
-          ', foods under the door ' + [...tray.querySelectorAll('.mtray-f:not(.mtray-go)')].map((f) => {
+          ', presses on them ' + [...tray.querySelectorAll('.mtray-f')].map((f) => {
             const g = f.getBoundingClientRect();
-            const hit = document.elementFromPoint(g.left + g.width / 2, g.top + g.height / 2);
+            const hit = document.elementFromPoint(g.right - 60, g.top + g.height / 2);
             return hit ? hit.className : 'none';
           }).join(',');
       }));
-    /* And the tray carries nothing else to press. The dot is one exception,
-       and it is the meal's own tick; a recipe's line is the other, since
-       2026-10-06, and it opens the recipe it names (Blake: "I need easy links
-       to the recipes when I click on the recipe names"). Nothing on the day
-       changes a plate. */
-    t.ok('and the tray carries nothing to press but the door, the dot and a recipe’s line',
+    /* And the tray carries nothing else to press: the door, the meal's tick,
+       and each food's name (the door to the food or the recipe), its line
+       (which opens it) and its own tick. */
+    t.ok('and the tray carries nothing to press but the door, the dot, and each food’s name, line and tick',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
         .every((h) => [...h.querySelectorAll('button')].every((b) =>
           b.classList.contains('mtray-b') || b.classList.contains('mday-dot') ||
-          (b.classList.contains('mtray-go') && !!b.dataset.open)))),
+          (b.classList.contains('mtray-fn') && !!(b.dataset.open || b.dataset.mfood)) ||
+          (b.classList.contains('mfl-amt') && !!b.dataset.mamt)) &&
+          [...h.querySelectorAll('input')].every((i) => i.classList.contains('mitem-ate') && !!i.dataset.meat))),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
-        .map((h) => [...h.querySelectorAll('button')].map((b) => b.className.split(' ')[0]).join('+'))
+        .map((h) => [...h.querySelectorAll('button, input')].map((b) => b.className.split(' ')[0]).join('+'))
         .join(' | ')));
-    /* Nothing on the tray wraps: the name is one line, its pills one row,
-       and each food is one line of its own. */
-    t.ok('and nothing on a tray wraps onto a second line',
+    /* Nothing on the tray wraps but a long name: the meal's name is one line,
+       its pills one row, and each food's measure and grams one line, on a
+       line a thumb tall. */
+    t.ok('and nothing on a tray wraps but a long food name, and each food’s line is a thumb tall',
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')].every((c) => {
         const caps = [...c.querySelectorAll('.mtray-caps .mcap')].map((x) => x.getBoundingClientRect());
         return c.querySelector('.mtray-n').getBoundingClientRect().height <= 22 &&
           caps.every((r) => Math.abs(r.top - caps[0].top) <= 1 && r.height <= 30) &&
-          [...c.querySelectorAll('.mtray-f')].every((f) => f.getBoundingClientRect().height <= 24);
+          [...c.querySelectorAll('.mtray-f:not(.mtray-none)')].every((f) => f.querySelector('.mfl-r').getBoundingClientRect().height >= 44 &&
+            f.querySelector('.mfl-amt .mtray-fm').getBoundingClientRect().height <= 24 &&
+            f.querySelector('.mfl-amt em').getBoundingClientRect().height <= 24);
       })),
       await fold.evaluate(() => [...document.querySelectorAll('#macroSlots .mtray')]
         .map((c) => 'head ' + Math.round(c.querySelector('.mtray-h').getBoundingClientRect().height) + ' lines [' +
-          [...c.querySelectorAll('.mtray-f')].map((m) => Math.round(m.getBoundingClientRect().height)).join(',') + ']').join('  ')));
+          [...c.querySelectorAll('.mtray-f:not(.mtray-none)')].map((m) => Math.round(m.getBoundingClientRect().height)).join(',') + ']').join('  ')));
     /* The whole tray is the door. Probed at 60% ACROSS THE TRAY, which is
        away from the name: measuring from the name's own box would land
        inside the button either way and pass against the bug. */
@@ -703,7 +703,7 @@ module.exports = nourish({
     /* The bar's own button and the tray's door, measured on the day. */
     const reach = { coarse: await reachPage.evaluate(() => matchMedia('(pointer: coarse)').matches),
       bar: await box('.mday-acts button:not(#macroFill)'), seam: await box('#macroSlots .mtray .mtray-b') };
-    await toSheet(reachPage, '');
+    await reachPage.click('#macroSlots .mtray .mtray-b');
     await reachPage.waitForTimeout(400);
     await openTray(reachPage);
     Object.assign(reach, { key: await hit('#modalRoot .msheet .mrow [data-mstep$=":up"]'),

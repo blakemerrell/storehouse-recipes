@@ -7,7 +7,6 @@
  * real phone. Open Food Facts is answered from here too; nothing leaves the
  * machine. */
 
-const { toSheet } = require('./fixtures/nourish.js');
 const CAM = `(function(){
   window.__cam = { asked: 0, streams: [], delay: 400 };
   navigator.mediaDevices.getUserMedia = function () {
@@ -54,7 +53,8 @@ module.exports = {
       await p.click('.tab[data-view="macros"]');
       await p.waitForTimeout(250);
       // a meal's tray opens its sheet, the picker inside it (2026-10-04)
-      await toSheet(p, '');
+      await p.evaluate(() => { const b = document.querySelector('#macroSlots .mtray-b'); if (b) b.scrollIntoView({ block: 'center' }); });
+      await p.click('#macroSlots .mtray-b');
       await p.waitForTimeout(600);
       return p;
     }

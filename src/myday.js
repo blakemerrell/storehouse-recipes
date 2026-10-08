@@ -207,6 +207,46 @@
       pillsSay: mMealPillsSay(sub, ask, targets) };
   }
 
+  /* A food's line on the day, opened: what it costs, then its four verbs and
+     the sheet's dial. The verbs are the ones the sheet keeps behind ⋯; here
+     there is room for them in a row, and the line is already the one tap.
+     The handlers are the sheet's (mDayClick answers both), so a step here
+     is a step there. Eaten is a record, as in the sheet: the keys go quiet
+     and a tap on the amount hands them back. */
+  function mLineOpenHTML(M, r, it, i, kitchen, ml, weight) {
+    var sk = M.sk, tag = sk + ':' + i, name = esc(r.name);
+    var pinned = M.pins.some(function (p) { return p.id === it.id; });
+    var spent = it.eaten && S.mEdit !== tag;
+    var dialU = mDialG(r) ? 'g' : mDialUnit(r);
+    var amount = S.mType === tag
+      ? '<span class="mstep-x mitem-amt mitem-typing"><input class="mstep-in" type="text" inputmode="decimal" autocomplete="off" data-mtypein="' + tag + '" ' +
+          'aria-label="' + name + ', in ' + esc(dialU) + '" value="" placeholder="' + esc(String(mDialFromX(r, it.x))) + '"><i>' + esc(dialU) + '</i></span>'
+      : '<button class="mstep-x mitem-amt ' + (spent ? 'mstep-wake" data-medit="' : 'mstep-type" data-mtype="') + tag + '" aria-label="' +
+          name + ', ' + esc(mDialText(r, it.x)) + '. ' + (spent ? 'Correct it' : 'Type an amount') + '">' + esc(mDialText(r, it.x)) + '</button>';
+    return '<div class="mfl-x no-print">' +
+        /* A cup's mL leads the small print: beside the cup on the line it
+           took the name's room, and under the dial it pushed the dial off its
+           row on a 390 phone. */
+        '<div class="mfl-mac">' + (ml ? esc(ml) + ' &middot; ' : '') + '<span class="mitem-mac">' + mMacLine(r, it.x) + '</span>' + mSaltChip(r, it.x) + '</div>' +
+        '<div class="mfl-ctl">' +
+          '<span class="mfl-ics">' +
+            '<button class="mfl-ic" data-mdel="' + tag + '" aria-label="Remove ' + name + '">' + I_BIN + '</button>' +
+            '<button class="mfl-ic" data-mlock="' + tag + '" aria-pressed="' + (it.l ? 'true' : 'false') + '" aria-label="' +
+              (it.l ? 'Let ' + name + ' move again' : 'Lock the amount of ' + name) + '">' + I_LOCK + '</button>' +
+            (M.onPlan ? '<button class="mfl-ic" data-mpin="' + tag + '" aria-pressed="' + (pinned ? 'true' : 'false') + '" aria-label="' +
+              (pinned ? 'Unpin ' + name + ' from ' + esc(M.name) : 'Pin ' + name + ' to ' + esc(M.name) + ' every day') + '">' + I_PIN + '</button>' : '') +
+            (mCanFav(r) ? '<button class="mfl-ic" data-mfav="' + esc(String(r.id)) + '" aria-pressed="' + (mIsFav(r) ? 'true' : 'false') + '" aria-label="' +
+              (mIsFav(r) ? 'Take ' + name + ' out of favourites' : 'Favourite ' + name) + '">' + I_STAR + '</button>' : '') +
+          '</span>' +
+          '<span class="mfl-dial' + (spent ? ' spent' : '') + '">' +
+            '<button class="mfl-k" data-mstep="' + tag + ':down"' + (spent ? ' disabled' : '') + ' aria-label="Less ' + name + '">' + I_MINUS + '</button>' +
+            '<span class="mfl-g">' + amount + '</span>' +
+            '<button class="mfl-k" data-mstep="' + tag + ':up"' + (spent ? ' disabled' : '') + ' aria-label="More ' + name + '">' + I_PLUS + '</button>' +
+          '</span>' +
+        '</div>' +
+      '</div>';
+  }
+
   /* One food in the meal sheet: its name (the door to the recipe or the
      food), the kitchen measure and what it costs in small print, and the
      dial — −, the grams, + — with ⋯ for the rest. Eaten is a record, not a
@@ -602,92 +642,73 @@
           '</button>' + skSend;
       }
 
-      /* Each food in the kitchen's words first and its weight after (Blake,
+      /* Each food is a line of its own again (Blake, 2026-10-08), the way the
+         day had them before the trays: its leaf, its name, the kitchen measure
+         and the grams at the far right, and its tick. He had to open a meal's
+         sheet to change anything on it, and then could not see the day: "How
+         am I supposed to see how this meal and the daily macros at the same
+         time?" A tap on the line opens it where it is — what it costs, the
+         bin, the lock, the pin, the star and the sheet's own dial — under the
+         day's pills, so both move together. One open at a time, and only
+         ever one tap deep, so a big meal is still a column of quiet lines and
+         not a wall of keys. Mockup he approved:
+         https://claude.ai/artifact/XfZHLy1Fhphi8BCPb6CdZe
+       *
+         The kitchen's words first and the weight after, as before (Blake,
          2026-10-05: "If I just want to eyeball it I can... The grams is there
-         for sure if I want to weigh it"): a cup or a spoon with its mL, a
-         count, ounces; a food with no measure but its weight shows that. */
-      var lines = items.map(function (it) {
+         for sure if I want to weigh it"); a cup's mL moved under the open
+         dial, because beside the cup it left a long name four letters. The
+         name is the door to the food, or to the recipe (2026-10-06: "I need
+         easy links to the recipes when I click on the recipe names"); the
+         head and the pills are still the door to the meal, where food is
+         added. S.mAmt says which line is open, with the day in it, so a line
+         left open on one day is not open on the next. */
+      var lines = items.map(function (it, i) {
         var r = LIVE.BY_ID[it.id];
         if (!r) return '';
+        var tag = sk + ':' + i, open = S.mAmt === k + '|' + tag;
         var byG = mDialG(r);
         var kitchen = byG ? mDialMeasure(r, it.x) : mDialText(r, it.x);
         var weight = byG ? mDialText(r, it.x) : mDialMeasure(r, it.x);
         if (kitchen === weight) kitchen = '';
         var ml = mlOf(kitchen);
-        var inner = '<span class="mtray-fn">' + esc(r.name) + '</span>' +
-          (kitchen ? '<span class="mtray-fm"><b>' + esc(kitchen) + '</b>' + (ml ? '<small><i> &middot; </i>' + ml + '</small>' : '') + '</span>' : '') +
-          '<em class="num">' + esc(weight) + '</em>';
-        /* A recipe's line opens the recipe (Blake, 2026-10-06: "I tried to
-           open the recipe card for my meal and it just opened the meal
-           picker. I need easy links to the recipes when I click on the
-           recipe names"). Only the meal's sheet had that door, two taps and
-           an opened tray away. Same door, same portion: data-open and the
-           plate's servings, which mDayClick scales the card to make. A
-           food's line stays part of the tray, and opens the meal. */
-        if (!r.food) {
-          return '<button class="mtray-f mtray-go" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '"' +
-            ' aria-label="' + esc(r.name) + ', the recipe">' + inner + '</button>';
-        }
-        return '<span class="mtray-f">' + inner + '</span>';
+        var name = esc(r.name);
+        var door = r.food
+          ? '<button class="mtray-fn" data-mfood="' + esc(String(r.id)) + '" data-mx="' + it.x + '" data-mfslot="' + esc(sk) + '" aria-label="' + name + ', the food">'
+          : '<button class="mtray-fn" data-open="' + esc(String(r.id)) + '" data-mx="' + it.x + '" aria-label="' + name + ', the recipe">';
+        var line = '<div class="mfl-r">' +
+            '<span class="mfl-lf">' + (r.score === null || r.score === undefined ? '' : leaf(r.score, 'leaf-sm')) + '</span>' +
+            door + '<span class="mfl-nm">' + name + '</span></button>' +
+            '<button class="mfl-amt" data-mamt="' + esc(k + '|' + tag) + '" aria-expanded="' + open + '" aria-label="' + name + ', ' +
+              esc(kitchen ? kitchen + ', ' + weight : weight) + (it.l ? ', locked' : '') + '. ' + (open ? 'Close' : 'Change it') + '">' +
+              '<b class="mtray-fm">' + (it.l ? LOCK_SM : '') + esc(kitchen) + '</b><em class="num">' + esc(weight) + '</em></button>' +
+            '<input class="mitem-ate" type="checkbox" data-meat="' + esc(tag) + '" aria-label="Eaten, ' + name + '"' +
+              (it.eaten ? ' checked' : '') + (ahead ? ' disabled' : '') + '>' +
+          '</div>';
+        return '<div class="mtray-f' + (r.food ? '' : ' mtray-go') + (it.eaten ? ' eaten' : '') + (it.l ? ' held' : '') + (open ? ' open' : '') + '">' +
+          line + (open ? mLineOpenHTML(M, r, it, i, kitchen, ml, weight) : '') + '</div>';
       }).join('');
-      /* A meal with food on it opens here, in its own tray, rather than in
-         a sheet over the day (Blake, 2026-10-08: "How am I supposed to see
-         how this meal and the daily macros at the same time? Maybe I just
-         need a way to go back having a tray on the main meal screen where I
-         can adjust the foods"). In the sheet the day's pills were under it;
-         here they stay pinned at the top of the page while the meal's own
-         pills move with every gram. The rows are the sheet's own
-         (foodRowHTML), dials, ⋯ and all, and the same handler answers them
-         (app.js, mDayClick). Adding is still the sheet's: "+ Add food" opens
-         it, and an empty meal, with nothing here to change, opens it at
-         once. A bygone meal off the plan opens its history there too. One
-         tray open at a time, so the day stays a list of meals. */
-      var inPlace = onPlan && items.length > 0;
-      var open = inPlace && S.mDayOpen === sk;
-      /* data-mopen names the meal a tray is the door of, as it always has;
-         one that opens in place carries data-mday too, which the handler
-         answers first (app.js, mDayClick). */
-      var door = 'data-mopen="' + esc(sk) + '"' + (inPlace ? ' data-mday="' + esc(sk) + '" aria-expanded="' + open + '"' : '');
-      var doorSay = (open ? 'Fold ' : inPlace ? 'Open ' + esc(name) + ' here to change its foods' : 'Open ') +
-        (open || !inPlace ? esc(name) : '') + (M.pillsSay ? ' — ' + esc(M.pillsSay) : '');
-      var body = '';
-      if (open) {
-        var mk = marksFor(k, sk, items);
-        var rows = items.map(function (it, i) {
-          var r = LIVE.BY_ID[it.id];
-          return r ? foodRowHTML(M, r, it, i, mk) : '';
-        }).join('');
-        body = '<div class="mtray-ed-body no-print">' +
-          '<div class="mrows mslot-items">' + rows + '</div>' +
-          '<div class="mtray-acts">' +
-            '<button class="ghost" data-mbal="' + esc(sk) + '" aria-label="Balance every food on ' + esc(name) + ', the amounts you set included">' +
-              mIcon('scales') + 'Balance</button>' +
-            '<button class="ghost mtray-add" data-mopen="' + esc(sk) + '" data-madd="1">' + I_PLUS + 'Add food</button>' +
-          '</div></div>';
-      }
       /* The door is still the whole tray, but no longer by holding it all:
          a recipe's line is a button of its own now, and a button cannot sit
          inside another. So the door holds the name and the pills, and
          reaches over the foods under it (.mtray-b::after, the length of
          .mtray-c); the recipe lines stand above that reach, and a tap
-         anywhere else still opens the meal. Open, the door is only the
-         header, and a tap on it folds the tray. */
-      return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') +
-          (inPlace ? ' mtray-ed' : '') + (open ? ' open' : '') + '">' +
+         anywhere else still opens the meal. */
+      return '<div class="mslot mtray' + (items.length ? ' filled' : '') + (M.eatenAll ? ' done' : '') + '">' +
           M.dot +
           '<div class="mtray-c">' +
-          '<button class="mtray-b" ' + door + ' aria-label="' + doorSay + '">' +
+          '<button class="mtray-b" data-mopen="' + esc(sk) + '" aria-label="Open ' + esc(name) +
+            (M.pillsSay ? ' — ' + esc(M.pillsSay) : '') + '">' +
             '<span class="mtray-h"><span class="mtray-n">' + esc(name) + '</span>' +
-              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') +
-              (inPlace ? '<span class="mtray-chev" aria-hidden="true">' + (open ? I_UP : I_DOWN) + '</span>' : '') + '</span>' +
+              (M.aim ? '' : '<span class="mtray-k num"><b>' + fmtK(M.sub.kcal) + '</b> kcal</span>') + '</span>' +
             /* The meal's pills, small: what it holds against its share, the
                way its sheet says it (Blake: "adding back the subtle pills
                that show me that meal's calories and macros"). An empty meal
                shows them too: 0 of its share is what it is for. */
             (M.aim ? '<span class="mtray-caps">' + capsHTML(M.sub, M.aim, M.ask && M.ask.spent, !!(M.ask && M.ask.capped)) + '</span>' : '') +
           '</button>' +
-          (open ? '' : '<span class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</span>') +
-          '</div>' + body +
+          '<div class="mtray-fs">' + (lines || '<span class="mtray-f mtray-none">Nothing yet</span>') + '</div>' +
+          '</div>' +
         '</div>' + (onPlan ? mCascadeLineHTML(sk, targets, slots) : '');
     };
     var html = slots.list.map(function (s) { return trayHTML(s.k, s.n, true); }).join('');

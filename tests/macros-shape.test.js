@@ -5,7 +5,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, openPlan, pickRecipe, pickerList, toSheet } = require('./fixtures/nourish.js');
+const { nourish, openPlan, pickRecipe, pickerList } = require('./fixtures/nourish.js');
 
 /* Trays and the meal sheet (Blake, 2026-10-04): the day is a small tray a
    meal, and a meal opens as its sheet — the one place food is added or
@@ -33,12 +33,15 @@ const openTray = async (pg) => {
 };
 const openMeal = async (pg, sk) => {
   const key = await pg.evaluate((k) => typeof k === 'number'
-    ? ([...document.querySelectorAll('#macroSlots [data-mopen]:not([data-madd])')][k] || { dataset: {} }).dataset.mopen
+    ? ([...document.querySelectorAll('#macroSlots [data-mopen]')][k] || { dataset: {} }).dataset.mopen
     : k, sk);
   const open = await pg.evaluate((k) => !!document.querySelector('#modalRoot .msheet .msh-h [data-mdot="' + k + '"]'), key);
   if (open) { await openTray(pg); return; }
   await home(pg);
-  await toSheet(pg, key);
+  await pg.evaluate((k) => {
+    const b = document.querySelector('#macroSlots [data-mopen="' + k + '"]');
+    if (b) { b.scrollIntoView({ block: 'center' }); b.click(); }
+  }, key);
   await pg.waitForTimeout(300);
   await openTray(pg);
 };

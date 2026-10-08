@@ -5,7 +5,7 @@
  *
  * Part of the Nourish suite, split out of tests/macros.test.js: the page
  * helpers and the plan every page starts with are in tests/fixtures/nourish.js. */
-const { nourish, pickerList, openMeal, closeSheet, toSheet } = require('./fixtures/nourish.js');
+const { nourish, pickerList, openMeal, closeSheet } = require('./fixtures/nourish.js');
 
 /* What each meal is asked for, read off its tray: the calorie pill's share
    (trays, 2026-10-04; the pills, 2026-10-05). */
@@ -1308,7 +1308,7 @@ module.exports = nourish({
        ceiling is about 222. The day has well over a thousand spare. */
     t.ok('a snack is never asked to be a dinner',
       czCapped.ask > 0 && czCapped.ask < 400, JSON.stringify(czCapped));
-    await toSheet(czCapPg, 's');
+    await czCapPg.click('#macroSlots [data-mopen="s"]');
     await czCapPg.waitForTimeout(400);
     const czMark = await czCapPg.evaluate(() => !!document.querySelector('#modalRoot .msh-top .mcap.mcap-max'));
     t.ok('and its sheet\'s calorie pill says the number is a limit and not an answer', czMark);
