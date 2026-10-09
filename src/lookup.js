@@ -70,7 +70,13 @@
   function mTwoAnswers(o, u) {
     var a = o.k100, b = u.k100;
     var both = typeof a === 'number' && typeof b === 'number' && a > 0 && b > 0;
-    if (both && Math.abs(a - b) > Math.max(30, 0.2 * Math.max(a, b))) {
+    var calClash = both && Math.abs(a - b) > Math.max(30, 0.2 * Math.max(a, b));
+    var op = o.per100 || {}, up = u.per100 || {};
+    var macroClash = both && ['p', 'f', 'c'].some(function (k) {
+      var v1 = op[k], v2 = up[k];
+      return typeof v1 === 'number' && typeof v2 === 'number' && Math.abs(v1 - v2) > Math.max(5, 0.25 * Math.max(v1, v2));
+    });
+    if (calClash || (both && (o.flag || macroClash))) {
       var list = [u, o];
       list.clash = { off: Math.round(a), usda: Math.round(b), flagged: !!o.flag };
       return list;
@@ -98,7 +104,7 @@
        service and is not part of this API, which is why the searching here
        is the USDA's job and the barcodes are theirs. */
     var url = 'https://world.openfoodfacts.org/api/v2/product/' +
-      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,allergens_tags,' +
+      encodeURIComponent(code) + '.json?fields=product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,allergens_tags,' +
       'nutriscore_grade,nova_group,nova_groups_markers,nutrient_levels,ingredients_analysis_tags,' +
       'additives_tags,ingredients_text,ingredients_text_en,data_quality_errors_tags,image_front_small_url' +
       '&app_name=' + encodeURIComponent('Hive and Hearth') +
@@ -149,18 +155,20 @@
         na: h('sodium', 1000) !== null ? h('sodium', 1000) : h('salt') !== null ? h('salt') / 2.5 * 1000 : null,
         fib: h('fiber'), sat: h('saturated-fat'), sug: h('sugars'), chol: h('cholesterol', 1000),
         ca: h('calcium', 1000), fe: h('iron', 1000), k: h('potassium', 1000) } : null;
-      var sg = e.serving ? mServingGrams(p.serving_size) : 100;
+      var sg = e.serving ? mServingGrams(p.serving_size, p) : 100;
       /* The first size is the packet's own serving, and keeps the packet's
          own figures for it (`row`): 85 kcal per 100 g times 130 g is 111,
          and the can says 110. A serving with no weight given cannot be one
          of the sizes, and the form is the plain one it was. */
+      var isMl = /ml|milliliters?|fl\s*oz/i.test(String((p && p.serving_quantity_unit) || p.serving_size || ''));
+      var uLabel = isMl ? 'mL' : 'g';
       var words = String(p.serving_size || '').replace(/\s*\([^)]*\)/g, '').trim();
       var sizes = !per100 || !sg ? null : e.serving
-        ? [{ t: words && !/^\d+(?:[.,]\d+)?\s*(?:g|grams?)$/i.test(words) ? words : sg + ' g', g: sg, row: 1 }, { t: '100 g', g: 100 }]
-        : [{ t: '100 g', g: 100, row: 1 }];
+        ? [{ t: words && !/^\d+(?:[.,]\d+)?\s*(?:g|grams?|ml|milliliters?)$/i.test(words) ? words : sg + ' ' + uLabel, g: sg, u: uLabel, row: 1 }, { t: '100 ' + uLabel, g: 100, u: uLabel }]
+        : [{ t: '100 ' + uLabel, g: 100, u: uLabel, row: 1 }];
       return [{
         name: [p.brands, p.product_name].filter(Boolean).join(' ') || ('Barcode ' + code),
-        unit: e.serving ? (p.serving_size || 'serving') : '100 g',
+        unit: e.serving ? (p.serving_size || 'serving') : ('100 ' + uLabel),
         kcal: num2(e.v), p: num2(pr2.v), f: num2(fa.v), c: num2(ca.v),
         na: naMg === null ? null : Math.round(naMg), fib: typeof fb === 'number' ? Math.round(fb * 10) / 10 : null,
         alg: mAllergens(p.allergens_tags),
@@ -197,10 +205,14 @@
     return out;
   }
 
-  // the grams in a serving as Open Food Facts writes it: "1/2 cup (130 g)", "30g"
-  function mServingGrams(s) {
-    var m = /(\d+(?:[.,]\d+)?)\s*(?:g|grams?)\b/i.exec(String(s || ''));
-    return m ? Number(m[1].replace(',', '.')) : null;
+  // the grams or mL in a serving as Open Food Facts writes it: "1/2 cup (130 g)", "30g", "330 ml"
+  function mServingGrams(s, p) {
+    if (p && Number(p.serving_quantity) > 0) return Number(p.serving_quantity);
+    var m = /(\d+(?:[.,]\d+)?)\s*(?:g|grams?|ml|milliliters?)\b/i.exec(String(s || ''));
+    if (m) return Number(m[1].replace(',', '.'));
+    var fl = /(\d+(?:[.,]\d+)?)\s*(?:fl\s*oz|fluid\s*ounces?)\b/i.exec(String(s || ''));
+    if (fl) return Math.round(Number(fl[1].replace(',', '.')) * 29.57);
+    return null;
   }
 
   /* The rest of what Open Food Facts says about a packet, read the way the

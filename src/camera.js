@@ -236,8 +236,9 @@
     var sizes = sized && pre.sizes.length > 1 ? '<div class="nfz" role="group" aria-label="Serving size">' +
         '<div class="nfz-h">Pick a size</div><div class="nfz-row">' +
         pre.sizes.map(function (z, i) {
+          var u = (z && z.u) || (/ml/i.test(String(z.t || '')) ? 'mL' : 'g');
           return '<button class="nfz-b" data-nfsize="' + i + '" aria-pressed="' + (i === (S.newFood.size || 0)) + '">' +
-            esc(z.t) + (/^\d+(?:\.\d+)?\s*g$/.test(z.t) ? '' : ' <span>' + mNfShow(z.g) + ' g</span>') + '</button>';
+            esc(z.t) + (/^\d+(?:\.\d+)?\s*(?:g|mL|ml)$/.test(z.t) ? '' : ' <span>' + mNfShow(z.g) + ' ' + u + '</span>') + '</button>';
         }).join('') + '</div></div>' : '';
     var how = sized ? '<div class="nfh">' +
         '<div class="nfz-h" id="nfHowH">How much are you having?</div>' +
@@ -314,7 +315,8 @@
   function mNfAt(pre, i) {
     var z = pre.sizes[i] || pre.sizes[0], h = pre.per100, x = z.g / 100;
     var r = function (v, to) { return typeof v === 'number' ? Math.round(v * x * (to || 1)) / (to || 1) : null; };
-    var at = { unit: /^\d+(?:\.\d+)?\s*g$/.test(z.t) ? z.t : z.t + ' (' + mNfShow(z.g) + ' g)', g: z.g, t: z.t,
+    var u = (z && z.u) || (/ml/i.test(String(z.t || '')) ? 'mL' : 'g');
+    var at = { unit: /^\d+(?:\.\d+)?\s*(?:g|mL|ml)$|\(/.test(z.t) ? z.t : z.t + ' (' + mNfShow(z.g) + ' ' + u + ')', g: z.g, t: z.t,
       kcal: r(h.kcal), p: r(h.p), f: r(h.f), c: r(h.c), na: r(h.na), fib: r(h.fib, 10),
       sat: r(h.sat, 2), chol: r(h.chol), sug: r(h.sug), ca: r(h.ca), fe: r(h.fe, 10), k: r(h.k) };
     if (z.row) ['unit', 'kcal', 'p', 'f', 'c', 'na', 'fib'].forEach(function (k) { at[k] = pre[k]; });

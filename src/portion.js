@@ -317,7 +317,7 @@
     if (!m) return null;
     var q = m[1].indexOf('/') > 0 ? Number(m[1].split('/')[0]) / Number(m[1].split('/')[1]) : Number(m[1]);
     if (!(q > 0)) return null;
-    var gm = /^\s*(\d+(?:\.\d+)?)\s*g\s*$/i.exec(m[3] || '');
+    var gm = /^\s*(\d+(?:\.\d+)?)\s*(?:g|grams?|ml|milliliters?)\s*$/i.exec(m[3] || '');
     /* "1 order, NS as to size" is the USDA saying it does not know the
        size; the noun is the order. Kept, it filled a dial too narrow for it
        and showed ", NS as t" (Blake's french fries, the same day). */
@@ -329,7 +329,7 @@
        showed "50 g" and then asked for multiples of 100 g once tapped, in a
        box squeezed to one digit. Blake typed the 5 he could see: five
        hundred grams of butter replacement. */
-    if (!gm && /^(g|grams?)$/i.test(noun)) return { q: q, noun: noun, g: q };
+    if (!gm && /^(g|grams?|ml|milliliters?)$/i.test(noun)) return { q: q, noun: noun, g: q };
     return { q: q, noun: noun, g: gm ? Number(gm[1]) : 0 };
   }
   function mPortion(r, x) {
@@ -339,7 +339,7 @@
       var tot = Math.round(x * ls.q * 8) / 8;
       var gl = ls.g ? Math.round(ls.g * x) : (r.grams ? Math.round(r.grams * x) : 0);
       // a serving said in grams has said its weight already: not "30 g · 30 g"
-      if (/^(g|grams?)$/i.test(ls.noun)) gl = 0;
+      if (/^(g|grams?|ml|milliliters?)$/i.test(ls.noun)) gl = 0;
       return { head: fmtNum(tot) + ' ' + mLabelNoun(ls.noun, tot), detail: gl ? gl + ' g' : '' };
     }
     var grams = r.grams ? Math.round(r.grams * x) : 0;

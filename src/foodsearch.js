@@ -170,22 +170,26 @@
     return out;
   }
   function mPacketSizes(bs) {
-    return bs.g === 100 ? [{ t: '100 g', g: 100 }] : [{ t: bs.t, g: bs.g }, { t: '100 g', g: 100 }];
+    var u = (bs && bs.u) || 'g';
+    return bs.g === 100 ? [{ t: '100 ' + u, g: 100, u: u }] : [{ t: bs.t, g: bs.g, u: u }, { t: '100 ' + u, g: 100, u: u }];
   }
   // a figure per 100 g scaled to the serving and rounded to 1/to; one never given stays null
   function mPer(v, per, to) { return typeof v === 'number' ? Math.round(v * per * to) / to : null; }
 
   /* A packet's serving as its label says it: "2 Tbsp (32 g)". The USDA
      keeps every packet's nutrients per 100 g and its serving beside them,
-     and only a serving given in grams can be turned into one. */
+     and only a serving given in grams or mL can be turned into one. */
   function mUsdaServing(f) {
     var g = Number(f.servingSize);
-    if (!(g > 0) || !/^(g|grm|gram|grams)$/i.test(String(f.servingSizeUnit || ''))) return null;
+    var isMl = /^(ml|mlt|milliliters?)$/i.test(String(f.servingSizeUnit || ''));
+    var isG = /^(g|grm|gram|grams)$/i.test(String(f.servingSizeUnit || ''));
+    if (!(g > 0) || (!isG && !isMl)) return null;
+    var u = isMl ? 'mL' : 'g';
     // its own aside off, as with a reference food's measure (mUsdaMeasure): "1 cup (8 fl oz)"
     var hh = String(f.householdServingFullText || '').replace(/\s*\([^)]*\)/g, '').trim();
     var w = Math.round(g * 10) / 10;
-    return { per: g / 100, unit: hh && /^\d/.test(hh) ? hh + ' (' + w + ' g)' : w + ' g',
-      t: hh && /^\d/.test(hh) ? hh : w + ' g', g: w };
+    return { per: g / 100, unit: hh && /^\d/.test(hh) ? hh + ' (' + w + ' ' + u + ')' : w + ' ' + u,
+      t: hh && /^\d/.test(hh) ? hh : w + ' ' + u, g: w, u: u };
   }
   // the USDA's packets are named in capitals: "CREAMY PEANUT BUTTER"
   function mTitle(s) {
