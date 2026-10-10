@@ -123,9 +123,9 @@
         });
         return changed;
       },
-      put: function (k, v) {
+      put: function (k, v, localStamp) {
         var cur = LIVE.MDAYS[k];
-        if (!cur || typeof cur !== 'object') {
+        if (!cur || typeof cur !== 'object' || !localStamp) {
           LIVE.MDAYS[k] = v;
           return;
         }
