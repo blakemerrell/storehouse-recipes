@@ -182,7 +182,7 @@ module.exports = nourish({
       return Math.abs(Math.round(kc - dayK * me.w / sumW));
     });
     const wasOff = await gapOf();
-    await bar.click('[data-mbal="d"]');
+    await bar.click('#modalRoot [data-mbal="d"]');
     await bar.waitForTimeout(500);
     const nowOff = await gapOf();
     t.ok('balancing a meal moves it toward its share, not away',
@@ -450,7 +450,7 @@ module.exports = nourish({
       const m = /([\d,]+)\s*\/\s*([\d,]+)/.exec(k.trim()) || [];
       const n = (x) => Number(String(x || '').replace(/,/g, ''));
       return { sk: tr.querySelector('[data-mopen]').dataset.mopen, name: tr.querySelector('.mtray-n').textContent,
-        got: n(m[1]), want: n(m[2]), filled: tr.classList.contains('filled'),
+        got: n(m[1]), want: n(m[2]), filled: tr.classList.contains('filled'), shut: tr.classList.contains('mv-1'),
         verdict: !!kEl && (kEl.classList.contains('over') || kEl.classList.contains('on')),
         foods: tr.querySelectorAll('.mtray-f:not(.mtray-none)').length, h: Math.round(tr.getBoundingClientRect().height),
         say: tr.querySelector('.mtray-b').getAttribute('aria-label') || '' };
@@ -530,8 +530,10 @@ module.exports = nourish({
       noFood.length > 0 && noFood.every((c) => c.got === 0 && c.want > 0),
       JSON.stringify(noFood.map((c) => c.name + ' ' + c.got + '/' + c.want)));
 
-    t.ok('while a meal with food on it still prints the food',
-      fed.length > 0 && fed.every((c) => c.got > 0),
+    /* An eaten meal's card starts shut to its Status since 2026-10-10 —
+       circles, not numbers — so there it is its sheet that prints it. */
+    t.ok('while a meal with food on it still prints the food: in its sheet, and on its card unless shut to Status',
+      fed.length > 0 && fed.every((c) => c.caps[0].v > 0 && (c.shut || c.got > 0)) && fed.some((c) => !c.shut),
       JSON.stringify(fed.map((c) => c.name + ' ' + c.got + '/' + c.want)));
 
     /* Quiet, still: an empty meal wears no verdict colour, about food the day
