@@ -1817,7 +1817,7 @@
     var best = '', g = 0;
     (r.ingp || []).forEach(function (it) {
       var c = ((window.PANTRY || {})[it.k] || {}).c;
-      if (c === 'Meat' && it.g > g) { g = it.g; best = it.k; }
+      if ((c === 'Meat' || c === 'Canned meats') && it.g > g) { g = it.g; best = it.k; }
     });
     return best;
   }
@@ -7597,6 +7597,7 @@
            #modalRoot and so above it; they had no trap at all. */
         var scrim = document.querySelector('#dialogRoot .dlg') ||
           document.querySelector('#trainRoot .scrim') ||
+          document.querySelector('#weighSheet.scrim') ||
           document.querySelector('#modalRoot .scrim, #modalRoot .dlg');
         if (scrim) {
           var f = Array.prototype.filter.call(
@@ -7615,7 +7616,8 @@
       if (e.key === 'Escape' && S.filtPop) { filtersPop(false); return; }
       // Plan's sheets too: Plan my week, a day's dinner, Add to a day stayed up on Escape
       if (e.key === 'Escape' && (S.openId || S.syncOpen || S.macroPick || S.macroTargOpen || S.newFood ||
-        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom || S.pwOpen || S.daySheet || S.addOpen)) close();
+        S.keepMeal || S.chartOpen || S.foodOpen || S.mCopyFrom || S.pwOpen || S.daySheet || S.addOpen ||
+        S.favPick || S.tdSheet || S.mDoneOpen || (WGAPI && WGAPI.isOpen && WGAPI.isOpen()))) close();
     });
   }
 

@@ -3661,14 +3661,14 @@ select { max-width: 280px; }
   display: block; font-size: 0.71875rem; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 5px;
 }
-.ed-f .txt { width: 100%; }
+.ed-f .txt { width: 100%; min-width: 0; }
 .ed-ta {
   font-family: var(--sans); font-size: 0.875rem; line-height: 1.55; resize: vertical;
   min-height: 96px;
 }
 .ed-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .ed-row > .ed-f { flex: 1 1 130px; min-width: 0; }
-.ed-row4 > .ed-f { flex: 1 1 70px; }
+.ed-row4 > .ed-f { flex: 1 1 70px; min-width: 0; }
 .ed-score {
   background: var(--ed-score-bg); border: 1px solid var(--tint-green-line);
   border-radius: 3px; padding: 11px 13px; margin: 0 0 15px;

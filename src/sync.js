@@ -382,7 +382,11 @@ window.Store = (function () {
         ingp: Array.isArray(r.ingp) ? r.ingp.filter(function (x) {
           return x && typeof x === 'object' && typeof x.k === 'string';
         }).map(function (x) {
-          return { k: x.k, g: num(x.g, 0), u: str(x.u, 'g') };
+          var item = { k: x.k, g: num(x.g, 0), u: str(x.u, 'g') };
+          if (typeof x.a === 'string' && x.a) item.a = x.a;
+          if (x.o) item.o = true;
+          if (x.x) item.x = true;
+          return item;
         }) : []
       };
     });

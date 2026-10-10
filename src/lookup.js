@@ -207,11 +207,16 @@
 
   // the grams or mL in a serving as Open Food Facts writes it: "1/2 cup (130 g)", "30g", "330 ml"
   function mServingGrams(s, p) {
-    if (p && Number(p.serving_quantity) > 0) return Number(p.serving_quantity);
+    var u = String((p && p.serving_quantity_unit) || '').toLowerCase();
+    var isWeight = /^(g|grams?|ml|milliliters?)$/i.test(u);
+    if (p && isWeight && Number(p.serving_quantity) > 0) return Number(p.serving_quantity);
     var m = /(\d+(?:[.,]\d+)?)\s*(?:g|grams?|ml|milliliters?)\b/i.exec(String(s || ''));
     if (m) return Number(m[1].replace(',', '.'));
     var fl = /(\d+(?:[.,]\d+)?)\s*(?:fl\s*oz|fluid\s*ounces?)\b/i.exec(String(s || ''));
     if (fl) return Math.round(Number(fl[1].replace(',', '.')) * 29.57);
+    var oz = /(\d+(?:[.,]\d+)?)\s*(?:oz|ounces?)\b/i.exec(String(s || ''));
+    if (oz) return Math.round(Number(oz[1].replace(',', '.')) * 28.35);
+    if (p && Number(p.serving_quantity) > 0 && (!u || isWeight)) return Number(p.serving_quantity);
     return null;
   }
 
