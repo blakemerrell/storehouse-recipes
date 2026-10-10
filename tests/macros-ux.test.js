@@ -1033,7 +1033,13 @@ module.exports = nourish({
       await pg.fill('#macroDayPick', FAR);
       await pg.dispatchEvent('#macroDayPick', 'change');
       await pg.waitForTimeout(400);
-      /* Every tray lists its foods (2026-10-04), so the plates are read off the day. */
+      /* Every tray lists its foods (2026-10-04), so the plates are read off
+         the day — once the eaten dinner, which starts on its Status
+         (2026-10-10), is tapped open to them. */
+      if (await pg.$('#macroSlots .mtray.mv-1[data-mslot="d"]')) {
+        await pg.click('#macroSlots [data-mslot="d"] [data-mview]');
+        await pg.waitForTimeout(250);
+      }
       const onFar = await pg.evaluate(() => ({ sel: document.getElementById('macroDaySel').value,
         text: document.getElementById('macroDaySel').selectedOptions[0].text,
         shut: document.querySelector('.mday-pick').classList.contains('hide'),

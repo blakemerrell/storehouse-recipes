@@ -81,6 +81,8 @@
   --bar-p: oklch(0.48 0.13 20);
   --bar-f: oklch(0.47 0.10 65);
   --bar-c: oklch(0.44 0.09 150);
+  /* the meal card's lit calorie circle: a flame's orange, since the calorie bar's own colour is a blue */
+  --kcal-flame: oklch(0.66 0.17 45);
   /* Each letter sits at the unfilled end of its bar, on the track, so the
      track is what it has to be read against: 4.7:1 and up. They were 3.8 to
      4.3 — the F and the flame the faintest words on the screen. */
@@ -378,6 +380,7 @@
     --bar-p: oklch(0.76 0.10 20);
     --bar-f: oklch(0.80 0.09 70);
     --bar-c: oklch(0.76 0.10 150);
+    --kcal-flame: oklch(0.74 0.15 50);
     --mlim-quiet-pale: oklch(0.36 0.012 65);
     --muted:      oklch(0.72 0.02 75);
     --muted-2:    oklch(0.80 0.02 80);
@@ -7848,22 +7851,83 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 .mtray-b::after { content: ''; position: absolute; inset: 0; border-radius: 11px; }
 .mtray-b:focus-visible { outline: none; }
 .mtray-b:focus-visible::after { outline: 2px solid var(--ochre); outline-offset: -2px; }
-.mtray-b:hover .mtray-n { color: var(--ink); }
-.mtray-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 20px; position: relative; z-index: 1; }
-.mtray-fold {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+/* The head (Blake, 2026-10-10): the name, which steps the card through
+   Status, Foods and Details (myday.js, mViewOf), with three pips for where
+   it is, and the card's verbs as drawings at the end. It stands above the
+   pills' reach, and is the tick's height so the two sit level. */
+.mtray-hr { position: relative; z-index: 1; display: flex; align-items: center; gap: 4px; min-height: 48px; margin: -12px 0 0; }
+.mtray-hd {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px;
+  border: 0; background: none; padding: 0; margin: 0; text-align: left; cursor: pointer; color: var(--ink); font: inherit;
   -webkit-tap-highlight-color: transparent;
 }
-.mtray-fold .mfold-cue {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px; border-radius: 50%;
-  font-size: 0.75rem; line-height: 1;
-  background: var(--paper-soft); color: var(--muted);
-  transition: transform 0.15s ease;
+.mtray-hd .mtray-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtray-hd:hover .mtray-n { color: var(--ink); }
+.mtray-hd:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; border-radius: 8px; }
+.mtray-hd .mtray-k { margin-left: auto; }
+/* The pills are the door to the meal now the name steps the views, so the
+   row they sit in is a thumb tall; Status has no pills and its door none. */
+.mtray-b { min-height: 44px; justify-content: center; }
+.mtray-b .mtray-caps { margin: 2px 0; }
+.mtray.mv-1 .mtray-b { min-height: 0; }
+.mtray-pips { display: inline-flex; gap: 3px; flex: none; }
+.mtray-pips i { width: 5px; height: 5px; border-radius: 50%; background: var(--line-firm); }
+.mtray-pips i.on { background: var(--ochre); }
+.mtray-vbs { display: inline-flex; flex: none; }
+.mtray-ib {
+  display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: none; padding: 0; margin: 0;
+  color: var(--label); cursor: pointer; border-radius: 10px;
 }
-.mtray-fold[aria-expanded="true"] .mfold-cue { transform: rotate(180deg); }
-.mtray-fold:hover .mtray-n { color: var(--ink); }
-.mtray-fold:hover .mfold-cue { color: var(--ink); background: var(--line-firm); }
+.mtray-ib .mday-ic { width: 19px; height: 19px; }
+.mtray-ib:hover, .mtray-ib:focus-visible { color: var(--ochre-text); background: var(--hint); }
+/* Status: the card closed to its head, a circle each for calories, protein,
+   fat and carbs. "The icon or letter becomes the circle": grey, then its
+   own colour round it when close, then filled and glowing when on. */
+.mtray.mv-1 .mtray-c { padding-top: 6px; padding-bottom: 6px; }
+.mtray.mv-1 .mtray-hr { margin-top: 0; }
+/* level with the head (6 of padding, 48 of row), and stays there when the skip question opens under it */
+#macroSlots .mtray.mv-1 .mday-dot { margin-top: 8px; }
+.mbds { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
+.mbd {
+  --c: var(--label); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; box-sizing: border-box;
+  border: 1.5px solid var(--line-firm); color: color-mix(in oklab, var(--label) 55%, transparent); background: none;
+  font: 700 0.8125rem/1 var(--sans); flex: none;
+}
+.mbd svg { width: 14px; height: 14px; }
+.mbd-kcal { --c: var(--kcal-flame); } .mbd-p { --c: var(--bar-p); } .mbd-f { --c: var(--bar-f); } .mbd-c { --c: var(--bar-c); }
+.mbd.lit {
+  background: var(--c); border-color: var(--c); color: var(--card);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--c) 20%, transparent), 0 0 10px 1px color-mix(in oklab, var(--c) 55%, transparent);
+}
+.mbd.half { border-color: var(--c); color: var(--c); background: color-mix(in oklab, var(--c) 10%, var(--card)); }
+/* Foods: the leaf, the name, and what it costs, a line each. */
+.mtray-cl { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto auto; align-items: center; column-gap: 10px; min-height: 44px; }
+.mtray-cl .mfl-nm { -webkit-line-clamp: 2; }
+.mtray-ck { font-size: 0.875rem; font-weight: 600; color: var(--ink); text-align: right; white-space: nowrap; }
+.mtray-ck small { font-weight: 400; font-size: 0.8125rem; color: var(--note); }
+.mtray-cm { display: inline-grid; grid-template-columns: repeat(3, 2.6em); text-align: right; font-size: 0.8125rem; font-weight: 500; color: var(--note); white-space: nowrap; }
+.mtray-cm i { font-style: normal; font-weight: 700; margin-left: 1px; }
+.mtray-kept { display: grid; place-items: center; color: var(--ochre-text); }
+.mtray-kept .mday-ic { width: 20px; height: 20px; }
+/* Skip, asked on the card when the meal has food on it. */
+.mtray-ask {
+  position: relative; z-index: 1; display: grid; gap: 8px; margin: 8px 0 2px; padding: 10px 12px;
+  border-radius: 10px; background: var(--hint); border: 1px solid var(--line-firm);
+}
+.mtray-ask p { margin: 0; font-size: 0.875rem; line-height: 1.4; color: var(--ink); }
+.mtray-askb { display: flex; gap: 8px; flex-wrap: wrap; }
+.mtray-askb button { min-height: 44px; padding: 0 14px; }
+/* The narrowest phones: the circles a little smaller and the pips gone, so
+   a head keeps to one line; a food's calories lose their word, which the
+   pill above already says, so the name keeps its room. */
+@media (max-width: 360px) {
+  .mbd { width: 24px; height: 24px; }
+  .mbds { gap: 4px; }
+  .mtray-pips { display: none; }
+  .mtray-cm { grid-template-columns: repeat(3, 2.4em); }
+  .mtray-ck small { display: none; }
+  .mtray-cl { column-gap: 8px; }
+}
 .mtray-n { font-size: 0.78125rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); }
 .mtray-k { font-size: 0.8125rem; color: var(--note); white-space: nowrap; }
 .mtray-k b { font-weight: 700; color: var(--ink); }
@@ -7874,23 +7938,11 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
    tick, so a leaf sits in that column and every name starts where the meal's
    own name does; 46px is the tick's 44 and its 2 of margin. */
 .mtray-fs { position: relative; z-index: 1; display: flex; flex-direction: column; margin: 6px 0 0 -46px; }
-.mtray.collapsed .mtray-fs { margin-top: 4px; }
 /* "Nothing yet" takes the line a food would, so an empty tray is the height
    of a tray with one food on it; it is the door's, not a line of its own. */
 .mtray-fs .mtray-none { pointer-events: none; display: flex; align-items: center; min-height: 46px; padding-left: 46px; font-size: 0.84375rem; }
 .mtray-f { position: relative; }
 .mtray-f + .mtray-f::before { content: ''; position: absolute; top: 0; left: 46px; right: 0; border-top: 1px solid var(--line-soft); }
-.mtray-f-compact { min-height: 28px; }
-.mtray-f-compact + .mtray-f-compact::before { display: none; }
-.mtray-f-compact .mfl-r {
-  min-height: 28px; height: 28px; padding: 2px 0;
-  grid-template-columns: 38px minmax(0, 1fr);
-}
-.mtray-f-compact .mfl-lf { height: 28px; }
-.mtray-f-compact .mtray-fn {
-  min-height: 28px; height: 28px; line-height: 28px;
-  font-size: 0.84375rem;
-}
 .mfl-r {
   display: grid; grid-template-columns: 38px minmax(0, 1fr) auto 30px; align-items: center; column-gap: 8px;
   min-height: 46px; cursor: pointer; -webkit-tap-highlight-color: transparent;
@@ -7992,9 +8044,16 @@ button.td-mt { border: 0; background: none; padding: 6px 0; text-align: left; fo
 }
 .mtray-none { color: var(--note); }
 .mtray-skip {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; margin: 0;
-  border: 1px dashed var(--line-firm); border-radius: 12px; background: none; padding: 0 12px 0 14px;
-  font: inherit; text-align: left; cursor: pointer; color: var(--note);
+  display: flex; align-items: center; gap: 4px; width: 100%; min-height: 44px; margin: 0; box-sizing: border-box;
+  border: 1px dashed var(--line-firm); border-radius: 12px; padding: 0 4px 0 0; color: var(--note);
+}
+.mtray-skb {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px;
+  border: 0; background: none; padding: 0 0 0 14px; font: inherit; text-align: left; cursor: pointer; color: inherit;
+}
+.mtray-unskip {
+  flex: none; min-height: 44px; padding: 0 10px; border: 0; background: none; cursor: pointer;
+  color: var(--ochre-text); font: 600 0.875rem/1 var(--sans); text-decoration: underline; text-underline-offset: 3px;
 }
 .mtray-skip .mtray-n { color: var(--note); flex: none; }
 .mtray-sw { font-size: 0.78125rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

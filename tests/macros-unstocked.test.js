@@ -417,7 +417,7 @@ module.exports = nourish({
     const undoInSheet = await skipPg.evaluate(() => !!document.querySelector('#modalRoot .msh-skipped [data-mskip="l"]'));
     await closeSheet(skipPg);
     const skipped = await skipPg.evaluate((u) => {
-      const el = document.querySelector('#macroSlots .mtray-skip[data-mopen="l"]');
+      const el = document.querySelector('#macroSlots .mtray-skip [data-mopen="l"]');
       return { line: !!el, says: el ? el.textContent.replace(/\s+/g, ' ').trim() : '', undo: u };
     }, undoInSheet);
     t.ok('and it becomes a line that says so, with the way back in its sheet',
