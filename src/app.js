@@ -810,6 +810,8 @@
     /* Which meals you have pressed open or shut, against the default of
        folding one you have eaten. Ephemeral: a new day starts fresh. */
     mFold: {}, mFoldFor: '', mTouched: '', mtOpen: '',
+    // each meal's view on the day, by day (myday.js, mViewOf); the skip a card is asking about; Undo's copy
+    mView: {}, mViewAll: 0, mSkipAsk: '', mSkipUndo: null,
     chartOpen: false, chartWhich: 'weight', mcRange: 'all', keepMeal: '',
     /* What the picker has been told to add, before it is told to stop. A meal
        assembled from parts — a scoop of whey, a splash of half and half, a
@@ -3745,7 +3747,7 @@
     'data-addday', 'data-pswap', 'data-prate', 'data-adf', 'data-adadd', 'data-adsw', 'data-adopen', 'data-pwpick', 'data-pwsee', 'data-pwback', 'data-pwwant', 'data-pwopen', 'data-dayopen', 'data-dsact', 'data-srctag', 'data-fold',
     'data-scale', 'data-units', 'data-sync', 'data-edit', 'data-open', 'data-close',
     'data-poff', 'data-week', 'data-neww', 'data-mult', 'data-drop', 'data-ed', 'data-tab',
-    'data-mopen', 'data-mtray', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
+    'data-mopen', 'data-mview', 'data-mskipask', 'data-mskipgo', 'data-mskipno', 'data-mtray', 'data-mswapx', 'data-mstep', 'data-mdel', 'data-mpick', 'data-mtarg', 'data-mlock', 'data-mpin', 'data-mfav', 'data-mtry', 'data-mdot', 'data-medit', 'data-mskip', 'data-msend',
     'data-mtsex', 'data-mtgoal', 'data-mtext', 'data-mtact', 'data-mtprot', 'data-mtedit', 'data-mtmfold', 'data-mtsec', 'data-mtfree', 'data-mtuse', 'data-mtw', 'data-mysync', 'data-mpnew', 'data-mplook', 'data-nf', 'data-nfpick', 'data-nfsize', 'data-nfamt', 'data-scan',
     'data-mmore', 'data-fppick', 'data-fpmore', 'data-nfcode', 'data-mpmode', 'data-mpshelf', 'data-mpfit', 'data-mweek', 'data-mfold', 'data-mtrain', 'data-mtdee', 'data-mpfav', 'data-mline', 'data-mchart', 'data-mchartopen', 'data-mbal', 'data-mfmenu', 'data-mmenu', 'data-mamt', 'data-mswap', 'data-mkeep', 'data-mkdo', 'data-mfood', 'data-mpills', 'data-mtrained', 'data-mgotrain', 'data-mtsync', 'data-mwhy', 'data-mdo', 'data-mallow', 'data-mbatch', 'data-mbsave', 'data-mbforget', 'data-minfo', 'data-mcrng', 'data-mfrom', 'data-mcopy', 'data-mfsadd', 'data-mfsmeal'];
 
@@ -5268,8 +5270,10 @@
        — tap what the pills say is missing and watch them fill, with the
        amounts dialled for you. Only on the sheet, and only for the meal it
        is open on: the day's trays have no dials. */
-    function mRefitMeal(k, sk, hold) {
-      if (!S.macroPick || S.macroPick.slot !== sk) return {};
+    /* `fromDay`: the scale on the meal's card (myday.js), which balances
+       with no sheet open — the re-fit is otherwise the open sheet's alone. */
+    function mRefitMeal(k, sk, hold, fromDay) {
+      if (!fromDay && (!S.macroPick || S.macroPick.slot !== sk)) return {};
       var before = (mDay(k)[sk] || []).map(function (it) { return { id: it.id, x: it.x }; });
       mBalanceMeal(sk, { hold: hold, quiet: true });
       var after = mDay(k)[sk] || [], was = {};
@@ -5314,15 +5318,64 @@
       if (e.target.closest('.msh-top, .mrows, .msh-tray, .msh-skipped')) mDayClick(e);
     });
 
+    /* Skip, from the meal's card (Blake, 2026-10-10: "I need a way to
+       easily skip a meal on the main day menu. Somehow that got buried in
+       the food selector"). The sheet's ⋯ only ever offered it on an empty
+       meal, because a skip counts only on an empty one (myday.js). So the
+       card takes the food off and puts the skip on together, and Undo in the
+       toast puts both back — he chose "clear it, with Undo". */
+    function mSkipMeal(k, sk) {
+      var had = mDay(k)[sk] || [];
+      if (had.some(function (it) { return it.eaten; })) return;
+      had = JSON.parse(JSON.stringify(had));
+      if (had.length) mEditDay(k, function (day) { day[sk] = []; });
+      mSetSkip(k, sk, true);
+      S.mSkipAsk = '';
+      if (S.mAmt && S.mAmt.indexOf(k + '|' + sk + ':') === 0) { S.mAmt = ''; S.mType = null; }
+      S.mSkipUndo = { k: k, sk: sk, items: had };
+      renderMacros();
+      var n = had.filter(function (it) { return BY_ID[it.id]; }).length;
+      mToast(esc(mSlotName(sk)) + ' skipped' + (n ? ', and its ' + (n === 1 ? 'food' : n + ' foods') + ' came off.' : '.'), sk, 'data-mskipundo');
+    }
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest || !e.target.closest('[data-mskipundo]') || !S.mSkipUndo) return;
+      var u = S.mSkipUndo;
+      S.mSkipUndo = null;
+      if (u.items.length) mEditDay(u.k, function (day) { day[u.sk] = (day[u.sk] || []).concat(u.items); });
+      mSetSkip(u.k, u.sk, false);
+      var el = $('mToast'); if (el) el.hidden = true;
+      if (S.view === 'macros') renderMacros();
+    });
+
     function mDayClick(e) {
-      /* Tapping the meal header toggles between showing full food lines and
-         just the food items (Blake, 2026-10-08). */
-      var mfld = e.target.closest('[data-mfold]');
-      if (mfld && mfld.dataset.mfold && mfld.dataset.mfold !== 'weigh') {
-        var sk = mfld.dataset.mfold;
-        S.mFold[sk] = !S.mFold[sk];
-        if (S.mFold[sk] && S.mAmt && S.mAmt.indexOf(sk + ':') >= 0) S.mAmt = '';
-        mRedraw();
+      /* A meal's name steps its card through Status, Foods and Details
+         (myday.js, mViewOf), held for the day it was pressed on. What the
+         view hides goes shut: an open line, a box being typed in. */
+      var mvw = e.target.closest('[data-mview]');
+      if (mvw) {
+        var vk = mViewKey(), vsk = mvw.dataset.mview, nv = (Number(mvw.dataset.mv) || 2) % 3 + 1;
+        (S.mView[vk] = S.mView[vk] || {})[vsk] = nv;
+        if (nv !== 3 && S.mAmt && S.mAmt.indexOf(vk + '|' + vsk + ':') === 0) { S.mAmt = ''; S.mType = null; }
+        keepingFocus(renderMacros);
+        return;
+      }
+      var ska = e.target.closest('[data-mskipask]');
+      if (ska) {
+        var ak = mViewKey(), ask = ska.dataset.mskipask;
+        if ((mDay(ak)[ask] || []).some(function (it) { return BY_ID[it.id]; })) {
+          S.mSkipAsk = S.mSkipAsk === ak + '|' + ask ? '' : ak + '|' + ask;
+          keepingFocus(renderMacros);
+        } else mSkipMeal(ak, ask);
+        return;
+      }
+      var skg = e.target.closest('[data-mskipgo]');
+      if (skg) { mSkipMeal(mViewKey(), skg.dataset.mskipgo); return; }
+      var skn = e.target.closest('[data-mskipno]');
+      if (skn) {
+        S.mSkipAsk = '';
+        renderMacros();
+        var back = document.querySelector('#macroSlots [data-mskipask="' + skn.dataset.mskipno + '"]');
+        if (back) back.focus();
         return;
       }
       /* A tray opens its meal's sheet: the one place food is added or
@@ -5458,10 +5511,18 @@
         var bk = mViewKey(), bsk = bal.dataset.mbal;
         if (S.mAmt && S.mAmt !== '*') S.mAmt = '';
         mEditDay(bk, function (day) { (day[bsk] || []).forEach(function (it) { if (!it.eaten) it.l = 0; }); });
-        var bwas = mRefitMeal(bk, bsk);
+        var bwas = mRefitMeal(bk, bsk, undefined, !S.macroPick);
         S.mMarks = { k: bk, sk: bsk, was: bwas, fresh: {}, snap: null };
         S.mMenu = '';
         mRedraw();
+        /* From the card's scale the amounts change under it without a word
+           (the sheet marks each row that moved), so the toast says what
+           happened, nothing included. */
+        if (!S.macroPick) {
+          var bn = Object.keys(bwas).length;
+          mToast(bn ? esc(mSlotName(bsk)) + ' balanced: ' + bn + (bn === 1 ? ' food' : ' foods') + ' moved.'
+            : 'Nothing on ' + esc(mSlotName(bsk)) + ' could move any closer.');
+        }
         return;
       }
       /* A food's line on the day opens under itself; one at a time. */
@@ -6295,6 +6356,8 @@
         if (S.view !== 'macros') return;
         mPrintFold = S.mFold;
         S.mFold = {};
+        // every meal whole on paper, whatever view each card is in
+        S.mViewAll = 3;
         mOnPaper = true;
         /* Held on the day it is already on, so the arrival seed does not run
            and fold everything straight back down. */
@@ -6305,6 +6368,7 @@
         if (mPrintFold === null) return;
         S.mFold = mPrintFold;
         mPrintFold = null;
+        S.mViewAll = 0;
         mOnPaper = false;
         renderMacros();
       });
