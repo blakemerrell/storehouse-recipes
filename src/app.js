@@ -2019,10 +2019,13 @@
      that follow another asked-for night, the weekend's big cook first. */
   function pwLoNights(a, nights) {
     var lo = {}, left = a.lo;
-    var pairs = nights.filter(function (d, i) { return i + 1 < nights.length && PW_DAYS.indexOf(nights[i + 1]) === PW_DAYS.indexOf(d) + 1; });
+    var pairs = nights.filter(function (d) {
+      var nxt = PW_DAYS[(PW_DAYS.indexOf(d) + 1) % 7];
+      return nights.indexOf(nxt) >= 0;
+    });
     pairs.sort(function (x, y) { return (PW_WEEKEND.indexOf(y) >= 0) - (PW_WEEKEND.indexOf(x) >= 0); });
     pairs.forEach(function (d) {
-      var nxt = PW_DAYS[PW_DAYS.indexOf(d) + 1];
+      var nxt = PW_DAYS[(PW_DAYS.indexOf(d) + 1) % 7];
       if (left > 0 && !lo[d] && !lo[nxt]) { lo[nxt] = d; left--; }
     });
     return lo;
@@ -2229,7 +2232,7 @@
   /* For the tests: the rules without the sheet, so a picker with chance in it
      can be run forty times and held to what it promises every time. */
   window.__pw = { pool: pwPool, next: pwNext, cost: pwCost, avoids: pwAvoids, prot: pwProt, kind: pwKind, fit: pwFitCaps, fits: pwFits, plate: pwPlate, answers: pwAnswers,
-    plans: pwPlans, capFor: pwCapFor,
+    loNights: pwLoNights, plans: pwPlans, capFor: pwCapFor,
     count: pwCount, pick: function (a) { var keep = S.pw; S.pw = { a: a, picks: [], seen: {} }; pwPick(); var out = S.pw.picks; S.pw = keep; return out; } };
   function pwOpen() {
     var a = pwAnswers();
@@ -7883,8 +7886,9 @@
     /* Tonight is the day's dinner-section recipe or, failing one, whatever
        is planned: a recipe of your own, or a breakfast for dinner, was on
        the Plan grid and not on Today at all. */
+    var curWk = window.Store.thisWeek();
     var dinnerOf = function (key) {
-      var all = window.Store.day(key).filter(function (e) { return BY_ID[e.id]; });
+      var all = window.Store.dayOf(curWk, key).filter(function (e) { return BY_ID[e.id]; });
       return all.filter(function (e) { return pwIsDinner(BY_ID[e.id]); })[0] || all[0] || null;
     };
     var t = dinnerOf(dk), r = t && BY_ID[t.id];

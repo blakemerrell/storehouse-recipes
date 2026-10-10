@@ -1698,9 +1698,10 @@ window.Store = (function () {
       var order = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
       batch(function () {
         Object.keys(fill).forEach(function (d) {
-          var before = order[order.indexOf(d) - 1];
+          var before = order[(order.indexOf(d) + 6) % 7];
+          var prevDinners = (fill[before] || []).concat(self.day(before) || []);
           var list = fill[d].filter(function (e) {
-            return !e.lo || (fill[before] || []).some(function (c) { return c.id === e.id && !c.lo; });
+            return !e.lo || prevDinners.some(function (c) { return c.id === e.id && !c.lo; });
           });
           if (list.length) writeDay(d, list);
         });
@@ -1733,6 +1734,7 @@ window.Store = (function () {
         var weeks = Object.assign({}, state.weeks);
         weeks[id] = w; state.weeks = weeks; state.active = id;
       });
+      return id;
     },
 
     renameWeek: function (name) {

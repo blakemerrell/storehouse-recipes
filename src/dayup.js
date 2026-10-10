@@ -230,7 +230,14 @@
         var k = mSyncUnkey(enc), r = from[enc];
         if (!r || !mNum(r.at) || !row.accept(r)) return;
         if (row.keep && !row.keep(k)) return;      // aged out here; it stays out
-        if (!(when(r.at) > ((MSTAMPS[row.part] || {})[k] || 0))) return;
+        if (!(when(r.at) > ((MSTAMPS[row.part] || {})[k] || 0))) {
+          if (row.merge && row.merge(k, r.v)) {
+            MSTAMPS[row.part] = MSTAMPS[row.part] || {};
+            MSTAMPS[row.part][k] = Math.max((MSTAMPS[row.part] || {})[k] || 0, when(r.at));
+            moved = true;
+          }
+          return;
+        }
         row.put(k, r.v);
         MSTAMPS[row.part] = MSTAMPS[row.part] || {};
         MSTAMPS[row.part][k] = when(r.at);
